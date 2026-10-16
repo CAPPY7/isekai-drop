@@ -1,11 +1,21 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isekaidrop/app.dart';
+import 'package:isekaidrop/engine/core/engine.dart';
+import 'package:isekaidrop/engine/core/identity.dart';
+import 'package:isekaidrop/engine/core/trust_store.dart';
 import 'package:isekaidrop/engine/demo_engine.dart';
 import 'package:isekaidrop/settings/settings_controller.dart';
+import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
-Future<(SettingsController, DemoTransferEngine)> _pump(
+late Directory _dir;
+late IsekaiEngine _engine;
+late Identity _peer;
+
+Future<SettingsController> _pump(
   WidgetTester tester, {
   Size size = const Size(420, 2400),
 }) async {
@@ -14,21 +24,67 @@ Future<(SettingsController, DemoTransferEngine)> _pump(
   addTearDown(tester.view.reset);
   SharedPreferences.setMockInitialValues({});
   final settings = await SettingsController.load();
-  final engine = DemoTransferEngine(latency: const Duration(milliseconds: 10));
-  await tester.pumpWidget(IsekaiDropApp(engine: engine, settings: settings));
+  await tester.pumpWidget(
+    IsekaiDropApp(
+      engine: _engine,
+      settings: settings,
+      demoHistory: DemoHistory(latency: const Duration(milliseconds: 10)),
+    ),
+  );
   await tester.pumpAndSettle();
-  return (settings, engine);
+  return settings;
 }
 
 ThemeMode _mode(WidgetTester t) =>
     t.widget<MaterialApp>(find.byType(MaterialApp)).themeMode!;
 
 void main() {
-  testWidgets('home shows DEMO label and phone bottom bar', (tester) async {
+  setUpAll(() async {
+    _dir = await Directory.systemTemp.createTemp('isekai_ui');
+    _peer = Identity.generate();
+  });
+  tearDownAll(() => _dir.delete(recursive: true));
+
+  setUp(() async {
+    final store = TrustStore(
+      File(
+        p.join(
+          _dir.path,
+          'trust-${DateTime.now().microsecondsSinceEpoch}.json',
+        ),
+      ),
+    );
+    await store.load();
+    await store.addTrusted(
+      deviceId: _peer.deviceId,
+      name: 'Test Windows PC',
+      platform: 'windows',
+      certPem: _peer.certPem,
+    );
+    // Engine is NOT started in widget tests (no sockets needed for UI tests).
+    _engine = IsekaiEngine(
+      identity: Identity.generate(),
+      trust: store,
+      deviceName: () => 'Test phone',
+      platformName: 'android',
+      tempDir: Directory(p.join(_dir.path, 'in')),
+      finalizer: directoryFinalizer(Directory(p.join(_dir.path, 'in'))),
+      enableDiscovery: false,
+    );
+  });
+
+  testWidgets('home shows real engine data and phone bottom bar', (
+    tester,
+  ) async {
     await _pump(tester);
-    expect(find.text('DEMO - not a real transfer'), findsWidgets);
     expect(find.byType(NavigationBar), findsOneWidget);
-    expect(find.text('DEMO Pixel phone'), findsWidgets);
+    expect(find.text('Test Windows PC'), findsOneWidget);
+    expect(find.text('Trusted (key verified)'), findsOneWidget);
+    expect(
+      find.textContaining('DEMO'),
+      findsNothing,
+      reason: 'Home has no demo data now',
+    );
   });
 
   testWidgets('desktop size uses side rail layout', (tester) async {
@@ -38,7 +94,7 @@ void main() {
   });
 
   testWidgets('theme switch changes theme and is saved', (tester) async {
-    final (settings, _) = await _pump(tester);
+    final settings = await _pump(tester);
     expect(_mode(tester), ThemeMode.dark);
     await tester.tap(find.text('Settings').last);
     await tester.pumpAndSettle();
@@ -47,7 +103,6 @@ void main() {
     expect(_mode(tester), ThemeMode.light);
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getString('theme_mode'), 'light');
-    // A fresh load reads the saved choice.
     expect(SettingsController(prefs).themeMode, ThemeMode.light);
     await tester.tap(find.text('System'));
     await tester.pumpAndSettle();
@@ -58,17 +113,31 @@ void main() {
     await _pump(tester);
     await tester.tap(find.text('History').last);
     await tester.pumpAndSettle();
-    expect(
-      find.textContaining('Received from DEMO Pixel phone'),
-      findsOneWidget,
-    );
+    expect(find.text('DEMO - not a real transfer'), findsOneWidget);
     await tester.tap(find.text('Send').last);
     await tester.pumpAndSettle();
     expect(find.text('Pick files'), findsOneWidget);
-    // Android Back button.
+    expect(
+      find.text('Test Windows PC'),
+      findsOneWidget,
+      reason: 'trusted device offered as target',
+    );
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.text('Isekai Drop'), findsOneWidget);
+  });
+
+  testWidgets('connect screen validates a typed address', (tester) async {
+    await _pump(tester);
+    await tester.tap(find.text('Connect').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextField, 'IP address of the other device'),
+      'abc',
+    );
+    await tester.tap(find.text('Connect and pair'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('not a valid IP address'), findsOneWidget);
   });
 
   testWidgets('revoke asks first: cancel keeps, confirm removes', (
@@ -77,43 +146,37 @@ void main() {
     await _pump(tester);
     await tester.tap(find.text('Manage'));
     await tester.pumpAndSettle();
-    expect(find.text('Trusted devices'), findsOneWidget);
-    expect(find.text('DEMO Windows desktop'), findsOneWidget);
-
-    final revoke = find.bySemanticsLabel('Revoke DEMO Windows desktop');
-    await tester.ensureVisible(revoke);
+    expect(find.text('Test Windows PC'), findsOneWidget);
+    final revoke = find.bySemanticsLabel('Revoke Test Windows PC');
     await tester.tap(revoke);
     await tester.pumpAndSettle();
     expect(find.text('Revoke trust?'), findsOneWidget);
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
-    expect(find.text('DEMO Windows desktop'), findsOneWidget);
+    expect(find.text('Test Windows PC'), findsOneWidget);
 
-    await tester.ensureVisible(revoke);
     await tester.tap(revoke);
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Revoke'));
+    // Let the real file write of the trust database finish.
+    for (
+      var i = 0;
+      i < 40 && find.text('Test Windows PC').evaluate().isNotEmpty;
+      i++
+    ) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 25)),
+      );
+      await tester.pump();
+    }
     await tester.pumpAndSettle();
-    expect(find.text('DEMO Windows desktop'), findsNothing);
+    expect(find.text('Test Windows PC'), findsNothing);
+    expect(_engine.trustedDevices, isEmpty);
   });
 
-  testWidgets('error state shows Retry and recovers', (tester) async {
-    final (_, engine) = await _pump(tester);
-    engine.failNextCall = true;
-    await tester.tap(find.text('History').last);
-    await tester.pumpAndSettle();
-    // History was preloaded by IndexedStack, so force a reload via Trusted.
-    await tester.tap(find.text('Home').last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Manage'));
-    await tester.pumpAndSettle();
-    expect(find.text('Could not load this'), findsOneWidget);
-    await tester.tap(find.text('Retry'));
-    await tester.pumpAndSettle();
-    expect(find.text('DEMO Windows desktop'), findsOneWidget);
-  });
-
-  testWidgets('clear history asks first and shows empty state', (tester) async {
+  testWidgets('DEMO history: clear asks first and shows empty state', (
+    tester,
+  ) async {
     await _pump(tester);
     await tester.tap(find.text('History').last);
     await tester.pumpAndSettle();

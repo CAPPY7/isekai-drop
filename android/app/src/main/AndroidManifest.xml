@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Direct device-to-device connections on the local network. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Lets the app hear discovery announcements on Wi-Fi (no prompt). -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <application
         android:label="Isekai Drop"
         android:name="${applicationName}"

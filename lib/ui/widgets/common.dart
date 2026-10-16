@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../engine/models.dart';
 import '../theme/design_tokens.dart';
 
 const String kDemoLabel = 'DEMO - not a real transfer';
@@ -211,18 +210,27 @@ class AsyncSection<T> extends StatelessWidget {
   }
 }
 
+enum DisplayTrust { trusted, unknown, identityChanged }
+
+extension DisplayTrustLabel on DisplayTrust {
+  String get label => switch (this) {
+    DisplayTrust.trusted => 'Trusted (key verified)',
+    DisplayTrust.unknown => 'Unknown - not paired',
+    DisplayTrust.identityChanged => 'Identity changed - blocked',
+  };
+}
+
 class TrustBadge extends StatelessWidget {
   const TrustBadge({super.key, required this.trust});
 
-  final TrustLevel trust;
+  final DisplayTrust trust;
 
   @override
   Widget build(BuildContext context) {
     final (color, icon) = switch (trust) {
-      TrustLevel.trusted => (IdColors.success, Icons.verified_user),
-      TrustLevel.verified => (IdColors.accentGlow, Icons.check_circle_outline),
-      TrustLevel.unknown => (IdColors.darkOnSurfaceMuted, Icons.help_outline),
-      TrustLevel.identityChanged => (IdColors.danger, Icons.gpp_bad_outlined),
+      DisplayTrust.trusted => (IdColors.success, Icons.verified_user),
+      DisplayTrust.unknown => (IdColors.darkOnSurfaceMuted, Icons.help_outline),
+      DisplayTrust.identityChanged => (IdColors.danger, Icons.gpp_bad_outlined),
     };
     return Semantics(
       label: 'Trust: ${trust.label}',
@@ -244,12 +252,12 @@ class TrustBadge extends StatelessWidget {
   }
 }
 
-IconData platformIcon(DevicePlatform p) => switch (p) {
-  DevicePlatform.android => Icons.phone_android,
-  DevicePlatform.ios => Icons.phone_iphone,
-  DevicePlatform.windows => Icons.desktop_windows,
-  DevicePlatform.macos => Icons.laptop_mac,
-  DevicePlatform.linux => Icons.computer,
+IconData platformIcon(String p) => switch (p) {
+  'android' => Icons.phone_android,
+  'ios' => Icons.phone_iphone,
+  'windows' => Icons.desktop_windows,
+  'macos' => Icons.laptop_mac,
+  _ => Icons.computer,
 };
 
 /// Standard page body: scrolls, max width, padding.

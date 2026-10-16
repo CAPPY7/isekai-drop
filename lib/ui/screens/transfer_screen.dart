@@ -1,71 +1,30 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
-import '../../engine/models.dart';
+import '../../engine/transfer_engine.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
 
-enum _DemoState { running, paused, done, cancelled }
-
-/// Sending/Receiving screen. In Phase 2 it plays a DEMO animation only.
-/// No speed number is shown: only MEASURED speeds may ever be displayed.
-class TransferScreen extends StatefulWidget {
-  const TransferScreen({
-    super.key,
-    required this.fileCount,
-    required this.totalBytes,
-  });
-
-  final int fileCount;
-  final int totalBytes;
-
-  @override
-  State<TransferScreen> createState() => _TransferScreenState();
+String _fmtDuration(Duration d) {
+  if (d.inHours > 0) return '${d.inHours} h ${d.inMinutes % 60} min';
+  if (d.inMinutes > 0) return '${d.inMinutes} min ${d.inSeconds % 60} s';
+  return '${d.inSeconds} s';
 }
 
-class _TransferScreenState extends State<TransferScreen> {
-  double _progress = 0;
-  _DemoState _state = _DemoState.running;
-  Timer? _timer;
+/// Live view of a REAL transfer. Speed and time left come only from
+/// measured bytes over time; nothing is estimated in advance.
+class TransferScreen extends StatelessWidget {
+  const TransferScreen({super.key, required this.job});
 
-  @override
-  void initState() {
-    super.initState();
-    _start();
-  }
+  final TransferJob job;
 
-  void _start() {
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(milliseconds: 100), (_) {
-      setState(() {
-        _progress = (_progress + 0.01).clamp(0, 1);
-        if (_progress >= 1) {
-          _state = _DemoState.done;
-          _timer?.cancel();
-        }
-      });
-    });
-  }
-
-  void _pauseResume() {
-    setState(() {
-      if (_state == _DemoState.running) {
-        _timer?.cancel();
-        _state = _DemoState.paused;
-      } else if (_state == _DemoState.paused) {
-        _state = _DemoState.running;
-        _start();
-      }
-    });
-  }
-
-  Future<void> _cancel() async {
+  Future<void> _cancel(BuildContext context) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
         title: const Text('Cancel this transfer?'),
-        content: const Text('The DEMO transfer will stop.'),
+        content: const Text(
+          'Files not yet finished and verified will be deleted.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(c, false),
@@ -78,125 +37,153 @@ class _TransferScreenState extends State<TransferScreen> {
         ],
       ),
     );
-    if (ok == true) {
-      _timer?.cancel();
-      setState(() => _state = _DemoState.cancelled);
-    }
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
+    if (ok == true) job.cancel();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final done = (widget.totalBytes * _progress).round();
-    final pct = (_progress * 100).round();
-    final (statusText, statusColor) = switch (_state) {
-      _DemoState.running => ('Sending (DEMO)...', IdColors.accentGlow),
-      _DemoState.paused => ('Paused (DEMO)', IdColors.warning),
-      _DemoState.done => (
-        'Finished (DEMO) - nothing was really sent',
-        IdColors.success,
-      ),
-      _DemoState.cancelled => ('Cancelled (DEMO)', IdColors.danger),
-    };
-    final active = _state == _DemoState.running || _state == _DemoState.paused;
+    final sending = job.direction == JobDirection.sending;
     return Scaffold(
-      appBar: AppBar(title: const Text('Sending')),
-      body: PageBody(
-        children: [
-          const DemoBanner(),
-          const SizedBox(height: IdSpacing.md),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(IdSpacing.lg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'To: DEMO Pixel phone',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: IdSpacing.xs),
-                  Text(
-                    statusText,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: statusColor,
-                    ),
-                  ),
-                  const SizedBox(height: IdSpacing.md),
-                  Semantics(
-                    label: 'Progress $pct percent, DEMO',
-                    excludeSemantics: true,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(IdRadii.pill),
-                      child: LinearProgressIndicator(
-                        value: _progress,
-                        minHeight: 12,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: IdSpacing.sm),
-                  Text(
-                    '$pct%   ${formatBytes(done)} of ${formatBytes(widget.totalBytes)}'
-                    '   (${widget.fileCount} file(s))',
-                  ),
-                  const SizedBox(height: IdSpacing.xs),
-                  Text(
-                    'Speed and time left: not shown. Only real measured speeds are '
-                    'ever shown, and this is not a real transfer.',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: IdSpacing.lg),
-                  Wrap(
-                    spacing: IdSpacing.sm,
-                    runSpacing: IdSpacing.sm,
+      appBar: AppBar(title: Text(sending ? 'Sending' : 'Receiving')),
+      body: ListenableBuilder(
+        listenable: job,
+        builder: (context, _) {
+          final pct = (job.progress * 100).floor();
+          final speed = job.state == JobState.running
+              ? job.currentSpeed
+              : job.averageSpeed;
+          final left = job.timeLeft;
+          final (statusText, color) = switch (job.state) {
+            JobState.waiting => (
+              sending
+                  ? 'Waiting for the other device to accept...'
+                  : 'Starting...',
+              IdColors.accentGlow,
+            ),
+            JobState.running => (
+              sending ? 'Sending...' : 'Receiving...',
+              IdColors.accentGlow,
+            ),
+            JobState.completed => ('Done', IdColors.success),
+            JobState.failed => ('Failed', IdColors.danger),
+            JobState.cancelled => ('Cancelled', IdColors.warning),
+          };
+          return PageBody(
+            children: [
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(IdSpacing.lg),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size(140, IdLayout.minTouchTarget),
-                        ),
-                        onPressed: active ? _pauseResume : null,
-                        icon: Icon(
-                          _state == _DemoState.paused
-                              ? Icons.play_arrow
-                              : Icons.pause,
-                        ),
-                        label: Text(
-                          _state == _DemoState.paused ? 'Resume' : 'Pause',
+                      Text(
+                        '${sending ? 'To' : 'From'}: ${job.peerName}',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: IdSpacing.xs),
+                      Text(
+                        statusText,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: color,
                         ),
                       ),
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size(140, IdLayout.minTouchTarget),
-                          foregroundColor: IdColors.danger,
+                      if (job.message != null) ...[
+                        const SizedBox(height: IdSpacing.xs),
+                        Text(job.message!),
+                      ],
+                      const SizedBox(height: IdSpacing.md),
+                      Semantics(
+                        label: 'Progress $pct percent',
+                        excludeSemantics: true,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(IdRadii.pill),
+                          child: LinearProgressIndicator(
+                            value: job.state == JobState.waiting
+                                ? null
+                                : job.progress,
+                            minHeight: 12,
+                          ),
                         ),
-                        onPressed: active ? _cancel : null,
-                        icon: const Icon(Icons.close),
-                        label: const Text('Cancel'),
                       ),
-                      if (!active)
-                        FilledButton(
-                          style: FilledButton.styleFrom(
-                            minimumSize: const Size(
-                              140,
-                              IdLayout.minTouchTarget,
+                      const SizedBox(height: IdSpacing.sm),
+                      Text(
+                        '$pct%   ${formatBytes(job.bytesDone)} of ${formatBytes(job.totalBytes)}',
+                      ),
+                      Text(
+                        'Files: ${job.filesDone} of ${job.fileCount} verified',
+                      ),
+                      const SizedBox(height: IdSpacing.xs),
+                      Text(
+                        speed == null
+                            ? 'Speed: measuring...'
+                            : '${job.state == JobState.running ? 'Speed (measured)' : 'Average speed (measured)'}: ${formatSpeed(speed)}',
+                      ),
+                      if (left != null)
+                        Text(
+                          'Time left (from measured speed): ${_fmtDuration(left)}',
+                        ),
+                      if (!job.isActive)
+                        Text('Time taken: ${_fmtDuration(job.elapsed)}'),
+                      if (job.savedTo.isNotEmpty) ...[
+                        const SizedBox(height: IdSpacing.sm),
+                        Text('Saved to:', style: theme.textTheme.bodySmall),
+                        for (final s in job.savedTo.take(10))
+                          Text(s, style: theme.textTheme.bodySmall),
+                      ],
+                      const SizedBox(height: IdSpacing.lg),
+                      Wrap(
+                        spacing: IdSpacing.sm,
+                        runSpacing: IdSpacing.sm,
+                        children: [
+                          Semantics(
+                            label: 'Pause. Disabled. Pause and resume arrive in a later phase.',
+                            excludeSemantics: true,
+                            child: const OutlinedButton(
+                              onPressed: null,
+                              child: Text('Pause (later phase)'),
                             ),
                           ),
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: const Text('Done'),
-                        ),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(
+                                140,
+                                IdLayout.minTouchTarget,
+                              ),
+                              foregroundColor: IdColors.danger,
+                            ),
+                            onPressed: job.isActive
+                                ? () => _cancel(context)
+                                : null,
+                            icon: const Icon(Icons.close),
+                            label: const Text('Cancel'),
+                          ),
+                          if (!job.isActive)
+                            FilledButton(
+                              style: FilledButton.styleFrom(
+                                minimumSize: const Size(
+                                  140,
+                                  IdLayout.minTouchTarget,
+                                ),
+                              ),
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text('Done'),
+                            ),
+                        ],
+                      ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
-        ],
+              if (job.isActive)
+                Text(
+                  'Keep Isekai Drop open and the screen on until it finishes.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall,
+                ),
+            ],
+          );
+        },
       ),
     );
   }

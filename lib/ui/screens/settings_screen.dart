@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../engine/transfer_engine.dart';
 import '../app_scope.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
@@ -99,8 +100,10 @@ class SettingsScreen extends StatelessWidget {
                   contentPadding: EdgeInsets.zero,
                   value: true,
                   onChanged: null,
-                  title: Text('Ask me before receiving from untrusted devices'),
-                  subtitle: Text('Always on for safety. Cannot be turned off.'),
+                  title: Text('Ask me before receiving'),
+                  subtitle: Text(
+                    'Always on. Unknown devices cannot send at all; they must pair first.',
+                  ),
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
@@ -127,23 +130,47 @@ class SettingsScreen extends StatelessWidget {
           const SectionCard(
             title: 'Connection preferences',
             child: Text(
-              'Not built yet. Choosing hotspot, Wi-Fi Direct or manual '
-              'address arrives with real connections.',
+              'Same Wi-Fi or hotspot, found automatically or by typed address. '
+              'Choosing hotspot or Wi-Fi Direct arrives in a later phase.',
             ),
           ),
           SectionCard(
             title: 'Diagnostics',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Engine: ${scope.engine.version}'),
-                Text(
-                  scope.engine.isDemo
-                      ? 'Data source: DEMO data (no networking)'
-                      : 'Data source: real engine',
-                ),
-                const Text('No analytics, no cloud, no crash reporting.'),
-              ],
+            child: ListenableBuilder(
+              listenable: scope.engine,
+              builder: (context, _) {
+                final e = scope.engine;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Engine: ${e.version}'),
+                    Text(
+                      'Receiving on port: ${e.listeningPort ?? 'not running'}',
+                    ),
+                    if (e.startError != null)
+                      Text(
+                        e.startError!,
+                        style: const TextStyle(color: IdColors.danger),
+                      ),
+                    Text('Discovery: ${e.discoveryError ?? 'on'}'),
+                    Text('Nearby devices seen: ${e.nearby.length}'),
+                    Text('Trusted devices: ${e.trustedDevices.length}'),
+                    Text('Device key: ${shortFingerprint(e.myFingerprint)}'),
+                    Text(
+                      e.secureStorageNote ??
+                          'Device key: kept in secure storage',
+                    ),
+                    Text('Received files go to: ${e.receiveLocationNote}'),
+                    const Text(
+                      'Encryption: TLS 1.3 with both devices\' keys checked.',
+                    ),
+                    const Text(
+                      'Transfer History: DEMO data (real history comes later).',
+                    ),
+                    const Text('No analytics, no cloud, no crash reporting.'),
+                  ],
+                );
+              },
             ),
           ),
         ],

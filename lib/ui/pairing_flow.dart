@@ -1,0 +1,122 @@
+import 'package:flutter/material.dart';
+
+import '../engine/transfer_engine.dart';
+import 'app_scope.dart';
+import 'theme/design_tokens.dart';
+
+/// Pairing from THIS device: connect, show the code, user confirms it
+/// matches the other screen, then wait for the other device to approve.
+Future<void> startPairingFlow(
+  BuildContext context,
+  String host,
+  int port,
+) async {
+  final engine = AppScope.of(context).engine;
+  final messenger = ScaffoldMessenger.of(context);
+  final nav = Navigator.of(context);
+  showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const AlertDialog(
+      content: Row(
+        children: [
+          CircularProgressIndicator(semanticsLabel: 'Connecting'),
+          SizedBox(width: IdSpacing.md),
+          Expanded(child: Text('Connecting securely...')),
+        ],
+      ),
+    ),
+  );
+  PairingSession session;
+  try {
+    session = await engine.beginPairing(host, port);
+  } catch (e) {
+    nav.pop();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          e is PairingException
+              ? e.message
+              : 'Could not connect to $host:$port. Check the address and that Isekai Drop is open there.',
+        ),
+      ),
+    );
+    return;
+  }
+  nav.pop();
+  if (!context.mounted) {
+    session.cancel();
+    return;
+  }
+  final ok = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (c) => AlertDialog(
+      title: const Text('Compare this code'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'The other device will show a code. Pair only if it is EXACTLY the same:',
+          ),
+          const SizedBox(height: IdSpacing.md),
+          SelectableText(
+            session.code,
+            style: const TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 2,
+            ),
+          ),
+          const SizedBox(height: IdSpacing.md),
+          const Text(
+            'If the codes differ, tap Cancel: someone may be in the middle.',
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(c, false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(c, true),
+          child: const Text('Codes match - pair'),
+        ),
+      ],
+    ),
+  );
+  if (ok != true) {
+    session.cancel();
+    return;
+  }
+  if (!context.mounted) return;
+  showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const AlertDialog(
+      content: Row(
+        children: [
+          CircularProgressIndicator(semanticsLabel: 'Waiting'),
+          SizedBox(width: IdSpacing.md),
+          Expanded(child: Text('Waiting for the other device to approve...')),
+        ],
+      ),
+    ),
+  );
+  try {
+    final dev = await session.confirm();
+    nav.pop();
+    messenger.showSnackBar(
+      SnackBar(content: Text('Paired with ${dev.name}. It is now trusted.')),
+    );
+  } catch (e) {
+    nav.pop();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(e is PairingException ? e.message : 'Pairing failed.'),
+      ),
+    );
+  }
+}

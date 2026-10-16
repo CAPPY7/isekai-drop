@@ -2,10 +2,12 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
-import '../../engine/transfer_engine.dart';
+import '../../engine/core/engine.dart' show kDefaultPort;
 import '../app_scope.dart';
+import '../pairing_flow.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
+import '../widgets/device_widgets.dart';
 
 class ConnectScreen extends StatefulWidget {
   const ConnectScreen({super.key});
@@ -15,144 +17,125 @@ class ConnectScreen extends StatefulWidget {
 }
 
 class _ConnectScreenState extends State<ConnectScreen> {
-  Future<List<DeviceRecord>>? _nearby;
-  final _ipController = TextEditingController();
-  String? _ipMessage;
-  bool _ipValid = false;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _nearby ??= AppScope.of(context).engine.nearbyDevices();
-  }
-
-  void _reload() => setState(() {
-    _nearby = AppScope.of(context).engine.nearbyDevices();
-  });
-
-  void _checkIp() {
-    final text = _ipController.text.trim();
-    final ok = InternetAddress.tryParse(text) != null;
-    setState(() {
-      _ipValid = ok;
-      _ipMessage = ok
-          ? 'Address looks valid. Connecting is not built yet (later phase).'
-          : 'That is not a valid IP address. Example: 192.168.43.10';
-    });
-  }
+  final _ip = TextEditingController();
+  final _port = TextEditingController(text: '$kDefaultPort');
+  String? _error;
 
   @override
   void dispose() {
-    _ipController.dispose();
+    _ip.dispose();
+    _port.dispose();
     super.dispose();
+  }
+
+  void _pair() {
+    final host = _ip.text.trim();
+    final port = int.tryParse(_port.text.trim());
+    if (InternetAddress.tryParse(host) == null) {
+      setState(
+        () => _error = 'That is not a valid IP address. Example: 192.168.1.23',
+      );
+      return;
+    }
+    if (port == null || port < 1 || port > 65535) {
+      setState(() => _error = 'Port must be a number from 1 to 65535.');
+      return;
+    }
+    setState(() => _error = null);
+    startPairingFlow(context, host, port);
   }
 
   @override
   Widget build(BuildContext context) {
-    return PageBody(
-      children: [
-        const DemoBanner(),
-        const SizedBox(height: IdSpacing.md),
-        SectionCard(
-          title: 'Found automatically',
-          trailing: IconButton(
-            tooltip: 'Search again',
-            onPressed: _reload,
-            icon: const Icon(Icons.refresh),
-          ),
-          child: AsyncSection<List<DeviceRecord>>(
-            future: _nearby!,
-            onRetry: _reload,
-            isEmpty: (l) => l.isEmpty,
-            empty: const StateMessage(
-              icon: Icons.wifi_find,
-              title: 'No devices found',
-              message:
-                  'Make sure both devices are on the same Wi-Fi or hotspot.',
-            ),
-            builder: (list) => Column(
-              children: [
-                for (final d in list)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    minTileHeight: IdLayout.minTouchTarget,
-                    leading: Icon(platformIcon(d.platform)),
-                    title: Text(d.name),
-                    subtitle: TrustBadge(trust: d.trust),
-                    trailing: const DemoChip(),
+    final engine = AppScope.of(context).engine;
+    return ListenableBuilder(
+      listenable: engine,
+      builder: (context, _) => PageBody(
+        children: [
+          ThisDeviceCard(engine: engine),
+          SectionCard(
+            title: 'Found automatically',
+            child: engine.nearby.isEmpty
+                ? StateMessage(
+                    icon: Icons.wifi_find,
+                    title: 'No devices found yet',
+                    message:
+                        engine.discoveryError ??
+                        'Both devices must be on the same Wi-Fi or hotspot with Isekai Drop open. '
+                            'Some networks block discovery: then type the address below.',
+                  )
+                : Column(
+                    children: [
+                      for (final d in engine.nearby)
+                        NearbyTile(
+                          device: d,
+                          onTap: () =>
+                              startPairingFlow(context, d.host, d.port),
+                        ),
+                    ],
                   ),
-                Text(
-                  'Pairing with these devices arrives in a later phase.',
-                  style: Theme.of(context).textTheme.bodySmall,
+          ),
+          SectionCard(
+            title: 'Pair by typing the address',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'On the other device open Connect and read its address. Type it here. '
+                  'Both screens will then show a 16-digit code to compare.',
+                ),
+                const SizedBox(height: IdSpacing.md),
+                TextField(
+                  controller: _ip,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'IP address of the other device',
+                    hintText: '192.168.1.23',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: IdSpacing.sm),
+                TextField(
+                  controller: _port,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Port',
+                    border: OutlineInputBorder(),
+                  ),
+                  onSubmitted: (_) => _pair(),
+                ),
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: IdSpacing.sm),
+                    child: Text(
+                      _error!,
+                      style: const TextStyle(color: IdColors.danger),
+                    ),
+                  ),
+                const SizedBox(height: IdSpacing.sm),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(IdLayout.minTouchTarget),
+                  ),
+                  onPressed: _pair,
+                  child: const Text('Connect and pair'),
                 ),
               ],
             ),
           ),
-        ),
-        const SectionCard(
-          title: 'Pair with QR code or code',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Scan the other device\'s QR code, or compare a short code on '
-                'both screens. You always approve before a device is trusted.',
-              ),
-              SizedBox(height: IdSpacing.md),
-              NotYetButton(
-                label: 'Scan QR code',
-                reason: 'Not built yet - arrives in a later phase.',
-              ),
-              NotYetButton(
-                label: 'Show my code',
-                reason: 'Not built yet - arrives in a later phase.',
-              ),
-            ],
+          const SectionCard(
+            title: 'QR code',
+            child: NotYetButton(
+              label: 'Scan QR code',
+              reason:
+                  'Not included yet: a QR scanner needs a camera library and '
+                  'your licence approval. Use the address and 16-digit code instead.',
+            ),
           ),
-        ),
-        SectionCard(
-          title: 'Type an address (fallback)',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                controller: _ipController,
-                keyboardType: TextInputType.url,
-                decoration: const InputDecoration(
-                  labelText: 'IP address of the other device',
-                  hintText: '192.168.43.10',
-                  border: OutlineInputBorder(),
-                ),
-                onChanged: (_) => setState(() => _ipMessage = null),
-                onSubmitted: (_) => _checkIp(),
-              ),
-              const SizedBox(height: IdSpacing.sm),
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(IdLayout.minTouchTarget),
-                ),
-                onPressed: _checkIp,
-                child: const Text('Check address'),
-              ),
-              if (_ipMessage != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: IdSpacing.sm),
-                  child: Text(
-                    _ipMessage!,
-                    style: TextStyle(
-                      color: _ipValid ? IdColors.success : IdColors.danger,
-                    ),
-                  ),
-                ),
-              const SizedBox(height: IdSpacing.sm),
-              const NotYetButton(
-                label: 'Connect',
-                reason: 'Not built yet - networking arrives in a later phase.',
-              ),
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

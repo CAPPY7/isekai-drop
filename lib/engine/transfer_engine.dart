@@ -1,37 +1,56 @@
 /// The boundary between the UI and the transfer engine.
 ///
-/// The UI only talks to [TransferEngine]. In Phase 2 the only implementation
-/// is [DemoTransferEngine] (see demo_engine.dart): DEMO data, no networking.
-/// The real engine (discovery, pairing, TLS, streaming) replaces it later
-/// without changing the screens.
+/// Screens only use [TransferEngine]. The real implementation is
+/// IsekaiEngine (lib/engine/core/engine.dart). Transfer History is still
+/// DEMO data in Phase 3 (see demo_engine.dart) and is labelled DEMO.
 library;
 
-import 'models.dart';
+import 'package:flutter/foundation.dart';
 
+import 'core/engine.dart';
+import 'core/jobs.dart';
+import 'core/send_source.dart';
+import 'core/trust_store.dart';
+
+export 'core/engine.dart' show NearbyDevice, PairingSession, PairingException;
+export 'core/identity.dart' show shortFingerprint;
+export 'core/jobs.dart';
+export 'core/send_source.dart';
+export 'core/trust_store.dart' show TrustedDevice, TrustStatus;
 export 'models.dart';
 
-abstract interface class TransferEngine {
-  /// Short engine version, e.g. "demo-phase2".
+abstract class TransferEngine implements Listenable {
   String get version;
-
-  /// True when every piece of data comes from DEMO data, not real devices.
   bool get isDemo;
 
-  /// Devices seen nearby right now.
-  Future<List<DeviceRecord>> nearbyDevices();
+  String get myName;
+  String get myFingerprint;
+  String get platformName;
+  int? get listeningPort;
+  String? get startError;
+  String? get discoveryError;
+  String? get secureStorageNote;
+  String get receiveLocationNote;
+  Future<List<String>> localAddresses();
 
-  /// Saved trusted devices.
-  Future<List<DeviceRecord>> trustedDevices();
+  List<NearbyDevice> get nearby;
+  List<TrustedDevice> get trustedDevices;
+  List<PendingRequest> get pending;
+  List<TransferJob> get jobs;
 
-  /// Rename a trusted device (local nickname only).
+  Future<void> start();
+  Future<void> stop();
+
+  /// Connects to [host]:[port] for pairing. Throws on network errors.
+  Future<PairingSession> beginPairing(String host, int port);
+
+  Future<TransferJob> send(
+    TrustedDevice device,
+    List<SendSource> files, {
+    String? host,
+    int? port,
+  });
+
   Future<void> renameTrustedDevice(String id, String newName);
-
-  /// Remove trust. The device must pair again before it is trusted.
   Future<void> revokeTrustedDevice(String id);
-
-  /// Past transfers, newest first.
-  Future<List<TransferRecord>> history();
-
-  /// Delete all history entries.
-  Future<void> clearHistory();
 }

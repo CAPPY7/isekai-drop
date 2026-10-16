@@ -3,72 +3,19 @@
 /// Every record has a unique [id], [createdAt] and [updatedAt] (data rules).
 library;
 
-enum DevicePlatform { android, ios, windows, macos, linux }
+/// Human label for a platform name sent by a device ("android", "ios"...).
+String platformLabel(String p) => switch (p) {
+  'android' => 'Android',
+  'ios' => 'iPhone / iPad',
+  'windows' => 'Windows',
+  'macos' => 'macOS',
+  'linux' => 'Linux',
+  _ => 'Device',
+};
 
-extension DevicePlatformLabel on DevicePlatform {
-  String get label => switch (this) {
-    DevicePlatform.android => 'Android',
-    DevicePlatform.ios => 'iPhone / iPad',
-    DevicePlatform.windows => 'Windows',
-    DevicePlatform.macos => 'macOS',
-    DevicePlatform.linux => 'Linux',
-  };
-}
-
-/// How much a device is trusted. Never decided by name or IP alone.
-enum TrustLevel {
-  /// Paired by QR/code, approved, and key saved.
-  trusted,
-
-  /// Key checked this session but not saved as trusted.
-  verified,
-
-  /// Never paired. Cannot send without approval.
-  unknown,
-
-  /// Saved key changed unexpectedly. Blocked until verified again.
-  identityChanged,
-}
-
-extension TrustLevelLabel on TrustLevel {
-  String get label => switch (this) {
-    TrustLevel.trusted => 'Trusted',
-    TrustLevel.verified => 'Verified',
-    TrustLevel.unknown => 'Unknown',
-    TrustLevel.identityChanged => 'Identity changed - blocked',
-  };
-}
-
-class DeviceRecord {
-  const DeviceRecord({
-    required this.id,
-    required this.name,
-    required this.platform,
-    required this.trust,
-    required this.createdAt,
-    required this.updatedAt,
-  });
-
-  final String id;
-  final String name;
-  final DevicePlatform platform;
-  final TrustLevel trust;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-
-  DeviceRecord copyWith({
-    String? name,
-    TrustLevel? trust,
-    DateTime? updatedAt,
-  }) => DeviceRecord(
-    id: id,
-    name: name ?? this.name,
-    platform: platform,
-    trust: trust ?? this.trust,
-    createdAt: createdAt,
-    updatedAt: updatedAt ?? this.updatedAt,
-  );
-}
+/// Formats a MEASURED speed (bytes per second) as MB/s.
+String formatSpeed(double bytesPerSecond) =>
+    '${(bytesPerSecond / (1024 * 1024)).toStringAsFixed(1)} MB/s';
 
 enum TransferDirection { sent, received }
 

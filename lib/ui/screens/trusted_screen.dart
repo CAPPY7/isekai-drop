@@ -4,31 +4,14 @@ import '../../engine/transfer_engine.dart';
 import '../app_scope.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
+import '../widgets/device_widgets.dart';
 
-class TrustedDevicesScreen extends StatefulWidget {
+class TrustedDevicesScreen extends StatelessWidget {
   const TrustedDevicesScreen({super.key});
 
-  @override
-  State<TrustedDevicesScreen> createState() => _TrustedDevicesScreenState();
-}
-
-class _TrustedDevicesScreenState extends State<TrustedDevicesScreen> {
-  Future<List<DeviceRecord>>? _future;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _future ??= AppScope.of(context).engine.trustedDevices();
-  }
-
-  void _reload() => setState(() {
-    _future = AppScope.of(context).engine.trustedDevices();
-  });
-
-  void _snack(String text) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
-
-  Future<void> _rename(DeviceRecord d) async {
+  Future<void> _rename(BuildContext context, TrustedDevice d) async {
+    final engine = AppScope.of(context).engine;
+    final messenger = ScaffoldMessenger.of(context);
     final controller = TextEditingController(text: d.name);
     final name = await showDialog<String>(
       context: context,
@@ -38,7 +21,9 @@ class _TrustedDevicesScreenState extends State<TrustedDevicesScreen> {
           controller: controller,
           autofocus: true,
           maxLength: 40,
-          decoration: const InputDecoration(labelText: 'New name'),
+          decoration: const InputDecoration(
+            labelText: 'New name (only on this device)',
+          ),
         ),
         actions: [
           TextButton(
@@ -53,24 +38,27 @@ class _TrustedDevicesScreenState extends State<TrustedDevicesScreen> {
       ),
     );
     controller.dispose();
-    if (name == null || name.isEmpty || !mounted) return;
+    if (name == null || name.isEmpty) return;
     try {
-      await AppScope.of(context).engine.renameTrustedDevice(d.id, name);
-      _snack('Renamed (DEMO data)');
+      await engine.renameTrustedDevice(d.id, name);
+      messenger.showSnackBar(const SnackBar(content: Text('Renamed')));
     } catch (_) {
-      _snack('Could not rename. Please try again.');
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Could not rename. Please try again.')),
+      );
     }
-    _reload();
   }
 
-  Future<void> _revoke(DeviceRecord d) async {
+  Future<void> _revoke(BuildContext context, TrustedDevice d) async {
+    final engine = AppScope.of(context).engine;
+    final messenger = ScaffoldMessenger.of(context);
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
         title: const Text('Revoke trust?'),
         content: Text(
-          '"${d.name}" will no longer be trusted. It must pair again with a '
-          'QR code or code before it can connect as trusted.',
+          '"${d.name}" will no longer be trusted and cannot connect. '
+          'To use it again you must pair again and compare the code.',
         ),
         actions: [
           TextButton(
@@ -85,114 +73,112 @@ class _TrustedDevicesScreenState extends State<TrustedDevicesScreen> {
         ],
       ),
     );
-    if (ok != true || !mounted) return;
+    if (ok != true) return;
     try {
-      await AppScope.of(context).engine.revokeTrustedDevice(d.id);
-      _snack('Trust revoked (DEMO data)');
+      await engine.revokeTrustedDevice(d.id);
+      messenger.showSnackBar(const SnackBar(content: Text('Trust revoked')));
     } catch (_) {
-      _snack('Could not revoke. Please try again.');
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Could not revoke. Please try again.')),
+      );
     }
-    _reload();
   }
 
   @override
   Widget build(BuildContext context) {
+    final engine = AppScope.of(context).engine;
     return Scaffold(
       appBar: AppBar(title: const Text('Trusted devices')),
-      body: PageBody(
-        children: [
-          const DemoBanner(),
-          const SizedBox(height: IdSpacing.md),
-          AsyncSection<List<DeviceRecord>>(
-            future: _future!,
-            onRetry: _reload,
-            isEmpty: (l) => l.isEmpty,
-            empty: const StateMessage(
-              icon: Icons.shield_outlined,
-              title: 'No trusted devices',
-              message: 'Devices you pair and approve will appear here.',
-            ),
-            builder: (list) => Column(
-              children: [
-                for (final d in list)
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(IdSpacing.md),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+      body: ListenableBuilder(
+        listenable: engine,
+        builder: (context, _) => PageBody(
+          children: [
+            if (engine.trustedDevices.isEmpty)
+              const StateMessage(
+                icon: Icons.shield_outlined,
+                title: 'No trusted devices',
+                message: 'Devices you pair and approve will appear here.',
+              ),
+            for (final d in engine.trustedDevices)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(IdSpacing.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         children: [
-                          Row(
-                            children: [
-                              Icon(platformIcon(d.platform)),
-                              const SizedBox(width: IdSpacing.sm),
-                              Expanded(
-                                child: Text(
-                                  d.name,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium,
-                                ),
-                              ),
-                              const DemoChip(),
-                            ],
-                          ),
-                          const SizedBox(height: IdSpacing.xs),
-                          Text(d.platform.label),
-                          TrustBadge(trust: d.trust),
-                          if (d.trust == TrustLevel.identityChanged)
-                            const Padding(
-                              padding: EdgeInsets.only(top: IdSpacing.xs),
-                              child: Text(
-                                'This device\'s identity key changed. It is blocked '
-                                'until you verify it again (re-verify arrives in a later phase).',
-                                style: TextStyle(color: IdColors.danger),
-                              ),
+                          Icon(platformIcon(d.platform)),
+                          const SizedBox(width: IdSpacing.sm),
+                          Expanded(
+                            child: Text(
+                              d.name,
+                              style: Theme.of(context).textTheme.titleMedium,
                             ),
-                          const SizedBox(height: IdSpacing.sm),
-                          Wrap(
-                            spacing: IdSpacing.sm,
-                            children: [
-                              TextButton.icon(
-                                style: TextButton.styleFrom(
-                                  minimumSize: const Size(
-                                    0,
-                                    IdLayout.minTouchTarget,
-                                  ),
-                                ),
-                                onPressed: () => _rename(d),
-                                icon: const Icon(Icons.edit_outlined),
-                                label: Text(
-                                  'Rename',
-                                  semanticsLabel: 'Rename ${d.name}',
-                                ),
-                              ),
-                              TextButton.icon(
-                                style: TextButton.styleFrom(
-                                  foregroundColor: IdColors.danger,
-                                  minimumSize: const Size(
-                                    0,
-                                    IdLayout.minTouchTarget,
-                                  ),
-                                ),
-                                onPressed: () => _revoke(d),
-                                icon: const Icon(
-                                  Icons.remove_moderator_outlined,
-                                ),
-                                label: Text(
-                                  'Revoke',
-                                  semanticsLabel: 'Revoke ${d.name}',
-                                ),
-                              ),
-                            ],
                           ),
                         ],
                       ),
-                    ),
+                      const SizedBox(height: IdSpacing.xs),
+                      Text(platformLabel(d.platform)),
+                      TrustBadge(trust: trustOf(d)),
+                      Text(
+                        'Key: ${shortFingerprint(d.fingerprint)}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      Text(
+                        'Paired: ${formatTime(d.createdAt.toLocal())}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      if (!d.isTrusted)
+                        const Padding(
+                          padding: EdgeInsets.only(top: IdSpacing.xs),
+                          child: Text(
+                            'This device answered with a different key than the one saved. '
+                            'It is blocked. To verify it again: Revoke, then pair again and compare the code.',
+                            style: TextStyle(color: IdColors.danger),
+                          ),
+                        ),
+                      const SizedBox(height: IdSpacing.sm),
+                      Wrap(
+                        spacing: IdSpacing.sm,
+                        children: [
+                          TextButton.icon(
+                            style: TextButton.styleFrom(
+                              minimumSize: const Size(
+                                0,
+                                IdLayout.minTouchTarget,
+                              ),
+                            ),
+                            onPressed: () => _rename(context, d),
+                            icon: const Icon(Icons.edit_outlined),
+                            label: Text(
+                              'Rename',
+                              semanticsLabel: 'Rename ${d.name}',
+                            ),
+                          ),
+                          TextButton.icon(
+                            style: TextButton.styleFrom(
+                              foregroundColor: IdColors.danger,
+                              minimumSize: const Size(
+                                0,
+                                IdLayout.minTouchTarget,
+                              ),
+                            ),
+                            onPressed: () => _revoke(context, d),
+                            icon: const Icon(Icons.remove_moderator_outlined),
+                            label: Text(
+                              'Revoke',
+                              semanticsLabel: 'Revoke ${d.name}',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-              ],
-            ),
-          ),
-        ],
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

@@ -18,11 +18,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _future ??= AppScope.of(context).engine.history();
+    _future ??= AppScope.of(context).demoHistory.history();
   }
 
   void _reload() => setState(() {
-    _future = AppScope.of(context).engine.history();
+    _future = AppScope.of(context).demoHistory.history();
   });
 
   Future<void> _clear() async {
@@ -47,7 +47,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       ),
     );
     if (ok != true || !mounted) return;
-    await AppScope.of(context).engine.clearHistory();
+    await AppScope.of(context).demoHistory.clearHistory();
     _reload();
   }
 

@@ -1,35 +1,33 @@
 import 'package:desktop_drop/desktop_drop.dart';
-import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
-import '../../engine/models.dart';
+import '../../engine/platform_engine.dart';
+import '../../engine/transfer_engine.dart';
+import '../app_scope.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
 import 'transfer_screen.dart';
 
-/// One file the user picked. Only name and size are kept (no contents).
-class SelectedFile {
-  SelectedFile({required this.name, required this.size, this.path});
-
-  final String name;
-  final int size;
-  final String? path;
-}
-
 class FilesScreen extends StatefulWidget {
-  const FilesScreen({super.key, required this.isDesktop});
+  const FilesScreen({
+    super.key,
+    required this.isDesktop,
+    required this.onConnect,
+  });
 
   final bool isDesktop;
+  final VoidCallback onConnect;
 
   @override
   State<FilesScreen> createState() => _FilesScreenState();
 }
 
 class _FilesScreenState extends State<FilesScreen> {
-  final List<SelectedFile> _files = [];
+  final List<SendSource> _files = [];
   bool _picking = false;
   bool _dragging = false;
   String? _error;
+  String? _targetId;
 
   int get _total => _files.fold(0, (a, f) => a + f.size);
 
@@ -39,15 +37,8 @@ class _FilesScreenState extends State<FilesScreen> {
       _error = null;
     });
     try {
-      // System file picker, multi-select. Only names and sizes are read.
-      final result = await openFiles();
-      final added = <SelectedFile>[];
-      for (final f in result) {
-        added.add(
-          SelectedFile(name: f.name, size: await f.length(), path: f.path),
-        );
-      }
-      if (added.isNotEmpty) setState(() => _files.addAll(added));
+      final picked = await pickFilesToSend();
+      setState(() => _files.addAll(picked));
     } catch (_) {
       setState(
         () => _error = 'The file picker could not open. Please try again.',
@@ -58,15 +49,11 @@ class _FilesScreenState extends State<FilesScreen> {
   }
 
   Future<void> _onDrop(DropDoneDetails details) async {
-    final added = <SelectedFile>[];
+    final added = <SendSource>[];
     for (final f in details.files) {
       try {
-        added.add(
-          SelectedFile(name: f.name, size: await f.length(), path: f.path),
-        );
-      } catch (_) {
-        // Folders or unreadable items are skipped.
-      }
+        added.add(sendSourceFromPath(f.path));
+      } catch (_) {}
     }
     setState(() {
       _dragging = false;
@@ -100,9 +87,29 @@ class _FilesScreenState extends State<FilesScreen> {
     if (ok == true) setState(_files.clear);
   }
 
+  Future<void> _send(TrustedDevice dev) async {
+    final engine = AppScope.of(context).engine;
+    NearbyDevice? live;
+    for (final n in engine.nearby) {
+      if (n.trusted?.id == dev.id) live = n;
+    }
+    final job = await engine.send(
+      dev,
+      List.of(_files),
+      host: live?.host,
+      port: live?.port,
+    );
+    if (!mounted) return;
+    setState(_files.clear);
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => TransferScreen(job: job)));
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final engine = AppScope.of(context).engine;
     final pickArea = Column(
       children: [
         Icon(
@@ -141,101 +148,137 @@ class _FilesScreenState extends State<FilesScreen> {
       ],
     );
 
-    return PageBody(
-      children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(IdSpacing.lg),
-            child: widget.isDesktop
-                ? DropTarget(
-                    onDragEntered: (_) => setState(() => _dragging = true),
-                    onDragExited: (_) => setState(() => _dragging = false),
-                    onDragDone: _onDrop,
-                    child: AnimatedContainer(
-                      duration: IdMotion.fast,
-                      padding: const EdgeInsets.all(IdSpacing.lg),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(IdRadii.md),
-                        border: Border.all(
-                          color: _dragging
-                              ? IdColors.accentPurple
-                              : IdColors.darkOnSurfaceMuted,
-                          width: _dragging ? 3 : 1,
+    return ListenableBuilder(
+      listenable: engine,
+      builder: (context, _) {
+        final targets = engine.trustedDevices
+            .where((d) => d.isTrusted)
+            .toList();
+        if (_targetId != null && !targets.any((d) => d.id == _targetId)) {
+          _targetId = null;
+        }
+        _targetId ??= targets.isEmpty ? null : targets.first.id;
+        TrustedDevice? target;
+        for (final d in targets) {
+          if (d.id == _targetId) target = d;
+        }
+        return PageBody(
+          children: [
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(IdSpacing.lg),
+                child: widget.isDesktop
+                    ? DropTarget(
+                        onDragEntered: (_) => setState(() => _dragging = true),
+                        onDragExited: (_) => setState(() => _dragging = false),
+                        onDragDone: _onDrop,
+                        child: AnimatedContainer(
+                          duration: IdMotion.fast,
+                          padding: const EdgeInsets.all(IdSpacing.lg),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(IdRadii.md),
+                            border: Border.all(
+                              color: _dragging
+                                  ? IdColors.accentPurple
+                                  : IdColors.darkOnSurfaceMuted,
+                              width: _dragging ? 3 : 1,
+                            ),
+                          ),
+                          child: pickArea,
                         ),
-                      ),
-                      child: pickArea,
-                    ),
-                  )
-                : pickArea,
-          ),
-        ),
-        if (_error != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: IdSpacing.sm),
-            child: Text(
-              _error!,
-              style: const TextStyle(color: IdColors.danger),
+                      )
+                    : pickArea,
+              ),
             ),
-          ),
-        SectionCard(
-          title: 'Selected: ${_files.length} file(s), ${formatBytes(_total)}',
-          trailing: _files.isEmpty
-              ? null
-              : TextButton(
-                  onPressed: _confirmClear,
-                  child: const Text('Clear'),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: IdSpacing.sm),
+                child: Text(
+                  _error!,
+                  style: const TextStyle(color: IdColors.danger),
                 ),
-          child: _files.isEmpty
-              ? const StateMessage(
-                  icon: Icons.inbox_outlined,
-                  title: 'Nothing selected yet',
-                  message: 'Tap "Pick files" to choose what to send.',
-                )
-              : Column(
-                  children: [
-                    for (var i = 0; i < _files.length; i++)
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        minTileHeight: IdLayout.minTouchTarget,
-                        leading: const Icon(Icons.insert_drive_file_outlined),
-                        title: Text(
-                          _files[i].name,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Text(formatBytes(_files[i].size)),
-                        trailing: IconButton(
-                          tooltip: 'Remove ${_files[i].name} from list',
-                          icon: const Icon(Icons.close),
-                          onPressed: () => setState(() => _files.removeAt(i)),
-                        ),
-                      ),
-                  ],
-                ),
-        ),
-        FilledButton.icon(
-          style: FilledButton.styleFrom(
-            minimumSize: const Size.fromHeight(IdLayout.minTouchTarget),
-          ),
-          onPressed: _files.isEmpty
-              ? null
-              : () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => TransferScreen(
-                      fileCount: _files.length,
-                      totalBytes: _total,
+              ),
+            SectionCard(
+              title:
+                  'Selected: ${_files.length} file(s), ${formatBytes(_total)}',
+              trailing: _files.isEmpty
+                  ? null
+                  : TextButton(
+                      onPressed: _confirmClear,
+                      child: const Text('Clear'),
                     ),
-                  ),
-                ),
-          icon: const Icon(Icons.play_arrow_rounded),
-          label: const Text('Preview sending screen (DEMO)'),
-        ),
-        const SizedBox(height: IdSpacing.xs),
-        Text(
-          'Nothing is sent yet. This only shows how the sending screen will look.',
-          textAlign: TextAlign.center,
-          style: theme.textTheme.bodySmall,
-        ),
-      ],
+              child: _files.isEmpty
+                  ? const StateMessage(
+                      icon: Icons.inbox_outlined,
+                      title: 'Nothing selected yet',
+                      message: 'Tap "Pick files" to choose what to send.',
+                    )
+                  : Column(
+                      children: [
+                        for (var i = 0; i < _files.length; i++)
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            minTileHeight: IdLayout.minTouchTarget,
+                            leading: const Icon(
+                              Icons.insert_drive_file_outlined,
+                            ),
+                            title: Text(
+                              _files[i].name,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: Text(formatBytes(_files[i].size)),
+                            trailing: IconButton(
+                              tooltip: 'Remove ${_files[i].name} from list',
+                              icon: const Icon(Icons.close),
+                              onPressed: () =>
+                                  setState(() => _files.removeAt(i)),
+                            ),
+                          ),
+                      ],
+                    ),
+            ),
+            SectionCard(
+              title: 'Send to',
+              child: targets.isEmpty
+                  ? StateMessage(
+                      icon: Icons.shield_outlined,
+                      title: 'No trusted device yet',
+                      message: 'You can only send to a device you have paired.',
+                      action: TextButton(
+                        onPressed: widget.onConnect,
+                        child: const Text('Connect a device'),
+                      ),
+                    )
+                  : DropdownButton<String>(
+                      isExpanded: true,
+                      value: _targetId,
+                      items: [
+                        for (final d in targets)
+                          DropdownMenuItem(
+                            value: d.id,
+                            child: Text(
+                              engine.nearby.any((n) => n.trusted?.id == d.id)
+                                  ? '${d.name}  (nearby)'
+                                  : d.name,
+                            ),
+                          ),
+                      ],
+                      onChanged: (v) => setState(() => _targetId = v),
+                    ),
+            ),
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(IdLayout.minTouchTarget),
+              ),
+              onPressed: _files.isEmpty || target == null
+                  ? null
+                  : () => _send(target!),
+              icon: const Icon(Icons.send_rounded),
+              label: Text(target == null ? 'Send' : 'Send to ${target.name}'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

@@ -1,6 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../engine/transfer_engine.dart';
+import 'app_scope.dart';
 import 'screens/connect_screen.dart';
+import 'screens/transfer_screen.dart';
 import 'screens/files_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/home_screen.dart';
@@ -33,6 +38,125 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _index = 0;
+  TransferEngine? _engine;
+  PendingRequest? _showing;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final e = AppScope.of(context).engine;
+    if (e != _engine) {
+      _engine?.removeListener(_onEngine);
+      _engine = e..addListener(_onEngine);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _onEngine());
+    }
+  }
+
+  @override
+  void dispose() {
+    _engine?.removeListener(_onEngine);
+    super.dispose();
+  }
+
+  /// Shows approval dialogs for incoming pairing and transfer requests.
+  void _onEngine() {
+    if (!mounted || _showing != null) return;
+    PendingRequest? next;
+    for (final r in _engine!.pending) {
+      if (!r.decided) {
+        next = r;
+        break;
+      }
+    }
+    if (next == null) return;
+    _showing = next;
+    final req = next;
+    unawaited(
+      _ask(req).whenComplete(() {
+        _showing = null;
+        if (mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => _onEngine());
+        }
+      }),
+    );
+  }
+
+  Future<void> _ask(PendingRequest r) async {
+    final pairing = r.kind == RequestKind.pairing;
+    final nav = Navigator.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (c) => AlertDialog(
+        title: Text(
+          pairing
+              ? 'Pair with ${r.peerName}?'
+              : '${r.peerName} wants to send you files',
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: pairing
+                ? [
+                    Text(
+                      '${platformLabel(r.peerPlatform)} device "${r.peerName}" asks to pair.',
+                    ),
+                    const SizedBox(height: IdSpacing.md),
+                    const Text(
+                      'Approve ONLY if the other screen shows exactly this code:',
+                    ),
+                    const SizedBox(height: IdSpacing.sm),
+                    SelectableText(
+                      r.code ?? '',
+                      style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                    const SizedBox(height: IdSpacing.sm),
+                    const Text('If you did not start this, tap Decline.'),
+                  ]
+                : [
+                    Text(
+                      '${r.fileNames.length} file(s), ${formatBytes(r.totalBytes)} from trusted device "${r.peerName}".',
+                    ),
+                    const SizedBox(height: IdSpacing.sm),
+                    for (final n in r.fileNames.take(5))
+                      Text('- $n', overflow: TextOverflow.ellipsis),
+                    if (r.fileNames.length > 5)
+                      Text('...and ${r.fileNames.length - 5} more'),
+                  ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Decline'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: Text(pairing ? 'Codes match - approve' : 'Accept'),
+          ),
+        ],
+      ),
+    );
+    if (r.decided) return;
+    if (ok == true) {
+      r.approve();
+      final job = r.job;
+      if (job != null && mounted) {
+        unawaited(
+          nav.push(
+            MaterialPageRoute<void>(builder: (_) => TransferScreen(job: job)),
+          ),
+        );
+      }
+    } else {
+      r.decline();
+    }
+  }
 
   void _go(int i) => setState(() => _index = i);
 
@@ -51,7 +175,7 @@ class _AppShellState extends State<AppShell> {
             onConnect: () => _go(2),
             onTrusted: _openTrusted,
           ),
-          FilesScreen(isDesktop: desktop),
+          FilesScreen(isDesktop: desktop, onConnect: () => _go(2)),
           const ConnectScreen(),
           const HistoryScreen(),
           SettingsScreen(onTrusted: _openTrusted),

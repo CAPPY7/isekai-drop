@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -5,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class SettingsController extends ChangeNotifier {
   SettingsController(this._prefs) {
     _themeMode = _parseTheme(_prefs.getString(_kTheme));
-    _deviceName = _prefs.getString(_kName) ?? 'My device';
+    _deviceName = _prefs.getString(_kName) ?? _defaultName();
   }
 
   static const int schemaVersion = 1;
@@ -44,6 +46,18 @@ class SettingsController extends ChangeNotifier {
     _deviceName = clean.length > 40 ? clean.substring(0, 40) : clean;
     notifyListeners();
     await _prefs.setString(_kName, _deviceName);
+  }
+
+  static String _defaultName() {
+    final n = switch (Platform.operatingSystem) {
+      'android' => 'Android phone',
+      'ios' => 'iPhone',
+      'windows' => 'Windows PC',
+      'macos' => 'Mac',
+      'linux' => 'Linux PC',
+      _ => 'My device',
+    };
+    return n;
   }
 
   static ThemeMode _parseTheme(String? s) => switch (s) {
