@@ -10,6 +10,7 @@ import '../transfer_engine.dart';
 import 'discovery.dart';
 import 'frames.dart';
 import 'identity.dart';
+import 'pending_send_store.dart';
 import 'resume_store.dart';
 import 'safe_files.dart';
 import 'trust_store.dart';
@@ -61,6 +62,8 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     this.history,
     this.benchmarks,
     this.resume,
+    this.pendingSends,
+    this.sourceCodec = const SendSourceCodec(),
     bool Function()? acceptingFiles,
     bool Function(TrustedDevice device)? autoAccept,
     bool Function()? saveFileNames,
@@ -80,6 +83,68 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   /// Benchmark runs (measured numbers + conditions only).
   @override
   final BenchmarkStore? benchmarks;
+
+  /// Audit #9: failed sends kept for retry after a restart. Null = off.
+  final PendingSendStore? pendingSends;
+  final SendSourceCodec sourceCodec;
+
+  @override
+  List<PendingSend> get interruptedSends => pendingSends?.items ?? const [];
+
+  /// Retries a send saved by an earlier run of the app. Returns null if the
+  /// device is gone or a file can no longer be opened (entry is kept).
+  @override
+  Future<TransferJob?> retrySaved(String id) async {
+    final store = pendingSends;
+    if (store == null) return null;
+    final p = store.items.where((e) => e.id == id).firstOrNull;
+    if (p == null) return null;
+    final dev = trust.byId(p.trustedId);
+    if (dev == null || dev.status == TrustStatus.revoked) return null;
+    final files = <SendSource>[];
+    for (final m in p.sources) {
+      final s = sourceCodec.decode(m);
+      if (s == null) return null;
+      files.add(s);
+    }
+    return send(dev, files);
+  }
+
+  @override
+  Future<void> removeSaved(String id) async {
+    await pendingSends?.remove(id);
+    notifyListeners();
+  }
+
+  void _trackPending(TransferJob job) {
+    final store = pendingSends;
+    if (store == null || job.direction != JobDirection.sending) return;
+    final dev = trust.byId(job.trustedId ?? '');
+    if (dev == null || job.sources.isEmpty) return;
+    final id = transferIdFor(dev.fingerprint, job.sources);
+    if (job.state != JobState.failed || job.refusedByPeer) {
+      unawaited(store.remove(id));
+      return;
+    }
+    final enc = <Map<String, dynamic>>[];
+    for (final s in job.sources) {
+      final m = sourceCodec.encode(s);
+      if (m == null) return;
+      enc.add(m);
+    }
+    unawaited(
+      store.put(
+        PendingSend(
+          id: id,
+          trustedId: dev.id,
+          peerName: dev.name,
+          totalBytes: job.totalBytes,
+          createdAt: DateTime.now().toUtc(),
+          sources: enc,
+        ),
+      ),
+    );
+  }
 
   /// Receiver-side resume state. Null = interrupted transfers start over.
   final ResumeStore? resume;
@@ -156,6 +221,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     if (job.isActive) return;
     if (!_recorded.add(job.id)) return;
     _lastFinished = job;
+    _trackPending(job);
     final h = history;
     if (h != null) {
       final now = DateTime.now().toUtc();
@@ -1064,6 +1130,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         kApprovalTimeout + const Duration(seconds: 10),
       );
       if (answer['t'] == 'error') {
+        job.refusedByPeer = true;
         job.finish(
           JobState.failed,
           'The other device does not trust this device. Pair again.',
@@ -1071,6 +1138,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         return;
       }
       if (answer['t'] != 'accept') {
+        job.refusedByPeer = true;
         job.finish(
           JobState.failed,
           answer['reason'] == 'not_accepting'

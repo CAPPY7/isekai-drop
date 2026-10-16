@@ -83,6 +83,70 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: IdSpacing.md),
+            if (engine.interruptedSends.isNotEmpty)
+              SectionCard(
+                title: 'Interrupted sends',
+                child: Column(
+                  children: [
+                    for (final s in engine.interruptedSends)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        minTileHeight: IdLayout.minTouchTarget,
+                        leading: const Icon(Icons.restore),
+                        title: Text('To ${s.peerName}'),
+                        subtitle: Text(
+                          '${s.fileCount} file(s), ${formatBytes(s.totalBytes)} - did not finish',
+                        ),
+                        trailing: Wrap(
+                          children: [
+                            TextButton(
+                              onPressed: () async {
+                                final messenger = ScaffoldMessenger.of(context);
+                                final j = await engine.retrySaved(s.id);
+                                if (j == null) {
+                                  messenger.showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Cannot retry: the device or a file is no longer available.',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              },
+                              child: const Text('Retry'),
+                            ),
+                            TextButton(
+                              onPressed: () async {
+                                final ok = await showDialog<bool>(
+                                  context: context,
+                                  builder: (c) => AlertDialog(
+                                    title: const Text('Remove this send?'),
+                                    content: const Text(
+                                      'It will no longer be offered for retry. Your files are not deleted.',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(c, false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      FilledButton(
+                                        onPressed: () => Navigator.pop(c, true),
+                                        child: const Text('Remove'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (ok == true) await engine.removeSaved(s.id);
+                              },
+                              child: const Text('Remove'),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             if (engine.jobs.isNotEmpty)
               SectionCard(
                 title: 'Transfers this session',

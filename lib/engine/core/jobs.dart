@@ -203,6 +203,10 @@ class TransferJob extends ChangeNotifier {
     }
   }
 
+  /// The other device said no (declined / not accepting / not trusted):
+  /// a decision, not a network failure, so it is not kept for retry.
+  bool refusedByPeer = false;
+
   void finish(JobState s, [String? msg]) {
     if (!isActive) return;
     _clock.stop();

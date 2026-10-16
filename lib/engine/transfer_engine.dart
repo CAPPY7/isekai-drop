@@ -11,6 +11,7 @@ import 'core/engine.dart';
 import 'core/benchmark_store.dart';
 import 'core/history_store.dart';
 import 'core/jobs.dart';
+import 'core/pending_send_store.dart';
 import 'core/send_source.dart';
 import 'core/trust_store.dart';
 
@@ -19,6 +20,7 @@ export 'core/history_store.dart';
 export 'core/engine.dart' show NearbyDevice, PairingSession, PairingException;
 export 'core/identity.dart' show shortFingerprint;
 export 'core/jobs.dart';
+export 'core/pending_send_store.dart' show PendingSend;
 export 'core/send_source.dart';
 export 'core/trust_store.dart' show TrustedDevice, TrustStatus;
 export 'models.dart';
@@ -78,6 +80,11 @@ abstract class TransferEngine implements Listenable {
   String codeFor(TrustedDevice d);
 
   Future<TransferJob?> retry(TransferJob job);
+
+  /// Audit #9: failed sends saved by an earlier run (retry after restart).
+  List<PendingSend> get interruptedSends;
+  Future<TransferJob?> retrySaved(String id);
+  Future<void> removeSaved(String id);
   void clearFinishedJobs();
 
   /// Finished transfers (persisted). Null in tests without storage.

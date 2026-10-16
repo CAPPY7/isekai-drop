@@ -13,6 +13,7 @@ import 'package:isekaidrop/engine/core/engine.dart';
 import 'package:isekaidrop/engine/core/history_store.dart';
 import 'package:isekaidrop/engine/core/identity.dart';
 import 'package:isekaidrop/engine/core/jobs.dart';
+import 'package:isekaidrop/engine/core/pending_send_store.dart';
 import 'package:isekaidrop/engine/core/resume_store.dart';
 import 'package:isekaidrop/engine/core/send_source.dart';
 import 'package:isekaidrop/engine/core/trust_store.dart';
@@ -27,6 +28,7 @@ class N {
   late IsekaiEngine engine;
   late TrustStore trust;
   late HistoryStore history;
+  late PendingSendStore pendingSends;
   final List<PendingRequest> asked = [];
   bool approve = true;
   bool accepting = true;
@@ -43,6 +45,8 @@ class N {
     await trust.load();
     history = HistoryStore(File(p.join(root.path, 'history.json')));
     await history.load();
+    pendingSends = PendingSendStore(File(p.join(root.path, 'pending.json')));
+    await pendingSends.load();
     engine = IsekaiEngine(
       identity: identity,
       trust: trust,
@@ -55,6 +59,7 @@ class N {
       enableDiscovery: false,
       history: history,
       resume: ResumeStore(resumeDir),
+      pendingSends: pendingSends,
       acceptingFiles: () => accepting,
       autoAccept: (_) => auto,
     );
@@ -489,6 +494,63 @@ void main() {
   });
 
   group('resume', () {
+    test(
+      'audit #9: failed send survives a SENDER restart and resumes',
+      () async {
+        await pair(a, b);
+        final f = await rnd(src, 'big.bin', 3 * 1024 * 1024 + 7);
+        a.engine.debugDropAfterBytes = 1024 * 1024;
+        final first = await done(
+          await a.engine.send(a.engine.trustedDevices.single, [
+            FileSendSource(f),
+          ]),
+        );
+        expect(first.state, JobState.failed);
+        await a.pendingSends.idle;
+        await settle();
+        // Sender app is closed and opened again: in-memory jobs are gone.
+        await a.engine.stop();
+        await a.boot();
+        expect(a.engine.jobs, isEmpty);
+        expect(a.engine.interruptedSends, hasLength(1));
+        expect(a.engine.interruptedSends.single.peerName, isNotEmpty);
+        final again = await done(
+          (await a.engine.retrySaved(a.engine.interruptedSends.single.id))!,
+        );
+        expect(again.state, JobState.completed, reason: again.message);
+        expect(again.resumedBytes, greaterThan(0));
+        expect(sha(File(p.join(b.inbox.path, 'big.bin'))), sha(f));
+        await a.pendingSends.idle;
+        expect(a.engine.interruptedSends, isEmpty);
+        final reloaded = PendingSendStore(a.pendingSends.file);
+        await reloaded.load();
+        expect(
+          reloaded.items,
+          isEmpty,
+          reason: 'removed on disk after success',
+        );
+      },
+    );
+
+    test('audit #9: a cancelled send is not kept for retry', () async {
+      await pair(a, b);
+      final f = await rnd(src, 'c.bin', 2 * 1024 * 1024);
+      b.approve = false;
+      final j = await done(
+        await a.engine.send(a.engine.trustedDevices.single, [
+          FileSendSource(f),
+        ]),
+      );
+      expect(j.isActive, isFalse);
+      await a.pendingSends.idle;
+      expect(
+        a.engine.interruptedSends,
+        isEmpty,
+        reason: 'only failures are kept: ${j.state}',
+      );
+      b.approve = true;
+    });
+
     test('after a network drop: Retry continues, whole file re-hashed', () async {
       await pair(a, b);
       final f = await rnd(src, 'big.bin', 3 * 1024 * 1024 + 123);

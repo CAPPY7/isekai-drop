@@ -16,6 +16,7 @@ import 'core/engine.dart';
 import 'core/history_store.dart';
 import 'core/identity.dart';
 import 'core/key_migration.dart';
+import 'core/pending_send_store.dart';
 import 'core/resume_store.dart';
 import 'core/send_source.dart';
 import 'core/trust_store.dart';
@@ -171,6 +172,10 @@ Future<IsekaiEngine> createPlatformEngine(
   try {
     await benchmarks.load();
   } catch (_) {}
+  final pendingSends = PendingSendStore(
+    File(p.join(support.path, 'pending_sends.json')),
+  );
+  await pendingSends.load();
   final history = HistoryStore(File(p.join(support.path, 'history.json')));
   try {
     await history.load();
@@ -249,6 +254,8 @@ Future<IsekaiEngine> createPlatformEngine(
     // Partial data of interrupted receives, next to where files land
     // (hidden folder), so finishing a file is a cheap rename.
     resume: ResumeStore(Directory(p.join(tempDir.path, '.isekai-resume'))),
+    pendingSends: pendingSends,
+    sourceCodec: const _PlatformSourceCodec(),
     acceptingFiles: acceptingFiles,
     autoAccept: autoAccept,
     saveFileNames: saveFileNames,
@@ -264,6 +271,33 @@ Future<IsekaiEngine> createPlatformEngine(
 }
 
 /// Android: streams a picked file through a file descriptor (no copy).
+/// Audit #9: also stores Android content URIs (persistable read access is
+/// not guaranteed after a restart; if opening fails, the retry reports it).
+class _PlatformSourceCodec extends SendSourceCodec {
+  const _PlatformSourceCodec();
+
+  @override
+  Map<String, dynamic>? encode(SendSource s) => s is AndroidUriSource
+      ? {
+          'k': 'uri',
+          'uri': s.uri,
+          'name': s.name,
+          'size': s.size,
+          'rel': s.relativePath,
+        }
+      : super.encode(s);
+
+  @override
+  SendSource? decode(Map<String, dynamic> m) => m['k'] == 'uri'
+      ? AndroidUriSource(
+          m['uri'] as String,
+          m['name'] as String,
+          (m['size'] as num).toInt(),
+          relativePath: m['rel'] as String?,
+        )
+      : super.decode(m);
+}
+
 class AndroidUriSource extends SendSource {
   AndroidUriSource(this.uri, this.name, this.size, {String? relativePath})
     : _rel = relativePath;
