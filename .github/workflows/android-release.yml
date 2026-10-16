@@ -1,0 +1,110 @@
+name: Android RELEASE (real key, manual only)
+
+# PREPARED, NOT ACTIVE: needs 4 repository secrets that only the owner can add
+# (docs/RELEASE_SIGNING.md). Runs ONLY when started by hand (Actions tab >
+# this workflow > Run workflow). Normal pushes keep building DEV-signed test
+# APKs in android.yml. If a secret is missing this workflow FAILS; it never
+# falls back to the dev key for a release.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        description: "Release tag, e.g. v0.7.0"
+        required: true
+
+permissions: {}
+
+env:
+  FLUTTER_VERSION: "3.47.7"
+
+jobs:
+  build:
+    name: Build release-signed APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check the tag format
+        env:
+          TAG: ${{ inputs.version_tag }}
+        run: '[[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Tag must look like v0.7.0"; exit 1; }'
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2.23.0
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - name: Write keystore from secret (temp file, deleted at the end)
+        env:
+          KEYSTORE_B64: ${{ secrets.ISEKAI_RELEASE_KEYSTORE_B64 }}
+          STORE_PW: ${{ secrets.ISEKAI_RELEASE_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ISEKAI_RELEASE_KEY_ALIAS }}
+          KEY_PW: ${{ secrets.ISEKAI_RELEASE_KEY_PASSWORD }}
+        run: |
+          for v in KEYSTORE_B64 STORE_PW KEY_ALIAS KEY_PW; do
+            [ -n "${!v}" ] || { echo "Missing secret for $v - see docs/RELEASE_SIGNING.md"; exit 1; }
+          done
+          umask 077
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "ISEKAI_RELEASE_KEYSTORE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+      - name: Build arm64 + universal APKs with the release key
+        env:
+          ISEKAI_RELEASE_STORE_PASSWORD: ${{ secrets.ISEKAI_RELEASE_STORE_PASSWORD }}
+          ISEKAI_RELEASE_KEY_ALIAS: ${{ secrets.ISEKAI_RELEASE_KEY_ALIAS }}
+          ISEKAI_RELEASE_KEY_PASSWORD: ${{ secrets.ISEKAI_RELEASE_KEY_PASSWORD }}
+        run: |
+          flutter build apk --release --build-number=${{ github.run_number }}000
+          cp build/app/outputs/flutter-apk/app-release.apk "isekai-drop-${{ inputs.version_tag }}.apk"
+          flutter build apk --release --split-per-abi --target-platform android-arm64 \
+            --build-number=${{ github.run_number }}000 \
+            --android-project-arg=force-version-code-ignoring-abi=true
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk "isekai-drop-${{ inputs.version_tag }}-arm64.apk"
+      - name: Refuse if signed with the DEV key; show the fingerprint
+        run: |
+          APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner
+          for f in isekai-drop-*.apk; do
+            test -s "$f"
+            out=$("$APKSIGNER" verify --print-certs "$f" | grep -i "SHA-256")
+            echo "$f: $out"
+            if echo "$out" | grep -qi "5b36eeb022d11e4c4a9470d4d7cae387407ba238f4bb19c0b2847cefb1b257c1"; then
+              echo "ERROR: signed with the DEV key"; exit 1
+            fi
+          done
+      - name: Remove keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.jks"
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: isekai-drop-release
+          path: isekai-drop-*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Create DRAFT release (owner publishes by hand)
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: isekai-drop-release
+      - uses: softprops/action-gh-release@v3.0.3
+        with:
+          tag_name: ${{ inputs.version_tag }}
+          name: Isekai Drop ${{ inputs.version_tag }}
+          draft: true
+          prerelease: false
+          body: |
+            Release-signed build. See RELEASE_NOTES.md.
+            If you had a TEST build installed: uninstall it first (different signing key), then install this one and pair again.
+          files: isekai-drop-*.apk

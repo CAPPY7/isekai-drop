@@ -143,3 +143,9 @@ file before every phase. Stop after each phase and wait for "next".
 - Resume: see docs/PROTOCOL.md "Phase 6". Receiver state = ResumeStore in <receive dir>/.isekai-resume. Never trust partial bytes: whole-file SHA-256 at the end.
 - History: HistoryStore (history.json, schema 1). No contents; names optional. The app must never print/log (test enforces: phase6_test "no file names in logs").
 - Always `unawaited(socket.done.then(..., onError: ...))` on SecureSockets, otherwise a broken pipe after the peer leaves is an uncaught async error.
+
+## Phase 7 notes (2026-10-16)
+- docs/AUDIT.md is the bug list. Open items wait for owner OK (only Crash/Security may be fixed without asking, each with a test).
+- Discovery data is untrusted: never let it change trust records or saved addresses (audit #1). Addresses are saved only after a TLS session succeeds. identityChanged is set only on a key mismatch at the last AUTHENTICATED host:port.
+- Benchmark log: numbers + conditions only. Refuse paused/resumed runs. CSV cells starting with = + - @ are escaped.
+- Release signing: gradle uses the release key only if ISEKAI_RELEASE_KEYSTORE is set (android-release.yml, manual). NEVER set repo secrets or create the key without the owner's explicit OK. Switching keys forces every user to uninstall once.

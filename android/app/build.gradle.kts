@@ -40,6 +40,13 @@ android {
     // These passwords are deliberately NOT secret. This key is only for test
     // builds so every APK is signed the same way and updates install cleanly.
     // A real release key is created in the final phase and is never committed.
+    //
+    // REAL RELEASE KEY (prepared, not active until the owner adds secrets):
+    // only the separate workflow .github/workflows/android-release.yml sets
+    // these environment variables, from GitHub secrets. Normal test builds
+    // never see them and keep using the dev key. See docs/RELEASE_SIGNING.md.
+    val releaseStore = System.getenv("ISEKAI_RELEASE_KEYSTORE")
+    val useReleaseKey = !releaseStore.isNullOrBlank()
     signingConfigs {
         create("dev") {
             storeFile = file("isekai-drop-dev.jks")
@@ -47,11 +54,19 @@ android {
             keyAlias = "isekai-drop-dev"
             keyPassword = "isekai-drop-dev-only"
         }
+        if (useReleaseKey) {
+            create("release") {
+                storeFile = file(releaseStore!!)
+                storePassword = System.getenv("ISEKAI_RELEASE_STORE_PASSWORD")
+                keyAlias = System.getenv("ISEKAI_RELEASE_KEY_ALIAS")
+                keyPassword = System.getenv("ISEKAI_RELEASE_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("dev")
+            signingConfig = signingConfigs.getByName(if (useReleaseKey) "release" else "dev")
         }
     }
 }

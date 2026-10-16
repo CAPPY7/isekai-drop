@@ -242,6 +242,20 @@ class SettingsScreen extends StatelessWidget {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   minTileHeight: IdLayout.minTouchTarget,
+                  leading: const Icon(Icons.gavel_outlined),
+                  title: const Text('Open-source licences'),
+                  subtitle: const Text(
+                    'Full licence texts of included software',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => showLicensePage(
+                    context: context,
+                    applicationName: 'Isekai Drop',
+                  ),
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  minTileHeight: IdLayout.minTouchTarget,
                   leading: const Icon(Icons.speed),
                   title: const Text('Benchmark log'),
                   subtitle: const Text(

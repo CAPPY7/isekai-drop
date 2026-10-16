@@ -75,7 +75,14 @@
 - [ ] On-device tests (NOT TESTED on phones yet)
 
 ## Phase 7 - Benchmark against LocalSend (identical conditions)
-- [ ] Measured results table, no unmeasured claims
+- [x] Plan, printable steps, results template (docs/BENCHMARK_*.md); all results NOT TESTED
+- [x] In-app benchmark log (measured numbers + conditions only, median/min/max, CSV export)
+- [x] Code audit: docs/AUDIT.md (18 items); Security #1, #2 and Crash #17 fixed, each with a test
+- [x] docs/ACCEPTANCE.md (7 PASS automated/box, 0 FAIL, 4 NOT TESTED)
+- [x] RELEASE_NOTES.md draft, THIRD_PARTY_NOTICES regenerated (77 packages), README limits + friends/family steps
+- [x] Release-signing workflow prepared (manual only, secrets not set): docs/RELEASE_SIGNING.md
+- [ ] Owner runs the benchmark (docs/BENCHMARK_STEPS.md) -> measured results table
+- [ ] Owner picks a signing option and adds secrets
 
 ## Phase 8 - Fix security, compatibility, performance, usability
 - [ ] Security tests for all acceptance tests
