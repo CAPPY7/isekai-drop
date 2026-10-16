@@ -262,6 +262,23 @@ void main() {
     expect(hits, isEmpty);
   });
 
+  test(
+    '#14 resume id differs for a different file with same name+size',
+    () async {
+      final f = File(p.join(dir.path, 'same.bin'))..writeAsBytesSync([1, 2, 3]);
+      f.setLastModifiedSync(DateTime(2026, 1, 1));
+      final id1 = transferIdFor('fp', [FileSendSource(f)]);
+      expect(
+        transferIdFor('fp', [FileSendSource(f)]),
+        id1,
+        reason: 'same unchanged file keeps its id (resume works)',
+      );
+      f.writeAsBytesSync([9, 9, 9]); // same name, same size, new content
+      f.setLastModifiedSync(DateTime(2026, 1, 2));
+      expect(transferIdFor('fp', [FileSendSource(f)]), isNot(id1));
+    },
+  );
+
   group('#3 fallback identity moves into secure storage', () {
     test('migrated: stored, read back, file wiped and deleted', () async {
       final f = File(p.join(dir.path, 'identity_fallback.json'));

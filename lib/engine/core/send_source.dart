@@ -12,13 +12,32 @@ abstract class SendSource {
   int get size;
   Stream<List<int>> open();
   Future<void> close() async {}
+
+  /// Audit #14: something that changes when the content changes (here the
+  /// modification time), so a different file with the same name and size
+  /// gets a different resume id. Null if the source cannot tell.
+  String? get versionTag => null;
 }
 
 class FileSendSource extends SendSource {
   FileSendSource(this.file, {String? name, int? size, String? relativePath})
     : name = name ?? file.uri.pathSegments.last,
       size = size ?? file.lengthSync(),
-      _rel = relativePath;
+      _rel = relativePath,
+      _mtime = _safeMtime(file);
+
+  static int? _safeMtime(File f) {
+    try {
+      return f.lastModifiedSync().microsecondsSinceEpoch;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  final int? _mtime;
+
+  @override
+  String? get versionTag => _mtime == null ? null : 'm$_mtime';
 
   final File file;
   @override

@@ -1424,9 +1424,9 @@ class NearbyDevice {
 /// file data. A different file with the same name and size gives the same
 /// id; the final SHA-256 check then fails and the next retry starts fresh.
 String transferIdFor(String peerFingerprint, List<SendSource> files) {
-  final b = StringBuffer('isekai-tid-v1|$peerFingerprint');
+  final b = StringBuffer('isekai-tid-v2|$peerFingerprint');
   for (final f in files) {
-    b.write('|${f.relativePath}|${f.size}');
+    b.write('|${f.relativePath}|${f.size}|${f.versionTag ?? ''}');
   }
   return sha256.convert(utf8.encode(b.toString())).toString().substring(0, 32);
 }
