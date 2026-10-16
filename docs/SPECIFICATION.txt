@@ -1,0 +1,135 @@
+ISEKAI DROP — APP SPECIFICATION
+
+PURPOSE
+Build a personal, cross-platform file-sharing app focused on maximum practical transfer speed, a premium UI, easy connections, and strong privacy/security. It should be usable by the owner, friends, and family.
+
+PLATFORMS
+- Android
+- iPhone and iPad
+- Windows PC
+- macOS
+- Linux, if practical
+
+CORE GOALS
+- Fast device-to-device transfers without relying on internet speed or uploading files to the cloud.
+- Do not require the home Wi-Fi router. Support suitable direct connections, such as a temporary hotspot or other compatible peer-to-peer methods.
+- Make connection setup as automatic and simple as platform restrictions allow.
+- Provide a premium, modern, consistent UI adapted to mobile and desktop screens.
+- Benchmark performance against LocalSend under identical conditions; do not claim improvements without measured results.
+
+UI AND DESIGN
+- Premium dark theme with optional light theme.
+- Refined dark surfaces, subtle gradients, tasteful blue/purple accents, rounded cards, smooth animations, and clear typography.
+- Keep the interface clean, fast, responsive, and easy to understand.
+- Mobile and desktop layouts should be designed for their screen sizes rather than simply scaled versions of one layout.
+
+MAIN SCREENS
+1. Home
+   - Nearby devices
+   - Saved trusted devices
+   - Send and Receive actions
+   - Connection status
+2. File Selection
+   - Select multiple files, photos, videos, documents, and folders where supported
+   - Show selected items and total size
+   - Drag-and-drop on desktop
+3. Sending and Receiving
+   - Live speed in MB/s
+   - Progress percentage and progress bar
+   - Transferred/total size and estimated remaining time
+   - Pause, resume, and cancel where supported
+   - Clear success/failure status
+4. Connect Device
+   - Automatic discovery when supported
+   - QR-code or verification-code pairing
+   - Simple fallback connection methods when automatic discovery fails
+5. Trusted Devices
+   - Device name, platform, and verification status
+   - Rename and remove/revoke trusted devices
+   - Reverify if a device identity changes unexpectedly
+6. Transfer History
+   - Recent transfers, status, file size, destination, and time
+   - Do not expose sensitive file contents in history
+7. Settings
+   - Dark/light/system theme
+   - Device name
+   - Receive permissions and auto-receive preferences
+   - Security and trusted-device management
+   - Connection preferences and diagnostics
+
+TRANSFER FEATURES
+- Send individual files, multiple files, and folders where platform APIs allow.
+- Preserve folder structure when sending folders.
+- Efficient chunked streaming; do not load entire large files into memory.
+- Verify completed transfers using cryptographic hashes.
+- Resume interrupted transfers where technically supported.
+- Queue multiple transfers and handle errors clearly.
+- Avoid unnecessary file copies and optimize buffering.
+- Automatically choose the fastest compatible connection method based on measured performance.
+- Support direct local transfers without cloud storage or mandatory accounts.
+- Do not promise a fixed transfer speed. Performance depends on device hardware, Wi-Fi capability, interference, operating-system restrictions, and connection method.
+- Treat 50–100 MB/s on suitable connections as a target to test, not a guarantee.
+
+CONNECTION STRATEGY
+- Prioritize direct device-to-device Wi-Fi connections that do not depend on the home router or internet.
+- Evaluate temporary hotspot mode and platform-supported peer-to-peer methods.
+- Use Bluetooth only as a compatibility fallback for discovery or small transfers if appropriate; do not rely on it for maximum-speed large-file transfers.
+- Support manual connection fallback, such as QR code or IP entry, when automatic discovery is unavailable.
+- Clearly explain when a platform requires the user to enable a hotspot, approve a local-network permission, keep the app in the foreground, or take another action.
+- Do not assume every connection technology is supported by every operating system.
+- Avoid internet relay or cloud transfer by default.
+
+SECURITY AND PRIVACY
+- Encrypt data in transit using a secure, well-maintained protocol such as TLS with proper certificate or public-key identity verification.
+- Pair new devices using a QR code or verification code and require explicit approval.
+- Never trust a device based only on its displayed name or IP address.
+- Give each installation a cryptographic identity. Store private keys using the platform's secure storage facilities where available.
+- Save trusted device identity keys securely so future sessions can authenticate and reconnect faster.
+- Authenticate every session, including sessions with saved devices.
+- Reject unknown devices unless the user explicitly approves pairing.
+- Detect unexpected identity changes and block the connection until the device is verified again.
+- Provide a clear way to revoke a trusted device.
+- Require recipient approval by default for incoming transfers from untrusted devices.
+- Prevent unauthorized users on the same network from reading or altering transfer contents.
+- Do not expose device listings or transfer data publicly.
+- Do not upload files to cloud services or collect unnecessary analytics.
+- Keep sensitive file names and transfer details out of unnecessary logs.
+- Validate file paths and filenames to prevent path traversal and unsafe overwrites.
+- Use safe temporary files and only finalize received files after successful integrity verification.
+- Clearly distinguish verified, trusted, and unknown devices.
+- Security must be implemented and tested; do not describe the app as perfectly secure.
+
+PLATFORM CONSTRAINTS
+- Account for iOS/iPadOS local-network permissions, background-execution limits, file-access restrictions, and supported peer-to-peer networking APIs.
+- Use native platform integrations where required for file pickers, secure key storage, sharing menus, networking, and installation.
+- Make no promise of uninterrupted background transfers on platforms that restrict them.
+- Test Android, iOS/iPadOS, Windows, macOS, and Linux separately.
+
+RECOMMENDED TECHNICAL DIRECTION
+- Consider Flutter for the shared UI.
+- Build a dedicated, optimized transfer engine with native integrations where needed.
+- Choose protocols and connection methods based on cross-platform support, security, and measured performance rather than assumptions.
+- Keep the UI separate from the transfer engine so either can be improved independently.
+- Do not add unnecessary backend servers, accounts, subscriptions, or cloud infrastructure.
+
+DEVELOPMENT PLAN
+Phase 1: Finalize UI screens and architecture.
+Phase 2: Implement secure pairing, direct connections, and reliable file streaming.
+Phase 3: Test Android-to-Windows and Android-to-macOS transfers.
+Phase 4: Add and test iPhone/iPad interoperability and platform-specific fallbacks.
+Phase 5: Add trusted-device management, history, queues, integrity checks, and transfer resumption.
+Phase 6: Benchmark against LocalSend using identical devices, networks, file sizes, and test conditions.
+Phase 7: Fix security, compatibility, performance, and usability issues before personal deployment.
+
+ACCEPTANCE TESTS
+- Unknown devices cannot receive files or establish trusted sessions without approval.
+- Saved devices authenticate using cryptographic identity, not just device names.
+- Revoked devices can no longer connect as trusted devices.
+- Transfers are encrypted and file integrity is verified.
+- Large files transfer without loading the entire file into memory.
+- Interrupted transfers recover safely where supported.
+- The app reports actual measured transfer speed and does not display fabricated speeds.
+- Direct transfer works without internet when the chosen connection method and platforms support it.
+- Cross-platform behavior and limitations are documented accurately.
+- UI remains responsive during large transfers.
+- Performance comparisons with LocalSend use identical test conditions.
