@@ -319,9 +319,8 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       trusted: t,
       fingerprintMismatch: t != null && t.fingerprint != a.fingerprint,
     );
-    if (t != null && t.isTrusted && t.fingerprint == a.fingerprint) {
-      unawaited(trust.rememberAddress(t.id, a.host, a.port));
-    }
+    // Announcements are NOT authenticated, so they never change saved
+    // trust data. The address is saved only after a TLS session succeeds.
     notifyListeners();
   }
 
@@ -838,6 +837,10 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     int port,
   ) async {
     var mismatch = false;
+    // Only an address where this device was last AUTHENTICATED counts as
+    // evidence of a real identity change. A wrong key anywhere else may be
+    // a spoofed announcement: refuse it, but don't block the real device.
+    final atKnownAddress = host == dev.lastHost && port == dev.lastPort;
     try {
       final sock = await SecureSocket.connect(
         host,
@@ -856,6 +859,12 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       unawaited(sock.done.then((_) {}, onError: (_) {}));
       return sock;
     } catch (e) {
+      if (mismatch && !atKnownAddress) {
+        throw const PairingException(
+          'A device at that address claims to be this device but has a different key. '
+          'Not connected. Your saved device was not changed.',
+        );
+      }
       if (mismatch) {
         await trust.markIdentityChanged(dev.id);
         _refreshNearbyTrust();
@@ -936,6 +945,8 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     try {
       s = await _connectTrusted(dev, host, port ?? kDefaultPort);
       final sock = s;
+      // Authenticated by TLS (key matched): now it is safe to remember.
+      unawaited(trust.rememberAddress(dev.id, host, port ?? kDefaultPort));
       reader = FrameReader(sock);
       job.onCancel = () {
         try {

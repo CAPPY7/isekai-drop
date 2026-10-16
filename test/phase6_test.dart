@@ -7,6 +7,7 @@ import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:isekaidrop/engine/core/discovery.dart';
 import 'package:isekaidrop/engine/core/engine.dart';
 import 'package:isekaidrop/engine/core/history_store.dart';
 import 'package:isekaidrop/engine/core/identity.dart';
@@ -36,7 +37,7 @@ class N {
 
   /// Starts (or RE-starts, like after the app was killed) with the same
   /// identity and the same files on disk.
-  Future<void> boot() async {
+  Future<void> boot({int port = 0}) async {
     trust = TrustStore(File(p.join(root.path, 'trusted.json')));
     await trust.load();
     history = HistoryStore(File(p.join(root.path, 'history.json')));
@@ -48,7 +49,7 @@ class N {
       platformName: 'linux',
       tempDir: inbox,
       finalizer: directoryFinalizer(inbox),
-      port: 0,
+      port: port,
       bindAddress: InternetAddress.loopbackIPv4,
       enableDiscovery: false,
       history: history,
@@ -168,8 +169,8 @@ void main() {
           'device_id': b.identity.deviceId,
         }),
       );
-      await b2.boot();
-      // Can't bind the same port reliably; connect to the new one.
+      await b2.boot(port: port);
+      expect(b2.port, port, reason: 'same address as before');
       final dev = a.engine.trustedDevices.single;
       final f = await rnd(src, 'y.bin', 1000);
       final j = await done(
@@ -252,6 +253,58 @@ void main() {
       await fake.stop();
     });
   });
+
+  test(
+    'spoofed announcement neither blocks nor redirects (audit #1)',
+    () async {
+      await pair(a, b);
+      final real = a.engine.trustedDevices.single;
+      // An attacker on the network announces B's id and B's key, but at its
+      // own address. It cannot prove the key.
+      final attacker = await N.create('evil');
+      addTearDown(attacker.dispose);
+      a.engine.addAnnouncement(
+        Announcement(
+          deviceId: real.deviceId,
+          name: 'b',
+          platform: 'linux',
+          port: attacker.port,
+          fingerprint: real.fingerprint,
+          host: '127.0.0.1',
+          seenAt: DateTime.now(),
+        ),
+      );
+      await settle();
+      expect(
+        a.engine.trustedDevices.single.lastPort,
+        b.port,
+        reason: 'unauthenticated announcement must not change saved address',
+      );
+      final f = await rnd(src, 's.bin', 1000);
+      final j = await done(
+        await a.engine.send(
+          real,
+          [FileSendSource(f)],
+          host: '127.0.0.1',
+          port: attacker.port,
+        ),
+      );
+      expect(j.state, JobState.failed);
+      expect(j.message, contains('different key'));
+      expect(
+        a.engine.trustedDevices.single.status,
+        TrustStatus.verified,
+        reason: 'the real device must NOT be blocked by a spoofer',
+      );
+      expect(attacker.received(), isEmpty);
+      final ok = await done(
+        await a.engine.send(a.engine.trustedDevices.single, [
+          FileSendSource(f),
+        ]),
+      );
+      expect(ok.state, JobState.completed, reason: ok.message);
+    },
+  );
 
   group('receive settings', () {
     test('auto-receive only for VERIFIED devices', () async {

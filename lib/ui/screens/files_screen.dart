@@ -113,7 +113,8 @@ class _FilesScreenState extends State<FilesScreen> {
     final engine = AppScope.of(context).engine;
     NearbyDevice? live;
     for (final n in engine.nearby) {
-      if (n.trusted?.id == dev.id) live = n;
+      // Skip announcements whose key does not match (possible spoofing).
+      if (n.trusted?.id == dev.id && !n.fingerprintMismatch) live = n;
     }
     final job = await engine.send(
       dev,
