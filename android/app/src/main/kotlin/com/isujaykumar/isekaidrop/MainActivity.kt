@@ -95,6 +95,9 @@ class MainActivity : FlutterActivity() {
                         result.success(null)
                     }
                     "ensureLegacyStorage" -> ensureLegacyStorage(result)
+                    // Audit #15: partial files live here (not cache: the
+                    // system may clear it; not backed up to the cloud).
+                    "noBackupDir" -> result.success(noBackupFilesDir.absolutePath)
                     "exportToDownloads" -> exportToDownloads(
                         call.argument<String>("path")!!,
                         call.argument<String>("name")!!,

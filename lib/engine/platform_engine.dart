@@ -187,9 +187,11 @@ Future<IsekaiEngine> createPlatformEngine(
   ReceiveFinalizer finalizer;
   String where;
   if (Platform.isAndroid) {
-    tempDir = Directory(
-      p.join((await getTemporaryDirectory()).path, 'incoming'),
-    );
+    String? noBackup;
+    try {
+      noBackup = await _android.invokeMethod<String>('noBackupDir');
+    } catch (_) {}
+    tempDir = androidIncomingDir(noBackup: noBackup, support: support);
     finalizer = (temp, rel, batch) async {
       final parts = rel.split('/');
       var sub = '';
@@ -583,6 +585,12 @@ Future<void> setPlatformVisible(bool visible) async {
     await b.setVisible(visible);
   } catch (_) {}
 }
+
+/// Audit #15: where Android keeps incoming partial files (and resume
+/// state). Never the cache folder, which Android may clear at any time.
+/// Preferred: the app's no-backup folder; otherwise app support files.
+Directory androidIncomingDir({String? noBackup, required Directory support}) =>
+    Directory(p.join(noBackup ?? support.path, 'incoming'));
 
 /// Saves benchmark CSV text where the user can get it. Returns a plain
 /// description of where it went, or null if the user cancelled.

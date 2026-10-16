@@ -14,6 +14,7 @@ import 'package:isekaidrop/engine/core/send_source.dart';
 import 'package:isekaidrop/engine/core/identity.dart';
 import 'package:isekaidrop/engine/core/key_migration.dart';
 import 'package:isekaidrop/engine/core/trust_store.dart';
+import 'package:isekaidrop/engine/platform_engine.dart';
 import 'package:path/path.dart' as p;
 
 class FakeSlot implements SecretSlot {
@@ -278,6 +279,21 @@ void main() {
       expect(transferIdFor('fp', [FileSendSource(f)]), isNot(id1));
     },
   );
+
+  test('#15 Android partial files are not in the cache folder', () {
+    final support = Directory('/data/user/0/x/files');
+    expect(
+      androidIncomingDir(
+        noBackup: '/data/user/0/x/no_backup',
+        support: support,
+      ).path,
+      '/data/user/0/x/no_backup/incoming',
+    );
+    expect(
+      androidIncomingDir(support: support).path,
+      '/data/user/0/x/files/incoming',
+    );
+  });
 
   group('#3 fallback identity moves into secure storage', () {
     test('migrated: stored, read back, file wiped and deleted', () async {
