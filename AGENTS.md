@@ -115,3 +115,8 @@ file before every phase. Stop after each phase and wait for "next".
 - Measured on the build box after Phase 4 (loopback, JIT test mode):
   1 GiB 58.4 s = 17.5 MB/s, hash match, RSS +~300 MB peak;
   500 small files (112 KB total) ~1.2-1.5 s.
+- APK size: with bundled ML Kit the arm64 APK was 26.67 MB (run 38900295443,
+  over the 25 MB limit). Fix: `packaging.jniLibs.useLegacyPackaging = true`
+  (native libs compressed in the APK, extracted on install: smaller download,
+  a bit more space used after install). Alternative if ever needed: the
+  unbundled ML Kit (needs Google Play services + an internet model download).
