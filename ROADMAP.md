@@ -26,13 +26,22 @@
 - [x] Accessibility labels, 48 px touch targets, Back returns to Home
 - [x] Widget tests: theme switch, navigation, revoke confirmation (+ error, clear history)
 - [x] Extra smaller arm64 APK (under 25 MB) for chat attachment
-- [ ] Owner tests the screens on Android
+- [x] Owner tests the screens on Android (owner said "next")
 
-## Phase 3 - Secure pairing, direct connections, reliable file streaming
-- [ ] Device identity keys in secure storage
-- [ ] Discovery + QR / code pairing with approval
-- [ ] TLS sessions with key pinning, every session authenticated
-- [ ] Chunked streaming, temp files, SHA-256 check, safe file names
+## Phase 3 - Secure pairing and direct transfer (same network first)
+- [x] Per-install identity (ECDSA P-256 + self-signed cert), key in secure storage (fallback noted)
+- [x] Discovery (UDP multicast/broadcast) + typed IP/port fallback
+- [ ] QR pairing - NOT included: needs a camera/QR library; owner must approve one
+- [x] Pairing by 16-digit verification code with approval on both devices
+- [x] Mutual TLS 1.3 sessions, peer key pinned by fingerprint; unknown/revoked keys fail TLS
+- [x] Identity change detected -> blocked until revoke + pair again
+- [x] Chunked streaming, temp .part files, SHA-256 verify before finalising, safe names, no overwrite
+- [x] Recipient approval for every incoming transfer; unknown devices cannot send
+- [x] Real engine on Home, Connect, Send, Sending/Receiving, Trusted Devices (History still DEMO)
+- [x] Measured speed only
+- [x] Tests: pairing, hashing, path traversal, tampered chunk, unknown device, revoke, identity change
+- [x] Loopback benchmark on the build computer recorded (AGENTS.md)
+- [ ] Owner tests on two real devices
 
 ## Phase 4 - Test Android ↔ Windows and Android ↔ macOS transfers
 - [ ] Manual test lists and results recorded

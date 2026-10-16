@@ -45,3 +45,39 @@ file before every phase. Stop after each phase and wait for "next".
   files, remotes, logs or memory. Check at the end of every phase.
 - Box note: Flutter is installed at /home/box/tools/flutter (the /opt copy was
   lost once). If missing, reinstall 3.47.7 there.
+
+## Phase 3 decisions
+- Engine: `lib/engine/core/` (engine.dart, identity.dart, trust_store.dart,
+  frames.dart, safe_files.dart, discovery.dart, jobs.dart, send_source.dart).
+  Platform glue: `lib/engine/platform_engine.dart`. Protocol: `docs/PROTOCOL.md`.
+- TLS: dart:io SecureSocket (BoringSSL), TLS 1.3. Dart's TLS server rejects
+  unknown self-signed client certs, so the server builds a fresh
+  SecurityContext per connection that trusts ONLY trusted peers' certs.
+  Pairing connections carry no client cert; they may only send `pair_req`.
+- Certificates: basic_utils `generateSelfSignedCertificate` with 3650 days.
+  (30 years produced "certificate has expired" in TLS - date encoding issue.)
+- Pairing code: 16 digits from SHA-256 of both fingerprints (see PROTOCOL.md).
+- Ports: TCP 47820 (falls back to a random port if busy), UDP 47821
+  discovery, multicast group 239.255.42.99.
+- Trust DB: `trusted_devices.json` in app support dir, schema_version 1,
+  migrations in `TrustStore.migrate`, atomic writes.
+- Android: `file_selector_android` reads WHOLE files into memory, so Android
+  uses our own picker in MainActivity.kt (content URIs streamed through
+  /proc/self/fd). Received files: temp in cache, then copied to
+  Downloads/Isekai Drop via MediaStore (Android 10+), else app external files.
+  Permissions: INTERNET, CHANGE_WIFI_MULTICAST_STATE (no runtime prompts).
+  No camera permission (no QR scanner yet).
+- iOS: NSLocalNetworkUsageDescription added; received files in
+  Documents/Received (Files app). Multicast on iOS needs an Apple entitlement
+  (paid account) - discovery likely does not work on iOS; typed IP does.
+- macOS: sandbox entitlements network.client/server + user-selected read.
+- Linux CI needs libsecret-1-dev for flutter_secure_storage.
+- History stays DEMO (DemoHistory). Pause/resume/folders/auto-receive later.
+- QR: NOT done. Options for owner: mobile_scanner (BSD, but Android uses
+  Google ML Kit with Google's own terms) or a zxing-based scanner. Ask first.
+- Measured on the build box (Linux VM, 8 vCPU, JIT test mode, localhost):
+  1 GiB in 61.9 s = 16.6 MB/s, SHA-256 matched, RSS rose ~283 MB during the
+  transfer (file not held in memory). Pure-Dart SHA-256 alone = ~85 MB/s,
+  and hashing + I/O run on the UI isolate: this is the main speed limit to
+  fix in the performance phase (hash/IO in a background isolate or native
+  hashing). Loopback speed is NOT Wi-Fi speed.

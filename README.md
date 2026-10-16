@@ -3,9 +3,20 @@
 A free, private app for sending files **directly** between your own devices
 (and friends' and family's). No cloud upload, no accounts, no ads.
 
-**Status: Phase 2.** All seven screens exist with **DEMO data** (labelled
-"DEMO - not a real transfer"). Picking files and the theme setting are real.
-Sending files between devices is **not built yet** (Phase 3).
+**Status: Phase 3.** Real, encrypted sending between two devices on the
+**same Wi-Fi or hotspot**: pairing with a 16-digit code, approval before every
+transfer, SHA-256 check of every file. Transfer History is still **DEMO**.
+QR scanning, folders, pause/resume are not built yet.
+
+## Send a file between two devices (quick guide)
+1. Install and open Isekai Drop on both devices. Put both on the same Wi-Fi.
+2. On device A tap **Connect**. Device B should appear under "Found
+   automatically". Tap it. (If not: type B's address shown on B's Connect page.)
+3. Both screens show a 16-digit code. If they match, tap **Codes match** on A
+   and **approve** on B.
+4. On A tap **Send**, **Pick files**, choose the files, tap **Send to B**.
+5. On B tap **Accept**. Received files go to **Downloads/Isekai Drop** (Android)
+   or **Downloads/Isekai Drop** folder (Windows/Mac/Linux).
 
 ## How it works (no computer needed by you)
 1. Code changes are pushed to this private GitHub repo.
@@ -40,6 +51,7 @@ keeps your data, because every test build is signed with the same key.
 | "App not installed" | An older copy signed differently is installed. Uninstall Isekai Drop, then install again. |
 | "Install blocked" | Allow "Install unknown apps" for Chrome (Settings → Apps → Chrome → Install unknown apps). |
 | Play Protect warning | Tap **More details → Install anyway**. It is warning because the app is not from the Play Store. |
+| Devices do not find each other | Some Wi-Fi networks (guest/office/"AP isolation") block devices from seeing each other. Use a phone hotspot instead, or type the address. On Windows allow Isekai Drop in the firewall prompt. |
 | No APK in Assets | The latest build may still be running or failed. Check the **Actions** tab. |
 
 ## Other platforms

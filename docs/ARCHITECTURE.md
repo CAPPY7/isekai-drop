@@ -12,7 +12,7 @@ half can be improved without breaking the other.
  History, Settings                                          + small native add-ons
 ```
 
-Phase 1 ships only the interface and an honest stub that says "not built yet".
+Phase 3: the real engine lives in `lib/engine/core/`; the wire protocol is in `docs/PROTOCOL.md`. Transfer History is still DEMO data.
 
 ## Engine modules
 | Module | Job |
