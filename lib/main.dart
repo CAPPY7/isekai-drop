@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 
 import 'app.dart';
-import 'engine/transfer_engine.dart';
+import 'engine/demo_engine.dart';
+import 'settings/settings_controller.dart';
 
-void main() {
-  runApp(const IsekaiDropApp(engine: Phase1EngineStub()));
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final settings = await SettingsController.load();
+  // Phase 2: DEMO engine only. No networking.
+  runApp(IsekaiDropApp(engine: DemoTransferEngine(), settings: settings));
 }

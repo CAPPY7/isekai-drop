@@ -1,37 +1,37 @@
 /// The boundary between the UI and the transfer engine.
 ///
-/// The UI only talks to [TransferEngine]. The real engine (discovery,
-/// pairing, TLS sessions, chunked streaming, hashing, resume) is built in
-/// Phase 2 and later. Phase 1 ships ONLY [EngineStatus.notImplemented]: there
-/// is no fake discovery, no fake devices and no fake speed.
+/// The UI only talks to [TransferEngine]. In Phase 2 the only implementation
+/// is [DemoTransferEngine] (see demo_engine.dart): DEMO data, no networking.
+/// The real engine (discovery, pairing, TLS, streaming) replaces it later
+/// without changing the screens.
 library;
 
-/// What the engine can currently do.
-enum EngineStatus {
-  /// Phase 1: the engine has not been built yet.
-  notImplemented,
+import 'models.dart';
 
-  /// Later phases: the engine is running and ready.
-  ready,
-}
+export 'models.dart';
 
-/// Contract the UI depends on. Later phases add discovery, pairing and
-/// transfer methods here; the UI never reaches past this interface.
 abstract interface class TransferEngine {
-  /// Short human-readable engine version, e.g. "phase1-stub".
+  /// Short engine version, e.g. "demo-phase2".
   String get version;
 
-  /// Current engine status.
-  EngineStatus get status;
-}
+  /// True when every piece of data comes from DEMO data, not real devices.
+  bool get isDemo;
 
-/// Honest Phase 1 placeholder. It does nothing and says so.
-class Phase1EngineStub implements TransferEngine {
-  const Phase1EngineStub();
+  /// Devices seen nearby right now.
+  Future<List<DeviceRecord>> nearbyDevices();
 
-  @override
-  String get version => 'phase1-stub';
+  /// Saved trusted devices.
+  Future<List<DeviceRecord>> trustedDevices();
 
-  @override
-  EngineStatus get status => EngineStatus.notImplemented;
+  /// Rename a trusted device (local nickname only).
+  Future<void> renameTrustedDevice(String id, String newName);
+
+  /// Remove trust. The device must pair again before it is trusted.
+  Future<void> revokeTrustedDevice(String id);
+
+  /// Past transfers, newest first.
+  Future<List<TransferRecord>> history();
+
+  /// Delete all history entries.
+  Future<void> clearHistory();
 }
