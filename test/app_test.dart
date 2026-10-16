@@ -262,6 +262,24 @@ void main() {
     expect(find.textContaining('Request expired'), findsOneWidget);
   });
 
+  test('audit #11: friendly status words, never raw enum names', () {
+    final j = TransferJob(
+      id: 'j',
+      direction: JobDirection.receiving,
+      peerName: 'P',
+      fileCount: 1,
+      totalBytes: 1,
+    );
+    expect(jobStatusLabel(j), 'Waiting');
+    j.state = JobState.running;
+    expect(jobStatusLabel(j), 'Receiving');
+    j.finish(JobState.failed, 'x');
+    expect(jobStatusLabel(j), 'Failed');
+    for (final s in JobState.values) {
+      expect(s.label, isNot(s.name));
+    }
+  });
+
   testWidgets('auto-receive is off and asks before turning on', (tester) async {
     final settings = await _pump(tester);
     expect(settings.autoReceiveVerified, isFalse);

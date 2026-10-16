@@ -173,7 +173,7 @@ class HomeScreen extends StatelessWidget {
                             '${j.direction == JobDirection.sending ? 'To' : 'From'} ${j.peerName}',
                           ),
                           subtitle: Text(
-                            '${j.queued ? 'queued' : j.state.name} - ${(j.progress * 100).round()}% of ${formatBytes(j.totalBytes)}'
+                            '${jobStatusLabel(j)} - ${(j.progress * 100).round()}% of ${formatBytes(j.totalBytes)}'
                             '${j.state == JobState.failed && j.message != null ? '\n${j.message}' : ''}',
                           ),
                           trailing: j.canRetry

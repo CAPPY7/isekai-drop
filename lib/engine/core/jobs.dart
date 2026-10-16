@@ -6,7 +6,28 @@ import 'send_source.dart';
 
 enum JobDirection { sending, receiving }
 
-enum JobState { waiting, running, completed, failed, cancelled }
+enum JobState {
+  waiting('Waiting'),
+  running('Sending'),
+  completed('Done'),
+  failed('Failed'),
+  cancelled('Cancelled');
+
+  const JobState(this.label);
+
+  /// Audit #11: plain word for the screen (never show [name]).
+  final String label;
+}
+
+/// Friendly status for a job, including direction, pause and queue.
+String jobStatusLabel(TransferJob j) {
+  if (j.queued) return 'Queued';
+  if (j.state == JobState.running) {
+    if (j.paused) return 'Paused';
+    return j.direction == JobDirection.sending ? 'Sending' : 'Receiving';
+  }
+  return j.state.label;
+}
 
 /// One transfer. Speed is MEASURED from bytes actually moved over time.
 class TransferJob extends ChangeNotifier {

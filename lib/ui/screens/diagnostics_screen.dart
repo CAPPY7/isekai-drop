@@ -93,7 +93,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                             '${last.direction == JobDirection.sending ? 'Sent' : 'Received'}: '
                             '${last.fileCount} file(s), ${formatBytes(last.bytesDone)} of ${formatBytes(last.totalBytes)}',
                           ),
-                          Text('Result: ${last.state.name}'),
+                          Text('Result: ${last.state.label}'),
                           Text(
                             'Average speed (measured): ${last.averageSpeed == null ? '-' : formatSpeed(last.averageSpeed!)}',
                           ),
