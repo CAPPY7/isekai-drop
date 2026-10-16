@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Isekai Drop finds and connects to your own devices on the local network to send files directly.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Isekai Drop uses the camera only to scan the pairing QR code shown on your other device. Nothing is recorded or saved.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleExecutable</key>

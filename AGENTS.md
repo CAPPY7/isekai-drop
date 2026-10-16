@@ -81,3 +81,37 @@ file before every phase. Stop after each phase and wait for "next".
   and hashing + I/O run on the UI isolate: this is the main speed limit to
   fix in the performance phase (hash/IO in a background isolate or native
   hashing). Loopback speed is NOT Wi-Fi speed.
+
+## Phase 4 decisions
+- Owner chose connection options **A + B + C** (2026-10-16). Wi-Fi Direct not built.
+- Owner chose **mobile_scanner** (BSD-3) for QR scanning. On Android it
+  bundles Google ML Kit barcode-scanning 17.3.0 (closed source, ML Kit terms;
+  sends Google usage metrics + device info, not images) - disclosed in
+  PRIVACY.md, THIRD_PARTY_NOTICES.md, Settings and the scan explanation.
+  Bundled model (not the Play-services "unbundled" one) so scanning works
+  offline. Apple platforms use Apple Vision. Windows/Linux: no scanner, they
+  show their QR for the phone to scan.
+- QR display: qr_flutter (BSD-3).
+- Android permissions added (all least-privilege, explained in manifest
+  comments): ACCESS_NETWORK_STATE, ACCESS_WIFI_STATE (diagnostics, no prompt),
+  CHANGE_WIFI_STATE (hotspot), NEARBY_WIFI_DEVICES neverForLocation (13+),
+  ACCESS_FINE/COARSE_LOCATION maxSdkVersion 32 (hotspot on <=12 only),
+  CAMERA (QR, asked on first scan).
+- Apple: NSCameraUsageDescription (iOS, macOS), macOS camera entitlement,
+  macOS NSLocalNetworkUsageDescription.
+- Folders: SendSource.relativePath; receiver sanitizeRelativePath +
+  ReceiveBatch (unique top folder). Android folder pick = ACTION_OPEN_DOCUMENT_TREE
+  walked in Kotlin; received folders via MediaStore RELATIVE_PATH.
+  Android folder-name uniqueness checks only files THIS app saved
+  (MediaStore query); MediaStore itself renames duplicate file names.
+- Pause/resume: protocol messages pause/resume + TCP back-pressure; 6 h idle
+  limit while paused. No resume after app close yet.
+- TCP_NODELAY on every connection (measured: 500 small files 22.6 s -> 1.5 s
+  on loopback).
+- Keep screen on during transfers (Android FLAG_KEEP_SCREEN_ON).
+- Diagnostics shows no names/addresses. Link speed: Android WifiInfo
+  linkSpeed; Windows parses only "Receive rate (Mbps)" from
+  `netsh wlan show interfaces`; macOS/Linux: not available.
+- Measured on the build box after Phase 4 (loopback, JIT test mode):
+  1 GiB 58.4 s = 17.5 MB/s, hash match, RSS +~300 MB peak;
+  500 small files (112 KB total) ~1.2-1.5 s.

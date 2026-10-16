@@ -6,11 +6,16 @@ import 'theme/design_tokens.dart';
 
 /// Pairing from THIS device: connect, show the code, user confirms it
 /// matches the other screen, then wait for the other device to approve.
+///
+/// From a scanned QR code, [alsoTry] holds more addresses of the same device
+/// and [expectFingerprint] its key: the connection must match it exactly.
 Future<void> startPairingFlow(
   BuildContext context,
   String host,
-  int port,
-) async {
+  int port, {
+  List<String> alsoTry = const [],
+  String? expectFingerprint,
+}) async {
   final engine = AppScope.of(context).engine;
   final messenger = ScaffoldMessenger.of(context);
   final nav = Navigator.of(context);
@@ -29,7 +34,24 @@ Future<void> startPairingFlow(
   );
   PairingSession session;
   try {
-    session = await engine.beginPairing(host, port);
+    Object? lastError;
+    PairingSession? found;
+    for (final h in [host, ...alsoTry]) {
+      try {
+        found = await engine.beginPairing(
+          h,
+          port,
+          expectFingerprint: expectFingerprint,
+        );
+        break;
+      } on PairingException {
+        rethrow;
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    if (found == null) throw lastError ?? const SocketExceptionLike();
+    session = found;
   } catch (e) {
     nav.pop();
     messenger.showSnackBar(
@@ -57,9 +79,24 @@ Future<void> startPairingFlow(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'The other device will show a code. Pair only if it is EXACTLY the same:',
-          ),
+          if (session.verifiedByQr) ...[
+            const Row(
+              children: [
+                Icon(Icons.verified, color: IdColors.success),
+                SizedBox(width: IdSpacing.sm),
+                Expanded(
+                  child: Text('Key checked against the scanned QR code.'),
+                ),
+              ],
+            ),
+            const SizedBox(height: IdSpacing.sm),
+            const Text(
+              'The other device will ask to approve and shows this same code:',
+            ),
+          ] else
+            const Text(
+              'The other device will show a code. Pair only if it is EXACTLY the same:',
+            ),
           const SizedBox(height: IdSpacing.md),
           SelectableText(
             session.code,
@@ -119,4 +156,8 @@ Future<void> startPairingFlow(
       ),
     );
   }
+}
+
+class SocketExceptionLike implements Exception {
+  const SocketExceptionLike();
 }

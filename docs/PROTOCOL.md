@@ -24,7 +24,10 @@ No home-made cryptography: TLS is BoringSSL inside Flutter/Dart (`dart:io`
 - Nothing in an announcement is trusted. Android takes a Wi-Fi multicast
   lock (permission `CHANGE_WIFI_MULTICAST_STATE`, no prompt).
 - Fallback: type the other device's IP address and port (default 47820).
-- QR code: not included yet (needs a camera/scanner library + owner approval).
+- QR code (Phase 4): `isekaidrop:pair?v=1&h=<ip,ip>&p=<port>&f=<sha256 fp>&n=<name>`.
+  Nothing secret. The scanner pairs only if the other device's TLS key
+  fingerprint equals `f` exactly; the other device still asks its user to
+  approve and shows the same 16-digit code.
 
 ## Pairing
 1. Device A connects with TLS **without** a client certificate. A records
@@ -62,6 +65,19 @@ No home-made cryptography: TLS is BoringSSL inside Flutter/Dart (`dart:io`
   forbidden characters and reserved names (CON, NUL...) are removed.
 - Leftover `.part` files from crashes are deleted at next start.
 
-## Not in version 1 (later phases)
-Resume, pause, folders, queue, auto-receive, hotspot/Wi-Fi Direct helpers,
-QR scanning, real history.
+## Phase 4 additions (still protocol version 1, backward compatible)
+- `offer` files carry `path` (relative path, "/" separated) for folders.
+  The receiver cleans every part (sanitizeRelativePath): "", ".", "..",
+  drive letters are dropped, each part cleaned like a file name, max depth 32.
+  A received top folder never merges into an existing one ("Album (1)").
+- Pause: either side may send `{"t":"pause"}` / `{"t":"resume"}` at any time.
+  The sender stops reading the file; the receiver stops reading the socket
+  (TCP back-pressure then holds the sender). While the peer is paused the
+  idle timeout is 6 hours instead of 60 s. Pause lasts only while both apps
+  stay open; there is no resume after closing (later phase).
+- Queue: one outgoing transfer at a time per device; later sends wait.
+- TCP_NODELAY on all connections (avoids ~40 ms stalls per file; 500 small
+  files on loopback went from 22.6 s to 1.5 s).
+
+## Not yet (later phases)
+Resume after the app closes, auto-receive, Wi-Fi Direct, real history.

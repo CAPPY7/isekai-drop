@@ -16,6 +16,12 @@ Only permissive licences (Apache 2.0, MIT, BSD or similar) are allowed.
 | path | 1.9.1 | BSD-3-CLAUSE |
 | path_provider | 2.1.6 | BSD-3-CLAUSE |
 | shared_preferences | 2.5.6 | BSD-3-CLAUSE |
+| mobile_scanner (QR scanning) | 7.4.2 | BSD-3-CLAUSE |
+| qr_flutter (QR display) | 4.1.0 | BSD-3-CLAUSE |
+| qr | 3.0.2 | BSD-3-CLAUSE |
+| AndroidX CameraX (camera-camera2, camera-lifecycle, via mobile_scanner, Android) | 1.6.1 | Apache 2.0 |
+| kotlinx-coroutines-android (via mobile_scanner, Android) | 1.11.0 | Apache 2.0 |
+| **Google ML Kit Barcode Scanning** `com.google.mlkit:barcode-scanning` (bundled model, Android only, via mobile_scanner) | 17.3.0 | **Not open source.** Free to use under the Google APIs Terms of Service and ML Kit Terms (https://developers.google.com/ml-kit/terms). Runs fully on the device; Isekai Drop sends no images. Per Google's ML Kit terms and Play data disclosure (checked 2026-10-16), ML Kit sends usage and performance metrics, device information (maker, model, OS), app package/version and a per-installation identifier to Google over HTTPS when internet is available. Camera images and scan results are NOT sent. The owner accepted this choice. |
 | archive | 4.5.2 | MIT |
 | args | 2.7.0 | BSD-3-CLAUSE |
 | async | 2.13.1 | BSD-3-CLAUSE |
@@ -94,3 +100,7 @@ No QR-scanner/camera library is included yet (see AGENTS.md).
 actions/checkout, actions/setup-java, actions/upload-artifact,
 actions/download-artifact (MIT); subosito/flutter-action (MIT);
 softprops/action-gh-release (MIT).
+
+### QR scanning on Apple platforms
+On iPhone/iPad and Mac, mobile_scanner uses Apple's built-in Vision and
+AVFoundation frameworks (part of the operating system). ML Kit is used only on Android.

@@ -34,6 +34,70 @@ class TransferJob extends ChangeNotifier {
   bool cancelRequested = false;
   void Function()? onCancel;
 
+  /// Paused on THIS device by the user.
+  bool paused = false;
+
+  /// The other device told us it paused.
+  bool pausedByPeer = false;
+
+  /// Sent to the other device when we pause/resume (set by the engine).
+  void Function(bool paused)? onPauseChanged;
+
+  /// Waiting in the send queue behind another transfer.
+  bool queued = false;
+
+  Completer<void>? _resume;
+  int _lastProgressMs = 0;
+
+  bool get canPause => state == JobState.running;
+
+  /// True when running, not paused, but no bytes moved for 5 s (for example
+  /// the other device paused or the connection is stuck).
+  bool get stalled =>
+      state == JobState.running &&
+      !paused &&
+      _clock.elapsedMilliseconds - _lastProgressMs > 5000;
+
+  void pause() {
+    if (!canPause || paused) return;
+    paused = true;
+    _resume = Completer<void>();
+    _clock.stop();
+    _samples.clear();
+    onPauseChanged?.call(true);
+    notifyListeners();
+  }
+
+  void resume() {
+    if (!paused) return;
+    paused = false;
+    _clock.start();
+    _lastProgressMs = _clock.elapsedMilliseconds;
+    onPauseChanged?.call(false);
+    _resume?.complete();
+    _resume = null;
+    notifyListeners();
+  }
+
+  /// Engine calls this between pieces; returns when not paused.
+  Future<void> waitIfPaused() async {
+    final r = _resume;
+    if (paused && r != null) await r.future;
+  }
+
+  void setPeerPaused(bool v) {
+    if (pausedByPeer == v) return;
+    pausedByPeer = v;
+    if (v) {
+      _samples.clear();
+      _clock.stop();
+    } else {
+      if (!paused && isActive) _clock.start();
+      _lastProgressMs = _clock.elapsedMilliseconds;
+    }
+    notifyListeners();
+  }
+
   bool get isActive => state == JobState.waiting || state == JobState.running;
   double get progress => totalBytes == 0 ? 1 : bytesDone / totalBytes;
   Duration get elapsed => _clock.elapsed;
@@ -41,6 +105,7 @@ class TransferJob extends ChangeNotifier {
   /// Measured speed over the last ~2 seconds, in bytes per second.
   /// Null until enough real data has been measured.
   double? get currentSpeed {
+    if (paused || pausedByPeer) return null;
     if (_samples.length < 2) return null;
     final first = _samples.first;
     final last = _samples.last;
@@ -57,12 +122,14 @@ class TransferJob extends ChangeNotifier {
   }
 
   Duration? get timeLeft {
+    if (paused || pausedByPeer) return null;
     final s = currentSpeed ?? averageSpeed;
     if (s == null || s <= 0 || state != JobState.running) return null;
     return Duration(seconds: ((totalBytes - bytesDone) / s).ceil());
   }
 
   void start() {
+    queued = false;
     state = JobState.running;
     _clock.start();
     notifyListeners();
@@ -71,6 +138,7 @@ class TransferJob extends ChangeNotifier {
   void addBytes(int n) {
     bytesDone += n;
     final now = _clock.elapsedMilliseconds;
+    _lastProgressMs = now;
     _samples.add((now, bytesDone));
     while (_samples.length > 2 && now - _samples.first.$1 > 2000) {
       _samples.removeAt(0);
@@ -85,6 +153,10 @@ class TransferJob extends ChangeNotifier {
   void finish(JobState s, [String? msg]) {
     if (!isActive) return;
     _clock.stop();
+    paused = false;
+    _resume?.complete();
+    _resume = null;
+    queued = false;
     state = s;
     message = msg;
     notifyListeners();

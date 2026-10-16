@@ -14,19 +14,26 @@ import 'safe_files.dart';
 import 'trust_store.dart';
 
 /// Moves a verified temp file to its final place. Returns where it went.
-typedef ReceiveFinalizer = Future<String> Function(File temp, String safeName);
+/// [safeRelPath] is already cleaned (see sanitizeRelativePath) and may contain
+/// "/" for files inside a sent folder.
+typedef ReceiveFinalizer = Future<String> Function(
+  File temp,
+  String safeRelPath,
+  ReceiveBatch batch,
+);
 
 const int kDefaultPort = 47820;
 const int kProtocolVersion = 1;
 const Duration kApprovalTimeout = Duration(minutes: 2);
 
 /// Default finalizer for desktop: rename inside [dir] without overwriting.
-ReceiveFinalizer directoryFinalizer(Directory dir) => (temp, safeName) async {
-  await dir.create(recursive: true);
-  final target = await reserveTarget(dir, safeName);
-  await temp.rename(target.path);
-  return target.path;
-};
+ReceiveFinalizer directoryFinalizer(Directory dir) =>
+    (temp, safeRelPath, batch) async {
+      await dir.create(recursive: true);
+      final target = await reserveRelativeTarget(dir, safeRelPath, batch);
+      await temp.rename(target.path);
+      return target.path;
+    };
 
 /// The real transfer engine: discovery, pairing, mutual-TLS sessions,
 /// chunked streaming and SHA-256 verification.
@@ -75,6 +82,50 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   final List<TransferJob> _jobs = [];
   String? _startError;
   Timer? _pruneTimer;
+  Future<void> _sendChain = Future.value();
+  String? _lastError;
+  DateTime? _lastErrorAt;
+  TransferJob? _lastFinished;
+
+  /// Last transfer problem, in plain words. Never contains file names,
+  /// device names or addresses.
+  @override
+  String? get lastError => _lastError;
+  @override
+  DateTime? get lastErrorAt => _lastErrorAt;
+  @override
+  TransferJob? get lastFinishedJob => _lastFinished;
+
+  void _recordEnd(TransferJob job) {
+    if (job.isActive) return;
+    _lastFinished = job;
+    if (job.state == JobState.failed) {
+      _lastError = job.message ?? 'Transfer failed';
+      _lastErrorAt = DateTime.now();
+    }
+  }
+
+  /// Next control message, handling pause/resume notices from the peer.
+  /// While the peer is paused we wait much longer before giving up.
+  Future<Map<String, dynamic>> _nextControl(
+    FrameReader reader,
+    TransferJob job, [
+    Duration normal = const Duration(seconds: 60),
+  ]) async {
+    while (true) {
+      final m = await reader.nextJson(
+        job.pausedByPeer ? const Duration(hours: 6) : normal,
+      );
+      switch (m['t']) {
+        case 'pause':
+          job.setPeerPaused(true);
+        case 'resume':
+          job.setPeerPaused(false);
+        default:
+          return m;
+      }
+    }
+  }
 
   @override
   String get version => 'engine-v$kProtocolVersion';
@@ -220,6 +271,8 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   Future<void> _onIncoming(Socket raw) async {
     SecureSocket s;
     try {
+      // Small control messages must not wait ~40 ms (Nagle + delayed ACK).
+      raw.setOption(SocketOption.tcpNoDelay, true);
       s = await SecureSocket.secureServer(
         raw,
         _serverContext(),
@@ -344,7 +397,11 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         s.add(jsonFrame({'t': 'decline', 'reason': 'bad_offer'}));
         return;
       }
-      names.add(sanitizeFileName(m['name'] as String? ?? 'file'));
+      names.add(
+        sanitizeRelativePath(
+          (m['path'] as String?) ?? (m['name'] as String? ?? 'file'),
+        ),
+      );
       sizes.add(size);
     }
     final total = sizes.fold<int>(0, (a, b) => a + b);
@@ -369,20 +426,28 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       return;
     }
     _jobs.insert(0, job);
+    notifyListeners();
     job.onCancel = () {
       try {
         s.add(jsonFrame({'t': 'cancel'}));
       } catch (_) {}
       s.destroy();
     };
+    job.onPauseChanged = (p) {
+      try {
+        s.add(jsonFrame({'t': p ? 'pause' : 'resume'}));
+      } catch (_) {}
+    };
     job.start();
     s.add(jsonFrame({'t': 'accept'}));
     await s.flush();
+    final batch = ReceiveBatch();
     File? temp;
     RandomAccessFile? out;
     try {
       for (var i = 0; i < names.length; i++) {
-        final head = await reader.nextJson();
+        await job.waitIfPaused();
+        final head = await _nextControl(reader, job);
         if (head['t'] == 'cancel') {
           job.finish(JobState.cancelled, 'The sender cancelled.');
           return;
@@ -396,9 +461,21 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         final hasher = sha256.startChunkedConversion(digestOut);
         var got = 0;
         while (got < sizes[i]) {
-          final fr = await reader.next();
+          // Pausing here stops reading; TCP then makes the sender wait.
+          await job.waitIfPaused();
+          if (!job.isActive) return;
+          final fr = await reader.next(
+            job.pausedByPeer
+                ? const Duration(hours: 6)
+                : const Duration(seconds: 60),
+          );
           if (fr.type != frameData) {
-            if (fr.isJson && fr.messageType == 'cancel') {
+            final t = fr.isJson ? fr.messageType : '';
+            if (t == 'pause' || t == 'resume') {
+              job.setPeerPaused(t == 'pause');
+              continue;
+            }
+            if (t == 'cancel') {
               job.finish(JobState.cancelled, 'The sender cancelled.');
               return;
             }
@@ -412,7 +489,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           got += fr.payload.length;
           job.addBytes(fr.payload.length);
         }
-        final end = await reader.nextJson();
+        final end = await _nextControl(reader, job);
         await out.close();
         out = null;
         hasher.close();
@@ -429,13 +506,13 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           );
           return;
         }
-        final where = await finalizer(temp, names[i]);
+        final where = await finalizer(temp, names[i], batch);
         temp = null;
         job.savedTo.add(where);
         job.filesDone++;
         s.add(jsonFrame({'t': 'file_ok', 'i': i}));
       }
-      final done = await reader.nextJson();
+      final done = await _nextControl(reader, job);
       if (done['t'] == 'done') s.add(jsonFrame({'t': 'done_ok'}));
       job.finish(JobState.completed, 'All files received and verified.');
     } catch (_) {
@@ -448,6 +525,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         await out?.close();
       } catch (_) {}
       if (temp != null && await temp.exists()) await temp.delete();
+      _recordEnd(job);
       notifyListeners();
     }
   }
@@ -455,7 +533,11 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   // ------------------------------------------------------------------ client
 
   @override
-  Future<PairingSession> beginPairing(String host, int port) async {
+  Future<PairingSession> beginPairing(
+    String host,
+    int port, {
+    String? expectFingerprint,
+  }) async {
     final s = await SecureSocket.connect(
       host,
       port,
@@ -469,6 +551,13 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       s.destroy();
       throw const PairingException('That address is this device.');
     }
+    if (expectFingerprint != null && serverFp != expectFingerprint) {
+      s.destroy();
+      throw const PairingException(
+        'The device at that address is not the one in the QR code. '
+        'Pairing stopped for your safety.',
+      );
+    }
     return PairingSession._(
       engine: this,
       socket: s,
@@ -477,6 +566,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       serverFp: serverFp,
       serverCertPem: derToPem(serverCert.der),
       code: verificationCode(identity.fingerprint, serverFp),
+      verifiedByQr: expectFingerprint != null,
     );
   }
 
@@ -535,7 +625,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   ) async {
     var mismatch = false;
     try {
-      return await SecureSocket.connect(
+      final sock = await SecureSocket.connect(
         host,
         port,
         context: _ownContext(),
@@ -546,6 +636,10 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         },
         timeout: const Duration(seconds: 10),
       );
+      try {
+        sock.setOption(SocketOption.tcpNoDelay, true);
+      } catch (_) {}
+      return sock;
     } catch (e) {
       if (mismatch) {
         await trust.markIdentityChanged(dev.id);
@@ -573,10 +667,21 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       fileCount: files.length,
       totalBytes: files.fold<int>(0, (a, f) => a + f.size),
     );
+    job.queued = _jobs.any(
+      (j) => j.direction == JobDirection.sending && j.isActive,
+    );
+    job.onCancel = () {}; // replaced once connected
     _jobs.insert(0, job);
     notifyListeners();
-    unawaited(
-      _runSend(job, dev, files, host ?? dev.lastHost, port ?? dev.lastPort),
+    // One send at a time: later sends wait in this queue.
+    _sendChain = _sendChain.then(
+      (_) => _runSend(
+        job,
+        dev,
+        files,
+        host ?? dev.lastHost,
+        port ?? dev.lastPort,
+      ).catchError((_) {}),
     );
     return job;
   }
@@ -588,8 +693,12 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     String? host,
     int? port,
   ) async {
+    if (!job.isActive) return; // cancelled while queued
+    job.queued = false;
+    job.notifyListeners();
     if (!dev.isTrusted) {
       job.finish(JobState.failed, 'This device is blocked. Pair again first.');
+      _recordEnd(job);
       return;
     }
     if (host == null) {
@@ -597,6 +706,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         JobState.failed,
         'Address unknown. Make sure the other device is open nearby.',
       );
+      _recordEnd(job);
       return;
     }
     SecureSocket? s;
@@ -611,12 +721,18 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         } catch (_) {}
         sock.destroy();
       };
+      job.onPauseChanged = (p) {
+        try {
+          sock.add(jsonFrame({'t': p ? 'pause' : 'resume'}));
+        } catch (_) {}
+      };
       sock.add(
         jsonFrame({
           't': 'offer',
           'v': kProtocolVersion,
           'files': [
-            for (final f in files) {'name': f.name, 'size': f.size},
+            for (final f in files)
+              {'name': f.name, 'path': f.relativePath, 'size': f.size},
           ],
         }),
       );
@@ -638,6 +754,8 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       job.start();
       for (var i = 0; i < files.length; i++) {
         final f = files[i];
+        await job.waitIfPaused();
+        if (job.cancelRequested) return;
         sock.add(
           jsonFrame({'t': 'file', 'i': i, 'name': f.name, 'size': f.size}),
         );
@@ -646,6 +764,10 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         var sent = 0;
         var sinceFlush = 0;
         await for (final chunk in f.open()) {
+          if (job.paused) {
+            await sock.flush();
+            await job.waitIfPaused();
+          }
           if (job.cancelRequested) return;
           if (sent + chunk.length > f.size) {
             throw const FileSystemException('File changed while sending');
@@ -674,7 +796,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           }),
         );
         await sock.flush();
-        final r = await reader.nextJson();
+        final r = await _nextControl(reader, job);
         if (r['t'] != 'file_ok') {
           job.finish(
             JobState.failed,
@@ -686,7 +808,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       }
       sock.add(jsonFrame({'t': 'done'}));
       await sock.flush();
-      await reader.nextJson();
+      await _nextControl(reader, job);
       job.finish(JobState.completed, 'Sent and verified by the other device.');
     } on PairingException catch (e) {
       job.finish(JobState.failed, e.message);
@@ -705,6 +827,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       }
       s?.destroy();
       await reader?.cancel();
+      _recordEnd(job);
       notifyListeners();
     }
   }
@@ -760,6 +883,7 @@ class PairingSession {
     required this.serverFp,
     required this.serverCertPem,
     required this.code,
+    this.verifiedByQr = false,
   }) : _engine = engine, // ignore: prefer_initializing_formals
        _socket = socket; // ignore: prefer_initializing_formals
 
@@ -770,6 +894,9 @@ class PairingSession {
   final String serverFp;
   final String serverCertPem;
   final String code;
+
+  /// The other device's key matched the scanned QR code exactly.
+  final bool verifiedByQr;
 
   Future<TrustedDevice> confirm() => _engine._clientConfirmPairing(this);
 

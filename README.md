@@ -3,7 +3,10 @@
 A free, private app for sending files **directly** between your own devices
 (and friends' and family's). No cloud upload, no accounts, no ads.
 
-**Status: Phase 3.** Real, encrypted sending between two devices on the
+**Status: Phase 4.** Folders, pause/resume, queue, QR pairing and
+no-router hotspot options added.
+
+Previously, Phase 3: Real, encrypted sending between two devices on the
 **same Wi-Fi or hotspot**: pairing with a 16-digit code, approval before every
 transfer, SHA-256 check of every file. Transfer History is still **DEMO**.
 QR scanning, folders, pause/resume are not built yet.
@@ -15,7 +18,7 @@ QR scanning, folders, pause/resume are not built yet.
 3. Both screens show a 16-digit code. If they match, tap **Codes match** on A
    and **approve** on B.
 4. On A tap **Send**, **Pick files**, choose the files, tap **Send to B**.
-5. On B tap **Accept**. Received files go to **Downloads/Isekai Drop** (Android)
+5. On B tap **Accept**. (No router? See Connect > "No Wi-Fi router?".) Received files go to **Downloads/Isekai Drop** (Android)
    or **Downloads/Isekai Drop** folder (Windows/Mac/Linux).
 
 ## How it works (no computer needed by you)

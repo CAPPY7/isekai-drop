@@ -40,7 +40,7 @@ Phase 3: the real engine lives in `lib/engine/core/`; the wire protocol is in `d
 6. Names and paths are cleaned (no `../` tricks, no silent overwrite). Files are
    written to a temporary file and only kept after the hash matches.
 7. Logs never include file names, contents or personal data.
-8. No servers, accounts, analytics or cloud. No internet relay.
+8. No servers, accounts, analytics or cloud. No internet relay. (Exception: Google ML Kit, used for Android QR scanning, sends its own usage metrics to Google; see PRIVACY.md.)
 9. Every point above must also get a test. We never call the app "perfectly secure".
 
 ## Data

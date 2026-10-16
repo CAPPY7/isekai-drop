@@ -61,3 +61,66 @@ Future<File> createTempPart(Directory dir) async {
   await f.create(exclusive: true);
   return f;
 }
+
+/// Makes a received RELATIVE path safe (for folders). Every part is cleaned
+/// like a file name; "", "." and ".." parts are dropped, so the result can
+/// never point outside the receive folder. Returns parts joined with "/".
+String sanitizeRelativePath(String raw) {
+  final parts = <String>[];
+  for (final seg in raw.split(RegExp(r'[/\\]'))) {
+    final t = seg.trim();
+    if (t.isEmpty || t == '.' || t == '..') continue;
+    if (RegExp(r'^[A-Za-z]:$').hasMatch(t)) continue; // drive letters
+    parts.add(sanitizeFileName(t));
+  }
+  if (parts.isEmpty) return 'file';
+  // Limit depth: keep the last 32 parts at most.
+  final kept = parts.length > 32 ? parts.sublist(parts.length - 32) : parts;
+  return kept.join('/');
+}
+
+/// Folder names already chosen in one transfer, so a received folder never
+/// merges into an existing folder with the same name ("Photos (1)").
+class ReceiveBatch {
+  final Map<String, String> topFolders = {};
+}
+
+/// Reserves a NEW top-level folder inside [dir] (never reuses an existing one).
+Future<Directory> reserveFolder(Directory dir, String safeName) async {
+  for (var i = 0; i < 10000; i++) {
+    final candidate = i == 0 ? safeName : '$safeName ($i)';
+    final d = Directory(p.join(dir.path, candidate));
+    if (!isInsideDirectory(dir, d.path)) {
+      throw const FileSystemException('Unsafe path rejected');
+    }
+    if (await d.exists() || await File(d.path).exists()) continue;
+    await d.create(recursive: true);
+    return d;
+  }
+  throw const FileSystemException('No free folder name');
+}
+
+/// Places a relative path inside [dir]: picks a unique top folder once per
+/// batch, creates sub-folders, and never overwrites a file.
+Future<File> reserveRelativeTarget(
+  Directory dir,
+  String safeRelPath,
+  ReceiveBatch batch,
+) async {
+  final parts = safeRelPath.split('/');
+  if (parts.length == 1) return reserveTarget(dir, parts.single);
+  final top = parts.first;
+  var topName = batch.topFolders[top];
+  if (topName == null) {
+    topName = p.basename((await reserveFolder(dir, top)).path);
+    batch.topFolders[top] = topName;
+  }
+  final sub = Directory(
+    p.joinAll([dir.path, topName, ...parts.sublist(1, parts.length - 1)]),
+  );
+  if (!isInsideDirectory(dir, sub.path)) {
+    throw const FileSystemException('Unsafe path rejected');
+  }
+  await sub.create(recursive: true);
+  return reserveTarget(sub, parts.last);
+}

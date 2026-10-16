@@ -48,19 +48,41 @@ class _FilesScreenState extends State<FilesScreen> {
     }
   }
 
+  Future<void> _pickFolder() async {
+    setState(() {
+      _picking = true;
+      _error = null;
+    });
+    try {
+      final picked = await pickFolderToSend();
+      setState(() {
+        _files.addAll(picked);
+        if (picked.isEmpty) _error = null;
+      });
+    } catch (_) {
+      setState(
+        () => _error =
+            'The folder could not be opened here. Try picking files instead.',
+      );
+    } finally {
+      if (mounted) setState(() => _picking = false);
+    }
+  }
+
   Future<void> _onDrop(DropDoneDetails details) async {
     final added = <SendSource>[];
+    var skipped = 0;
     for (final f in details.files) {
       try {
-        added.add(sendSourceFromPath(f.path));
-      } catch (_) {}
+        added.addAll(await sendSourcesFromPath(f.path));
+      } catch (_) {
+        skipped++;
+      }
     }
     setState(() {
       _dragging = false;
       _files.addAll(added);
-      if (added.length < details.files.length) {
-        _error = 'Some dropped items were skipped (folders arrive in a later phase).';
-      }
+      if (skipped > 0) _error = '$skipped dropped item(s) could not be read.';
     });
   }
 
@@ -101,6 +123,15 @@ class _FilesScreenState extends State<FilesScreen> {
     );
     if (!mounted) return;
     setState(_files.clear);
+    if (job.queued) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Added to the queue. It starts when the current send finishes.',
+          ),
+        ),
+      );
+    }
     await Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => TransferScreen(job: job)));
@@ -139,9 +170,18 @@ class _FilesScreenState extends State<FilesScreen> {
               : const Icon(Icons.folder_open),
           label: Text(_picking ? 'Opening...' : 'Pick files'),
         ),
+        const SizedBox(height: IdSpacing.sm),
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(200, IdLayout.minTouchTarget),
+          ),
+          onPressed: _picking ? null : _pickFolder,
+          icon: const Icon(Icons.create_new_folder_outlined),
+          label: const Text('Pick a folder'),
+        ),
         const SizedBox(height: IdSpacing.xs),
         Text(
-          'Photos, videos and documents. Folders arrive in a later phase.',
+          'Files of any type, or a whole folder (its sub-folders are kept).',
           textAlign: TextAlign.center,
           style: theme.textTheme.bodySmall,
         ),
@@ -215,7 +255,7 @@ class _FilesScreenState extends State<FilesScreen> {
                     )
                   : Column(
                       children: [
-                        for (var i = 0; i < _files.length; i++)
+                        for (var i = 0; i < _files.length && i < 100; i++)
                           ListTile(
                             contentPadding: EdgeInsets.zero,
                             minTileHeight: IdLayout.minTouchTarget,
@@ -223,7 +263,7 @@ class _FilesScreenState extends State<FilesScreen> {
                               Icons.insert_drive_file_outlined,
                             ),
                             title: Text(
-                              _files[i].name,
+                              _files[i].relativePath,
                               overflow: TextOverflow.ellipsis,
                             ),
                             subtitle: Text(formatBytes(_files[i].size)),
@@ -234,6 +274,8 @@ class _FilesScreenState extends State<FilesScreen> {
                                   setState(() => _files.removeAt(i)),
                             ),
                           ),
+                        if (_files.length > 100)
+                          Text('...and ${_files.length - 100} more'),
                       ],
                     ),
             ),

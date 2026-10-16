@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../engine/platform_engine.dart' show setKeepScreenOn;
+
 import '../engine/transfer_engine.dart';
 import 'app_scope.dart';
 import 'screens/connect_screen.dart';
@@ -59,8 +61,16 @@ class _AppShellState extends State<AppShell> {
   }
 
   /// Shows approval dialogs for incoming pairing and transfer requests.
+  bool _screenOn = false;
+
   void _onEngine() {
-    if (!mounted || _showing != null) return;
+    if (!mounted) return;
+    final active = _engine!.jobs.any((j) => j.isActive);
+    if (active != _screenOn) {
+      _screenOn = active;
+      unawaited(setKeepScreenOn(active));
+    }
+    if (_showing != null) return;
     PendingRequest? next;
     for (final r in _engine!.pending) {
       if (!r.decided) {

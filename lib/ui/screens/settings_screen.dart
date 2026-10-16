@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../engine/transfer_engine.dart';
 import '../app_scope.dart';
+import '../guides/guides.dart';
+import 'diagnostics_screen.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
 
@@ -127,11 +129,39 @@ class SettingsScreen extends StatelessWidget {
               onTap: onTrusted,
             ),
           ),
-          const SectionCard(
-            title: 'Connection preferences',
-            child: Text(
-              'Same Wi-Fi or hotspot, found automatically or by typed address. '
-              'Choosing hotspot or Wi-Fi Direct arrives in a later phase.',
+          SectionCard(
+            title: 'Help',
+            child: Column(
+              children: [
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  minTileHeight: IdLayout.minTouchTarget,
+                  leading: const Icon(Icons.menu_book_outlined),
+                  title: const Text('Help & guides'),
+                  subtitle: const Text('Hotspot, permissions, troubleshooting'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const GuidesScreen(),
+                    ),
+                  ),
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  minTileHeight: IdLayout.minTouchTarget,
+                  leading: const Icon(Icons.monitor_heart_outlined),
+                  title: const Text('Diagnostics'),
+                  subtitle: const Text(
+                    'Connection method, link speed, last error',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const DiagnosticsScreen(),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           SectionCard(
@@ -167,7 +197,10 @@ class SettingsScreen extends StatelessWidget {
                     const Text(
                       'Transfer History: DEMO data (real history comes later).',
                     ),
-                    const Text('No analytics, no cloud, no crash reporting.'),
+                    const Text(
+                      'Isekai Drop itself has no analytics, no cloud, no crash reporting. '
+                      'On Android the QR scanner (Google ML Kit) sends Google its own usage metrics - see Privacy.',
+                    ),
                   ],
                 );
               },

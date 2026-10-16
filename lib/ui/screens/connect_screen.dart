@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../../engine/core/engine.dart' show kDefaultPort;
 import '../app_scope.dart';
+import '../guides/guides.dart';
+import '../qr_pairing.dart';
+import 'hotspot_screen.dart';
 import '../pairing_flow.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
@@ -125,13 +128,68 @@ class _ConnectScreenState extends State<ConnectScreen> {
               ],
             ),
           ),
-          const SectionCard(
+          SectionCard(
             title: 'QR code',
-            child: NotYetButton(
-              label: 'Scan QR code',
-              reason:
-                  'Not included yet: a QR scanner needs a camera library and '
-                  'your licence approval. Use the address and 16-digit code instead.',
+            child: Wrap(
+              spacing: IdSpacing.sm,
+              runSpacing: IdSpacing.sm,
+              children: [
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(200, IdLayout.minTouchTarget),
+                  ),
+                  onPressed: () => showMyQr(context),
+                  icon: const Icon(Icons.qr_code_2),
+                  label: const Text('Show my QR code'),
+                ),
+                if (canScanQr)
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(200, IdLayout.minTouchTarget),
+                    ),
+                    onPressed: () => scanQrAndPair(context),
+                    icon: const Icon(Icons.qr_code_scanner),
+                    label: const Text('Scan QR code'),
+                  )
+                else
+                  const Text(
+                    'This device has no QR scanner: scan this device\'s code '
+                    'from your phone instead.',
+                  ),
+              ],
+            ),
+          ),
+          SectionCard(
+            title: 'No Wi-Fi router?',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (Platform.isAndroid)
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(
+                        IdLayout.minTouchTarget,
+                      ),
+                    ),
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const HotspotScreen(),
+                      ),
+                    ),
+                    icon: const Icon(Icons.wifi_tethering),
+                    label: const Text('Make a hotspot with Isekai Drop'),
+                  ),
+                for (final g in guidesForThisPlatform())
+                  if (g.id != 'app_hotspot' || Platform.isAndroid)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      minTileHeight: IdLayout.minTouchTarget,
+                      leading: Icon(g.icon),
+                      title: Text(g.title),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => openGuide(context, g),
+                    ),
+              ],
             ),
           ),
         ],

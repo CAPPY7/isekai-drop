@@ -43,8 +43,18 @@
 - [x] Loopback benchmark on the build computer recorded (AGENTS.md)
 - [ ] Owner tests on two real devices
 
-## Phase 4 - Test Android ↔ Windows and Android ↔ macOS transfers
-- [ ] Manual test lists and results recorded
+## Phase 4 - No router: Android <-> Windows and Android <-> macOS
+- [x] Owner chose connection options A + B + C (docs/CONNECTION_OPTIONS.md)
+- [x] A: phone-hotspot guide; B: Windows Mobile Hotspot guide (in app)
+- [x] C: Android app-made local-only hotspot (permission explained first)
+- [x] Guides: local network permission / firewall, keep app open, not found
+- [x] QR pairing with mobile_scanner (owner decision); QR shows key fingerprint
+- [x] Folder sending with structure kept; multi-file queue (one send at a time)
+- [x] Pause / resume / cancel while the app stays open (both sides)
+- [x] Diagnostics screen: method, link speed (Android/Windows), last error
+- [x] Loopback tests: folders, hostile paths, pause/resume, queue, QR
+- [x] Manual test plan: docs/TEST_PLAN_PHASE4.md
+- [ ] Owner runs the manual test plan and records numbers
 
 ## Phase 5 - iPhone/iPad interoperability and platform fallbacks
 - [ ] iOS signing (owner SKIPPED for now; revisit only if owner asks)

@@ -56,10 +56,21 @@ class TransferScreen extends StatelessWidget {
           final left = job.timeLeft;
           final (statusText, color) = switch (job.state) {
             JobState.waiting => (
-              sending
+              job.queued
+                  ? 'In the queue - waits for the current send to finish'
+                  : sending
                   ? 'Waiting for the other device to accept...'
                   : 'Starting...',
               IdColors.accentGlow,
+            ),
+            JobState.running when job.paused => ('Paused', IdColors.warning),
+            JobState.running when job.pausedByPeer => (
+              'Paused by the other device',
+              IdColors.warning,
+            ),
+            JobState.running when job.stalled => (
+              'Waiting - no data for a few seconds (the other device may have paused)',
+              IdColors.warning,
             ),
             JobState.running => (
               sending ? 'Sending...' : 'Receiving...',
@@ -136,14 +147,24 @@ class TransferScreen extends StatelessWidget {
                         spacing: IdSpacing.sm,
                         runSpacing: IdSpacing.sm,
                         children: [
-                          Semantics(
-                            label: 'Pause. Disabled. Pause and resume arrive in a later phase.',
-                            excludeSemantics: true,
-                            child: const OutlinedButton(
-                              onPressed: null,
-                              child: Text('Pause (later phase)'),
+                          if (job.isActive)
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size(
+                                  140,
+                                  IdLayout.minTouchTarget,
+                                ),
+                              ),
+                              onPressed: !job.canPause
+                                  ? null
+                                  : job.paused
+                                  ? job.resume
+                                  : job.pause,
+                              icon: Icon(
+                                job.paused ? Icons.play_arrow : Icons.pause,
+                              ),
+                              label: Text(job.paused ? 'Resume' : 'Pause'),
                             ),
-                          ),
                           OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
                               minimumSize: const Size(
@@ -177,7 +198,8 @@ class TransferScreen extends StatelessWidget {
               ),
               if (job.isActive)
                 Text(
-                  'Keep Isekai Drop open and the screen on until it finishes.',
+                  'Keep Isekai Drop open on both devices until it finishes. '
+                  'Pause keeps the connection; closing the app stops the transfer.',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall,
                 ),

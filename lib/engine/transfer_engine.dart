@@ -41,8 +41,19 @@ abstract class TransferEngine implements Listenable {
   Future<void> start();
   Future<void> stop();
 
+  /// Last transfer problem in plain words (no names, no addresses).
+  String? get lastError;
+  DateTime? get lastErrorAt;
+  TransferJob? get lastFinishedJob;
+
   /// Connects to [host]:[port] for pairing. Throws on network errors.
-  Future<PairingSession> beginPairing(String host, int port);
+  /// With [expectFingerprint] (from a scanned QR code) the other device's
+  /// key must match exactly, otherwise pairing stops.
+  Future<PairingSession> beginPairing(
+    String host,
+    int port, {
+    String? expectFingerprint,
+  });
 
   Future<TransferJob> send(
     TrustedDevice device,

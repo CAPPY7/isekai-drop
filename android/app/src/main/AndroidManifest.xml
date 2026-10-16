@@ -3,6 +3,26 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Lets the app hear discovery announcements on Wi-Fi (no prompt). -->
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <!-- Diagnostics: connection type and Wi-Fi link speed (no prompt). -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <!-- App-made hotspot (no internet) for transfers without a router. -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <!-- Android 13+: needed for the app-made hotspot. Never used for location. -->
+    <uses-permission
+        android:name="android.permission.NEARBY_WIFI_DEVICES"
+        android:usesPermissionFlags="neverForLocation" />
+    <!-- Android 12 and older only: the system requires location permission to
+         create the app-made hotspot. The app never reads your location. -->
+    <uses-permission
+        android:name="android.permission.ACCESS_FINE_LOCATION"
+        android:maxSdkVersion="32" />
+    <uses-permission
+        android:name="android.permission.ACCESS_COARSE_LOCATION"
+        android:maxSdkVersion="32" />
+    <!-- Scanning pairing QR codes only. Asked the first time you tap Scan. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" /> 
     <application
         android:label="Isekai Drop"
         android:name="${applicationName}"

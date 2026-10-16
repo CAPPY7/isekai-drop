@@ -28,3 +28,20 @@ Fallbacks when devices don't find each other: show a QR code with the
 connection address and identity, or type the IP address shown on the other
 screen. Pairing approval is still required either way.
 No internet relay is ever used by default.
+
+## Owner decision (Phase 4, 2026-10-16): build A + B + C
+- **A. Phone hotspot, computer joins** - in-app guide. No extra permissions.
+- **B. Windows Mobile Hotspot, phone joins** - in-app guide. Windows only
+  (Macs have no equivalent).
+- **C. App-made Android local-only hotspot** - one tap in Connect > "Make a
+  hotspot with Isekai Drop". Verified against the Android WifiManager
+  reference (2026-10-16): `startLocalOnlyHotspot` needs CHANGE_WIFI_STATE +
+  NEARBY_WIFI_DEVICES for apps targeting Android 13+, and CHANGE_WIFI_STATE +
+  ACCESS_FINE_LOCATION on Android 12 and older. It has no internet, random
+  name/password each time, may fail with ERROR_INCOMPATIBLE_MODE while the
+  normal hotspot is on, and can be stopped by the user/system at any time.
+  Manifest: NEARBY_WIFI_DEVICES with `neverForLocation`; FINE/COARSE
+  location with `maxSdkVersion=32`. The app explains before asking.
+  On Android 12 and older Location must also be switched on (NOT TESTED on a
+  device).
+- **Not built:** Wi-Fi Direct (no macOS support, unreliable Windows interop).
