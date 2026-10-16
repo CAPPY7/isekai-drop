@@ -1,0 +1,77 @@
+import 'package:flutter/material.dart';
+
+import 'design_tokens.dart';
+
+/// Builds the dark and light themes from the design tokens.
+class AppTheme {
+  AppTheme._();
+
+  static ThemeData dark() => _build(
+    brightness: Brightness.dark,
+    background: IdColors.darkBackground,
+    surface: IdColors.darkSurface,
+    onSurface: IdColors.darkOnSurface,
+    muted: IdColors.darkOnSurfaceMuted,
+  );
+
+  static ThemeData light() => _build(
+    brightness: Brightness.light,
+    background: IdColors.lightBackground,
+    surface: IdColors.lightSurface,
+    onSurface: IdColors.lightOnSurface,
+    muted: IdColors.lightOnSurfaceMuted,
+  );
+
+  static ThemeData _build({
+    required Brightness brightness,
+    required Color background,
+    required Color surface,
+    required Color onSurface,
+    required Color muted,
+  }) {
+    final scheme =
+        ColorScheme.fromSeed(
+          seedColor: IdColors.accentBlue,
+          brightness: brightness,
+        ).copyWith(
+          primary: IdColors.accentBlue,
+          secondary: IdColors.accentPurple,
+          surface: surface,
+          onSurface: onSurface,
+          onSurfaceVariant: muted,
+          error: IdColors.danger,
+        );
+    return ThemeData(
+      useMaterial3: true,
+      brightness: brightness,
+      colorScheme: scheme,
+      scaffoldBackgroundColor: background,
+      cardTheme: CardThemeData(
+        color: surface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(IdRadii.lg),
+        ),
+      ),
+      textTheme: TextTheme(
+        displaySmall: TextStyle(
+          fontSize: IdTypeSizes.display,
+          fontWeight: FontWeight.w700,
+          color: onSurface,
+        ),
+        headlineSmall: TextStyle(
+          fontSize: IdTypeSizes.headline,
+          fontWeight: FontWeight.w700,
+          color: onSurface,
+        ),
+        titleMedium: TextStyle(
+          fontSize: IdTypeSizes.title,
+          fontWeight: FontWeight.w600,
+          color: onSurface,
+        ),
+        bodyMedium: TextStyle(fontSize: IdTypeSizes.body, color: onSurface),
+        bodySmall: TextStyle(fontSize: IdTypeSizes.caption, color: muted),
+      ),
+    );
+  }
+}
