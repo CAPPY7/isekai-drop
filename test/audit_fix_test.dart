@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/services.dart';
 import 'package:isekaidrop/engine/android_export.dart';
+import 'package:isekaidrop/engine/bonjour.dart';
 import 'package:isekaidrop/engine/core/engine.dart';
 import 'package:isekaidrop/engine/core/identity.dart';
 import 'package:isekaidrop/engine/core/key_migration.dart';
@@ -151,6 +152,45 @@ void main() {
       ]);
     },
   );
+
+  for (final plat in ['android', 'ios']) {
+    test(
+      '#8 Visible off on $plat: advertising stops, browsing continues',
+      () async {
+        TestWidgetsFlutterBinding.ensureInitialized();
+        final ch = MethodChannel(
+          plat == 'android' ? 'isekai_drop/android' : 'isekai_drop/apple',
+        );
+        final calls = <MethodCall>[];
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(ch, (c) async {
+              calls.add(c);
+              return null;
+            });
+        BonjourBridge.debugPlatform = plat;
+        addTearDown(() => BonjourBridge.debugPlatform = null);
+        final e = await eng(dir, 'v$plat');
+        addTearDown(e.stop);
+        final b = BonjourBridge(e);
+        await b.start();
+        await b.setVisible(false);
+        final starts = calls.where((c) => c.method.endsWith('Start')).toList();
+        expect(
+          starts,
+          hasLength(2),
+          reason: 'browsing must be restarted after Visible off',
+        );
+        expect((starts.last.arguments as Map)['advertise'], isFalse);
+        expect((starts.first.arguments as Map)['advertise'], isTrue);
+        await b.setVisible(true);
+        expect(
+          (calls.lastWhere((c) => c.method.endsWith('Start')).arguments
+              as Map)['advertise'],
+          isTrue,
+        );
+      },
+    );
+  }
 
   group('#3 fallback identity moves into secure storage', () {
     test('migrated: stored, read back, file wiped and deleted', () async {

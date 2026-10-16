@@ -24,7 +24,8 @@ class MainFlutterWindow: NSWindow {
         bj.start(
           name: args["name"] as? String ?? "Mac",
           port: args["port"] as? Int ?? 0,
-          txt: args["txt"] as? [String: String] ?? [:])
+          txt: args["txt"] as? [String: String] ?? [:],
+          advertise: args["advertise"] as? Bool ?? true)
         result(nil)
       case "bonjourStop":
         bj.stop()
@@ -52,14 +53,17 @@ final class IsekaiBonjour: NSObject, NetServiceDelegate, NetServiceBrowserDelega
     self.channel = channel
   }
 
-  func start(name: String, port: Int, txt: [String: String]) {
+  func start(name: String, port: Int, txt: [String: String], advertise: Bool = true) {
     stop()
     let s = NetService(domain: "local.", type: "_isekaidrop._tcp.", name: String(name.prefix(60)), port: Int32(port))
     var data: [String: Data] = [:]
     for (k, v) in txt { data[k] = v.data(using: .utf8) }
     s.setTXTRecord(NetService.data(fromTXTRecord: data))
-    s.publish()
-    published = s
+    // Audit #8: "Visible" off stops only advertising; browsing continues.
+    if advertise {
+      s.publish()
+      published = s
+    }
     let b = NetServiceBrowser()
     b.delegate = self
     b.searchForServices(ofType: "_isekaidrop._tcp.", inDomain: "local.")

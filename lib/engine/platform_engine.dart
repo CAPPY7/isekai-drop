@@ -546,8 +546,7 @@ Future<void> setPlatformVisible(bool visible) async {
   final b = _bonjour;
   if (b == null) return;
   try {
-    await b.stop();
-    if (visible) await b.start();
+    await b.setVisible(visible);
   } catch (_) {}
 }
 

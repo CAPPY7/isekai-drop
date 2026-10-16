@@ -108,6 +108,7 @@ class MainActivity : FlutterActivity() {
                             call.argument<String>("name")!!,
                             call.argument<Int>("port")!!,
                             call.argument<Map<String, String>>("txt") ?: emptyMap(),
+                            call.argument<Boolean>("advertise") ?: true,
                         )
                         result.success(null)
                     }
@@ -522,7 +523,7 @@ class MainActivity : FlutterActivity() {
 
     private val nsdType = "_isekaidrop._tcp."
 
-    private fun nsdStart(name: String, port: Int, txt: Map<String, String>) {
+    private fun nsdStart(name: String, port: Int, txt: Map<String, String>, advertise: Boolean = true) {
         val nsd = getSystemService(NSD_SERVICE) as NsdManager
         nsdStop()
         val info = NsdServiceInfo().apply {
@@ -551,8 +552,11 @@ class MainActivity : FlutterActivity() {
             }
         }
         try {
-            nsd.registerService(info, NsdManager.PROTOCOL_DNS_SD, reg)
-            nsdReg = reg
+            // Audit #8: "Visible" off stops only advertising; browsing continues.
+            if (advertise) {
+                nsd.registerService(info, NsdManager.PROTOCOL_DNS_SD, reg)
+                nsdReg = reg
+            }
             nsd.discoverServices(nsdType, NsdManager.PROTOCOL_DNS_SD, disc)
             nsdDisc = disc
         } catch (_: Exception) {

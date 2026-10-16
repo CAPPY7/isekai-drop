@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:multicast_dns/multicast_dns.dart';
 
@@ -37,23 +38,42 @@ class BonjourBridge {
     'v': '1',
   };
 
-  Future<void> start() async {
+  /// Tests only: pretend to be this platform ('ios', 'android', ...).
+  @visibleForTesting
+  static String? debugPlatform;
+
+  static bool get _apple_ => debugPlatform == null
+      ? (Platform.isIOS || Platform.isMacOS)
+      : (debugPlatform == 'ios' || debugPlatform == 'macos');
+  static bool get _android_ =>
+      debugPlatform == null ? Platform.isAndroid : debugPlatform == 'android';
+
+  /// Audit #8: "Visible" off must stop only advertising. Browsing keeps
+  /// running so this device still finds others.
+  Future<void> setVisible(bool visible) async {
+    await stop();
+    await start(advertise: visible);
+  }
+
+  Future<void> start({bool advertise = true}) async {
     final port = engine.listeningPort;
     if (port == null) return;
     try {
-      if (Platform.isIOS || Platform.isMacOS) {
+      if (_apple_) {
         _apple.setMethodCallHandler(_onNative);
         await _apple.invokeMethod('bonjourStart', {
           'name': engine.myName,
           'port': port,
           'txt': _txt(),
+          'advertise': advertise,
         });
-      } else if (Platform.isAndroid) {
+      } else if (_android_) {
         _android.setMethodCallHandler(_onNative);
         await _android.invokeMethod('nsdStart', {
           'name': engine.myName,
           'port': port,
           'txt': _txt(),
+          'advertise': advertise,
         });
       } else {
         _timer = Timer.periodic(const Duration(seconds: 10), (_) => _query());
@@ -68,9 +88,9 @@ class BonjourBridge {
     _timer?.cancel();
     _mdns?.stop();
     try {
-      if (Platform.isIOS || Platform.isMacOS) {
+      if (_apple_) {
         await _apple.invokeMethod('bonjourStop');
-      } else if (Platform.isAndroid) {
+      } else if (_android_) {
         await _android.invokeMethod('nsdStop');
       }
     } catch (_) {}
