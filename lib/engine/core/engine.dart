@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:convert/convert.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 
 import '../transfer_engine.dart';
+import 'bg_hasher.dart';
 import 'discovery.dart';
 import 'frames.dart';
 import 'identity.dart';
@@ -757,6 +757,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     final batch = state != null ? store!.batchFor(state) : ReceiveBatch();
     File? temp;
     RandomAccessFile? out;
+    FileHasher? hasher;
     var keepPartial = false;
     try {
       for (var i = 0; i < names.length; i++) {
@@ -774,8 +775,8 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
             ((head['offset'] as int?) ?? 0) != offset) {
           throw const FormatException('Unexpected message');
         }
-        final digestOut = AccumulatorSink<Digest>();
-        final hasher = sha256.startChunkedConversion(digestOut);
+        hasher?.dispose();
+        hasher = await fileHasher(sizes[i]);
         if (state != null) {
           temp = store!.partFile(state.key);
           if (offset > 0) {
@@ -833,8 +834,8 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         final end = await _nextControl(reader, job);
         await out.close();
         out = null;
-        hasher.close();
-        final actual = digestOut.events.single.toString();
+        final actual = await hasher.close();
+        hasher = null;
         if (end['t'] != 'file_end' ||
             end['i'] != i ||
             end['sha256'] != actual) {
@@ -878,6 +879,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
             : 'The transfer stopped. Nothing unverified was kept.',
       );
     } finally {
+      hasher?.dispose();
       try {
         await out?.close();
       } catch (_) {}
@@ -1178,84 +1180,82 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       if (resumed > 0) job.addResumed(resumed);
       job.filesDone += skip.length;
       var sentThisAttempt = 0;
-      for (var i = 0; i < files.length; i++) {
-        if (skip.contains(i)) continue;
-        final f = files[i];
-        final offset = offsets[i] ?? 0;
-        await job.waitIfPaused();
-        if (job.cancelRequested) return;
-        sock.add(
-          jsonFrame({
-            't': 'file',
-            'i': i,
-            'name': f.name,
-            'size': f.size,
-            if (offset > 0) 'offset': offset,
-          }),
-        );
-        final digestOut = AccumulatorSink<Digest>();
-        final hasher = sha256.startChunkedConversion(digestOut);
-        var sent = 0;
-        var sinceFlush = 0;
-        await for (final chunk in f.open()) {
-          if (job.paused) {
-            await sock.flush();
-            await job.waitIfPaused();
-          }
+      FileHasher? sendHasher;
+      try {
+        for (var i = 0; i < files.length; i++) {
+          if (skip.contains(i)) continue;
+          final f = files[i];
+          final offset = offsets[i] ?? 0;
+          await job.waitIfPaused();
           if (job.cancelRequested) return;
-          if (sent + chunk.length > f.size) {
-            throw const FileSystemException('File changed while sending');
-          }
-          // The whole file is always hashed from byte 0; bytes the receiver
-          // already has are hashed but not sent again.
-          hasher.add(chunk);
-          List<int> part = chunk;
-          if (sent < offset) {
-            final skipN = offset - sent;
-            sent += chunk.length;
-            if (chunk.length <= skipN) continue;
-            part = chunk.sublist(skipN);
-          } else {
-            sent += chunk.length;
-          }
-          final wire = debugTamper != null ? debugTamper!(part) : part;
-          sock.add(encodeFrame(frameData, wire));
-          sinceFlush += part.length;
-          sentThisAttempt += part.length;
-          job.addBytes(part.length);
-          final drop = debugDropAfterBytes;
-          if (drop != null && sentThisAttempt >= drop) {
-            await sock.flush();
-            sock.destroy();
-            throw const SocketException('debug drop');
-          }
-          if (sinceFlush >= 4 * 1024 * 1024) {
-            sinceFlush = 0;
-            await sock.flush();
-          }
-        }
-        await f.close();
-        if (sent != f.size) {
-          throw const FileSystemException('File size changed');
-        }
-        hasher.close();
-        sock.add(
-          jsonFrame({
-            't': 'file_end',
-            'i': i,
-            'sha256': digestOut.events.single.toString(),
-          }),
-        );
-        await sock.flush();
-        final r = await _nextControl(reader, job);
-        if (r['t'] != 'file_ok') {
-          job.finish(
-            JobState.failed,
-            'The other device rejected the file: integrity check failed.',
+          sock.add(
+            jsonFrame({
+              't': 'file',
+              'i': i,
+              'name': f.name,
+              'size': f.size,
+              if (offset > 0) 'offset': offset,
+            }),
           );
-          return;
+          final hasher = sendHasher = await fileHasher(f.size);
+          var sent = 0;
+          var sinceFlush = 0;
+          await for (final chunk in f.open()) {
+            if (job.paused) {
+              await sock.flush();
+              await job.waitIfPaused();
+            }
+            if (job.cancelRequested) return;
+            if (sent + chunk.length > f.size) {
+              throw const FileSystemException('File changed while sending');
+            }
+            // The whole file is always hashed from byte 0; bytes the receiver
+            // already has are hashed but not sent again.
+            hasher.add(chunk);
+            List<int> part = chunk;
+            if (sent < offset) {
+              final skipN = offset - sent;
+              sent += chunk.length;
+              if (chunk.length <= skipN) continue;
+              part = chunk.sublist(skipN);
+            } else {
+              sent += chunk.length;
+            }
+            final wire = debugTamper != null ? debugTamper!(part) : part;
+            sock.add(encodeFrame(frameData, wire));
+            sinceFlush += part.length;
+            sentThisAttempt += part.length;
+            job.addBytes(part.length);
+            final drop = debugDropAfterBytes;
+            if (drop != null && sentThisAttempt >= drop) {
+              await sock.flush();
+              sock.destroy();
+              throw const SocketException('debug drop');
+            }
+            if (sinceFlush >= 4 * 1024 * 1024) {
+              sinceFlush = 0;
+              await sock.flush();
+            }
+          }
+          await f.close();
+          if (sent != f.size) {
+            throw const FileSystemException('File size changed');
+          }
+          final digest = await hasher.close();
+          sock.add(jsonFrame({'t': 'file_end', 'i': i, 'sha256': digest}));
+          await sock.flush();
+          final r = await _nextControl(reader, job);
+          if (r['t'] != 'file_ok') {
+            job.finish(
+              JobState.failed,
+              'The other device rejected the file: integrity check failed.',
+            );
+            return;
+          }
+          job.filesDone++;
         }
-        job.filesDone++;
+      } finally {
+        sendHasher?.dispose();
       }
       sock.add(jsonFrame({'t': 'done'}));
       await sock.flush();

@@ -6,7 +6,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/services.dart';
 import 'package:isekaidrop/engine/android_export.dart';
 import 'package:isekaidrop/engine/bonjour.dart';
+import 'package:crypto/crypto.dart';
+import 'package:isekaidrop/engine/core/bg_hasher.dart';
 import 'package:isekaidrop/engine/core/engine.dart';
+import 'package:isekaidrop/engine/core/jobs.dart';
+import 'package:isekaidrop/engine/core/send_source.dart';
 import 'package:isekaidrop/engine/core/identity.dart';
 import 'package:isekaidrop/engine/core/key_migration.dart';
 import 'package:isekaidrop/engine/core/trust_store.dart';
@@ -191,6 +195,40 @@ void main() {
       },
     );
   }
+
+  test('#10 background hasher gives the same SHA-256 as inline', () async {
+    final data = List<int>.generate(3 * 1024 * 1024 + 5, (i) => i * 31 & 255);
+    final bg = await BgHasher.start();
+    for (var o = 0; o < data.length; o += 65536) {
+      bg.add(data.sublist(o, (o + 65536).clamp(0, data.length)));
+    }
+    expect(await bg.close(), sha256.convert(data).toString());
+    expect(await fileHasher(10), isA<InlineHasher>());
+    final big = await fileHasher(kBgHashMinBytes);
+    expect(big, isA<BgHasher>());
+    big.dispose();
+  });
+
+  test('#10 transfer with background hashing: file arrives intact', () async {
+    debugForceBgHash = true;
+    addTearDown(() => debugForceBgHash = null);
+    final a = await eng(dir, 'ha');
+    final b = await eng(dir, 'hb');
+    addTearDown(a.stop);
+    addTearDown(b.stop);
+    await (await a.beginPairing('127.0.0.1', b.listeningPort!)).confirm();
+    final f = File(p.join(dir.path, 'x.bin'))
+      ..writeAsBytesSync(List<int>.generate(200000, (i) => i * 7 & 255));
+    final j = await a.send(a.trustedDevices.single, [FileSendSource(f)]);
+    for (var i = 0; i < 500 && j.isActive; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    expect(j.state, JobState.completed, reason: j.message);
+    expect(
+      File(p.join(dir.path, 'hb-in', 'x.bin')).readAsBytesSync(),
+      f.readAsBytesSync(),
+    );
+  });
 
   group('#3 fallback identity moves into secure storage', () {
     test('migrated: stored, read back, file wiped and deleted', () async {
