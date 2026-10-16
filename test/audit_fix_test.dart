@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
+import 'package:isekaidrop/engine/android_export.dart';
 import 'package:isekaidrop/engine/core/engine.dart';
 import 'package:isekaidrop/engine/core/identity.dart';
 import 'package:isekaidrop/engine/core/key_migration.dart';
@@ -118,6 +120,37 @@ void main() {
     expect(t.loadWarning, isNotNull);
     expect(t.backupFile!.readAsStringSync(), '{not json');
   });
+
+  test(
+    '#6 Android: storage permission asked once, before the first save',
+    () async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      const ch = MethodChannel('test/android');
+      final calls = <String>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(ch, (c) async {
+            calls.add(c.method);
+            return switch (c.method) {
+              'ensureLegacyStorage' => true,
+              'folderExists' => false,
+              _ => '/storage/emulated/0/Download/Isekai Drop/a.txt',
+            };
+          });
+      final x = AndroidExporter(ch);
+      expect(await x.folderExists('f'), isFalse);
+      expect(
+        await x.export('/tmp/a', 'a.txt', ''),
+        contains('Download/Isekai Drop'),
+      );
+      await x.export('/tmp/b', 'b.txt', '');
+      expect(calls, [
+        'ensureLegacyStorage',
+        'folderExists',
+        'exportToDownloads',
+        'exportToDownloads',
+      ]);
+    },
+  );
 
   group('#3 fallback identity moves into secure storage', () {
     test('migrated: stored, read back, file wiped and deleted', () async {

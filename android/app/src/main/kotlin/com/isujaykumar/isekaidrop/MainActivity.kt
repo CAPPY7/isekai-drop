@@ -46,6 +46,30 @@ class MainActivity : FlutterActivity() {
     private val permRequest = 4713
     private var pendingFolder: MethodChannel.Result? = null
     private var pendingPerm: MethodChannel.Result? = null
+
+    // Audit #6: Android 9 and older have no MediaStore.Downloads, so writing
+    // to the public Downloads folder needs WRITE_EXTERNAL_STORAGE (declared
+    // with maxSdkVersion=28, never requested on Android 10+).
+    private val legacyRequest = 4714
+    private var pendingLegacy: MethodChannel.Result? = null
+
+    private fun legacyGranted(): Boolean =
+        Build.VERSION.SDK_INT >= 29 ||
+            checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) ==
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+
+    private fun ensureLegacyStorage(result: MethodChannel.Result) {
+        if (legacyGranted()) { result.success(true); return }
+        if (pendingLegacy != null) { result.error("busy", "Already asking", null); return }
+        pendingLegacy = result
+        requestPermissions(arrayOf(android.Manifest.permission.WRITE_EXTERNAL_STORAGE), legacyRequest)
+    }
+
+    /** Public Downloads/Isekai Drop when allowed, else the app's own folder. */
+    @Suppress("DEPRECATION")
+    private fun legacyBase(): File =
+        if (legacyGranted()) File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Isekai Drop")
+        else File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "Isekai Drop")
     private var hotspot: WifiManager.LocalOnlyHotspotReservation? = null
     private var channel: MethodChannel? = null
     private var nsdReg: NsdManager.RegistrationListener? = null
@@ -70,6 +94,7 @@ class MainActivity : FlutterActivity() {
                         }
                         result.success(null)
                     }
+                    "ensureLegacyStorage" -> ensureLegacyStorage(result)
                     "exportToDownloads" -> exportToDownloads(
                         call.argument<String>("path")!!,
                         call.argument<String>("name")!!,
@@ -225,7 +250,7 @@ class MainActivity : FlutterActivity() {
                     }
                     where = "Downloads/Isekai Drop/" + (if (sub.isEmpty()) "" else "$sub/") + name
                 } else {
-                    val base = File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "Isekai Drop")
+                    val base = legacyBase()
                     val dir = if (sub.isEmpty()) base else File(base, sub)
                     if (!dir.canonicalPath.startsWith(base.canonicalPath)) throw SecurityException("unsafe path")
                     dir.mkdirs()
@@ -238,6 +263,7 @@ class MainActivity : FlutterActivity() {
                         i++
                     }
                     FileInputStream(src).use { input -> target.outputStream().use { input.copyTo(it, 1 shl 20) } }
+                    android.media.MediaScannerConnection.scanFile(this, arrayOf(target.absolutePath), null, null)
                     where = target.absolutePath
                 }
                 src.delete()
@@ -328,7 +354,7 @@ class MainActivity : FlutterActivity() {
                     null,
                 ).use { c -> result.success((c?.count ?: 0) > 0) }
             } else {
-                val dir = File(File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "Isekai Drop"), name)
+                val dir = File(legacyBase(), name)
                 result.success(dir.exists())
             }
         } catch (e: Exception) {
@@ -407,6 +433,12 @@ class MainActivity : FlutterActivity() {
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == legacyRequest) {
+            val r = pendingLegacy ?: return
+            pendingLegacy = null
+            r.success(legacyGranted())
+            return
+        }
         if (requestCode != permRequest) return
         val r = pendingPerm ?: return
         pendingPerm = null

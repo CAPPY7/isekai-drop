@@ -6,8 +6,10 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path/path.dart' as p;
+
 import 'package:path_provider/path_provider.dart';
 
+import 'android_export.dart';
 import 'bonjour.dart';
 import 'core/benchmark_store.dart';
 import 'core/engine.dart';
@@ -19,6 +21,7 @@ import 'core/send_source.dart';
 import 'core/trust_store.dart';
 
 const _android = MethodChannel('isekai_drop/android');
+final _exporter = AndroidExporter(_android);
 const _apple = MethodChannel('isekai_drop/apple');
 BonjourBridge? _bonjour;
 const _identityKey = 'isekai_identity_v1';
@@ -191,21 +194,14 @@ Future<IsekaiEngine> createPlatformEngine(
         if (topName == null) {
           topName = top;
           for (var i = 1; i < 10000; i++) {
-            final taken = await _android.invokeMethod<bool>('folderExists', {
-              'name': topName,
-            });
-            if (taken != true) break;
+            if (!await _exporter.folderExists(topName!)) break;
             topName = '$top ($i)';
           }
           batch.topFolders[top] = topName!;
         }
         sub = [topName, ...parts.sublist(1, parts.length - 1)].join('/');
       }
-      return (await _android.invokeMethod<String>('exportToDownloads', {
-        'path': temp.path,
-        'name': parts.last,
-        'sub': sub,
-      }))!;
+      return _exporter.export(temp.path, parts.last, sub);
     };
     where = 'Downloads/Isekai Drop';
     try {
@@ -566,11 +562,7 @@ Future<String?> exportBenchmarkCsv(String csv) async {
   if (Platform.isAndroid) {
     final tmp = File(p.join((await getTemporaryDirectory()).path, name));
     await tmp.writeAsString(csv, flush: true);
-    return _android.invokeMethod<String>('exportToDownloads', {
-      'path': tmp.path,
-      'name': name,
-      'sub': '',
-    });
+    return _exporter.export(tmp.path, name, '');
   }
   if (Platform.isIOS) {
     final dir = Directory(

@@ -22,6 +22,11 @@
         android:maxSdkVersion="32" />
     <!-- Scanning pairing QR codes only. Asked the first time you tap Scan. -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Audit #6: only Android 9 and older (no MediaStore.Downloads there);
+         needed to save into the public Downloads/Isekai Drop folder. -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
     <uses-feature android:name="android.hardware.camera" android:required="false" /> 
     <application
         android:label="Isekai Drop"
