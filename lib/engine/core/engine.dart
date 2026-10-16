@@ -442,6 +442,30 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       s.add(jsonFrame({'t': 'pair_denied', 'reason': 'same_device'}));
       return;
     }
+    // One pairing question at a time: a flood of requests from the network
+    // must not fill the screen with prompts.
+    if (_pairingOpen) {
+      s.add(jsonFrame({'t': 'pair_denied', 'reason': 'busy'}));
+      return;
+    }
+    _pairingOpen = true;
+    try {
+      await _serverPairingAsk(s, peerId, name, platform, certPem, peerFp);
+    } finally {
+      _pairingOpen = false;
+    }
+  }
+
+  bool _pairingOpen = false;
+
+  Future<void> _serverPairingAsk(
+    SecureSocket s,
+    String peerId,
+    String name,
+    String platform,
+    String certPem,
+    String peerFp,
+  ) async {
     final known = trust.byDeviceId(peerId);
     final req = PendingRequest(
       id: randomHex(8),
@@ -802,11 +826,11 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         kApprovalTimeout + const Duration(seconds: 10),
       );
       if (r['t'] != 'pair_ok') {
-        throw PairingException(
-          r['reason'] == 'declined'
-              ? 'The other device declined.'
-              : 'Pairing was refused.',
-        );
+        throw PairingException(switch (r['reason']) {
+          'declined' => 'The other device declined.',
+          'busy' => 'The other device is already answering another pairing request. Try again in a moment.',
+          _ => 'Pairing was refused.',
+        });
       }
       final dev = await trust.addTrusted(
         deviceId: r['device_id'] as String,

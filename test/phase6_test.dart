@@ -1,6 +1,7 @@
 // Phase 6: trust states, history, settings migrations, retry, auto-receive
 // and RESUME (after a network drop and after a simulated process kill).
 // Real TLS over loopback; only the approval buttons are automated.
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -303,6 +304,33 @@ void main() {
         ]),
       );
       expect(ok.state, JobState.completed, reason: ok.message);
+    },
+  );
+
+  test(
+    'a second pairing request while one is open is refused (audit #2)',
+    () async {
+      final gate = Completer<bool>();
+      b.engine.debugAutoDecide = (r) => gate.future;
+      final first = await a.engine.beginPairing('127.0.0.1', b.port);
+      final firstDone = first.confirm();
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      final c = await N.create('c');
+      addTearDown(c.dispose);
+      final second = await c.engine.beginPairing('127.0.0.1', b.port);
+      await expectLater(
+        second.confirm(),
+        throwsA(
+          isA<PairingException>().having(
+            (e) => e.message,
+            'message',
+            contains('another pairing request'),
+          ),
+        ),
+      );
+      gate.complete(true);
+      await firstDone;
+      expect(b.engine.trustedDevices, hasLength(1));
     },
   );
 
