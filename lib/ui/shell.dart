@@ -94,81 +94,104 @@ class _AppShellState extends State<AppShell> {
   Future<void> _ask(PendingRequest r) async {
     final pairing = r.kind == RequestKind.pairing;
     final nav = Navigator.of(context);
+    BuildContext? dialogCtx;
+    var open = true;
+    // Audit #7: close the dialog when the request ends without an answer
+    // here (timeout, or the other device gave up).
+    unawaited(
+      r.decision.then((_) {
+        final c = dialogCtx;
+        if (open && c != null && c.mounted) Navigator.of(c).pop();
+      }),
+    );
     final ok = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (c) => AlertDialog(
-        title: Text(
-          pairing
-              ? 'Pair with ${r.peerName}?'
-              : '${r.peerName} wants to send you files',
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: pairing
-                ? [
-                    Text(
-                      '${platformLabel(r.peerPlatform)} device "${r.peerName}" asks to pair.',
-                    ),
-                    if (r.keyChanged) ...[
-                      const SizedBox(height: IdSpacing.sm),
+      builder: (c) {
+        dialogCtx = c;
+        return AlertDialog(
+          title: Text(
+            pairing
+                ? 'Pair with ${r.peerName}?'
+                : '${r.peerName} wants to send you files',
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: pairing
+                  ? [
+                      Text(
+                        '${platformLabel(r.peerPlatform)} device "${r.peerName}" asks to pair.',
+                      ),
+                      if (r.keyChanged) ...[
+                        const SizedBox(height: IdSpacing.sm),
+                        const Text(
+                          'WARNING: a device with this id was paired before with a DIFFERENT key. '
+                          'Approve only if you reinstalled or reset Isekai Drop on it. '
+                          'Approving replaces the old key.',
+                          style: TextStyle(
+                            color: IdColors.danger,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: IdSpacing.md),
                       const Text(
-                        'WARNING: a device with this id was paired before with a DIFFERENT key. '
-                        'Approve only if you reinstalled or reset Isekai Drop on it. '
-                        'Approving replaces the old key.',
-                        style: TextStyle(
-                          color: IdColors.danger,
+                        'Approve ONLY if the other screen shows exactly this code:',
+                      ),
+                      const SizedBox(height: IdSpacing.sm),
+                      SelectableText(
+                        r.code ?? '',
+                        style: const TextStyle(
+                          fontSize: 26,
                           fontWeight: FontWeight.w700,
+                          letterSpacing: 2,
                         ),
                       ),
-                    ],
-                    const SizedBox(height: IdSpacing.md),
-                    const Text(
-                      'Approve ONLY if the other screen shows exactly this code:',
-                    ),
-                    const SizedBox(height: IdSpacing.sm),
-                    SelectableText(
-                      r.code ?? '',
-                      style: const TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 2,
-                      ),
-                    ),
-                    const SizedBox(height: IdSpacing.sm),
-                    const Text('If you did not start this, tap Decline.'),
-                  ]
-                : [
-                    Text(
-                      '${r.fileNames.length} file(s), ${formatBytes(r.totalBytes)} from trusted device "${r.peerName}".',
-                    ),
-                    const SizedBox(height: IdSpacing.sm),
-                    if (r.resumeBytes > 0)
+                      const SizedBox(height: IdSpacing.sm),
+                      const Text('If you did not start this, tap Decline.'),
+                    ]
+                  : [
                       Text(
-                        'Continues an interrupted transfer: ${formatBytes(r.resumeBytes)} are already here.',
+                        '${r.fileNames.length} file(s), ${formatBytes(r.totalBytes)} from trusted device "${r.peerName}".',
                       ),
-                    for (final n in r.fileNames.take(5))
-                      Text('- $n', overflow: TextOverflow.ellipsis),
-                    if (r.fileNames.length > 5)
-                      Text('...and ${r.fileNames.length - 5} more'),
-                  ],
+                      const SizedBox(height: IdSpacing.sm),
+                      if (r.resumeBytes > 0)
+                        Text(
+                          'Continues an interrupted transfer: ${formatBytes(r.resumeBytes)} are already here.',
+                        ),
+                      for (final n in r.fileNames.take(5))
+                        Text('- $n', overflow: TextOverflow.ellipsis),
+                      if (r.fileNames.length > 5)
+                        Text('...and ${r.fileNames.length - 5} more'),
+                    ],
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(c, false),
-            child: const Text('Decline'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(c, true),
-            child: Text(pairing ? 'Codes match - approve' : 'Accept'),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: const Text('Decline'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(c, true),
+              child: Text(pairing ? 'Codes match - approve' : 'Accept'),
+            ),
+          ],
+        );
+      },
     );
-    if (r.decided) return;
+    open = false;
+    if (r.decided) {
+      if (r.expired && mounted) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          const SnackBar(
+            content: Text('Request expired - nobody answered in time.'),
+          ),
+        );
+      }
+      return;
+    }
     if (ok == true) {
       r.approve();
       final job = r.job;

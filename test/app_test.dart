@@ -6,6 +6,7 @@ import 'package:isekaidrop/app.dart';
 import 'package:isekaidrop/engine/core/engine.dart';
 import 'package:isekaidrop/engine/core/history_store.dart';
 import 'package:isekaidrop/engine/core/identity.dart';
+import 'package:isekaidrop/engine/core/jobs.dart';
 import 'package:isekaidrop/engine/core/trust_store.dart';
 import 'package:isekaidrop/settings/settings_controller.dart';
 import 'package:path/path.dart' as p;
@@ -228,6 +229,37 @@ void main() {
     await tester.tap(find.text('Codes match'));
     await waitFor(tester, () => _engine.trustedDevices.single.isVerified);
     expect(_engine.trustedDevices.single.isVerified, isTrue);
+  });
+
+  testWidgets('audit #7: approval dialog closes itself on timeout', (
+    tester,
+  ) async {
+    await _pump(tester);
+    _engine.approvalTimeout = const Duration(seconds: 3);
+    final req = PendingRequest(
+      id: 'r1',
+      kind: RequestKind.transfer,
+      peerName: 'Test Windows PC',
+      peerPlatform: 'windows',
+      fileNames: const ['a.txt'],
+      totalBytes: 10,
+    );
+    late bool answer;
+    final f = _engine.debugAsk(req).then((v) => answer = v);
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Accept'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+    await f;
+    expect(answer, isFalse);
+    expect(req.expired, isTrue);
+    expect(
+      find.text('Accept'),
+      findsNothing,
+      reason: 'dialog must close when the request times out',
+    );
+    expect(find.textContaining('Request expired'), findsOneWidget);
   });
 
   testWidgets('auto-receive is off and asks before turning on', (tester) async {

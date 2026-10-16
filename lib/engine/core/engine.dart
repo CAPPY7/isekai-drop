@@ -339,12 +339,25 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
 
   // ---------------------------------------------------------------- approvals
 
+  /// How long an approval dialog waits. Changeable only for tests.
+  @visibleForTesting
+  Duration approvalTimeout = kApprovalTimeout;
+
+  @visibleForTesting
+  Future<bool> debugAsk(PendingRequest r) => _ask(r);
+
   Future<bool> _ask(PendingRequest r) async {
     if (debugAutoDecide != null) return debugAutoDecide!(r);
     _pending.add(r);
     notifyListeners();
     try {
-      return await r.decision.timeout(kApprovalTimeout, onTimeout: () => false);
+      return await r.decision.timeout(
+        approvalTimeout,
+        onTimeout: () {
+          r.expire();
+          return false;
+        },
+      );
     } finally {
       _pending.remove(r);
       notifyListeners();

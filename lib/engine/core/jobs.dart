@@ -266,4 +266,13 @@ class PendingRequest {
   void decline() {
     if (!decided) _decision.complete(false);
   }
+
+  /// Audit #7: true when nobody answered in time. The dialog closes itself.
+  bool expired = false;
+
+  void expire() {
+    if (decided) return;
+    expired = true;
+    _decision.complete(false);
+  }
 }
