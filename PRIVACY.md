@@ -39,3 +39,6 @@ Nothing is recorded or saved.
 Android requires "Nearby devices" (Android 13+, declared never used for
 location) or "Location" (Android 12 and older) to create a hotspot. Isekai
 Drop never reads or stores your location.
+
+## Bonjour / mDNS (all platforms, Phase 5)
+While the app is open it advertises a `_isekaidrop._tcp` service on your local network (not on Windows/Linux, which only look). The service carries: device name, a random device id, your certificate fingerprint, platform name and protocol version. Nothing leaves your local network. On iPhone/iPad, iOS asks for Local Network permission first.

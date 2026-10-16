@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../engine/platform_engine.dart' show canShareFiles, shareFiles;
 import '../../engine/transfer_engine.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
@@ -141,6 +142,12 @@ class TransferScreen extends StatelessWidget {
                         Text('Saved to:', style: theme.textTheme.bodySmall),
                         for (final s in job.savedTo.take(10))
                           Text(s, style: theme.textTheme.bodySmall),
+                        if (canShareFiles && !job.isActive)
+                          TextButton.icon(
+                            onPressed: () => shareFiles(job.savedTo),
+                            icon: const Icon(Icons.ios_share),
+                            label: const Text('Share / Save to Files'),
+                          ),
                       ],
                       const SizedBox(height: IdSpacing.lg),
                       Wrap(

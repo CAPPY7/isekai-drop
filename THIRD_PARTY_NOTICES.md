@@ -89,6 +89,8 @@ for every package in `flutter pub deps --no-dev`. No GPL / AGPL / MPL.
 `file_picker` was rejected in Phase 2 (its Linux part needs `dbus`, MPL-2.0).
 No QR-scanner/camera library is included yet (see AGENTS.md).
 
+- multicast_dns (Dart, Flutter team) - BSD-3-Clause - Bonjour browsing on Windows/Linux
+
 ## Used only to build/test (not shipped)
 | Component | Version | Licence |
 |---|---|---|

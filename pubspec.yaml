@@ -3,7 +3,7 @@ description: "Isekai Drop - private, direct file sharing between your own device
 publish_to: 'none'
 
 # versionCode/build number is overridden in CI with the GitHub run number.
-version: 0.4.0+1
+version: 0.5.0+1
 
 environment:
   sdk: ^3.13.5
@@ -18,6 +18,7 @@ dependencies:
     sdk: flutter
   flutter_secure_storage: ^11.2.0
   mobile_scanner: ^7.4.2
+  multicast_dns: ^0.3.3+1
   path: ^1.9.1
   path_provider: ^2.1.6
   qr_flutter: ^4.1.0

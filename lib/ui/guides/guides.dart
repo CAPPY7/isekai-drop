@@ -69,7 +69,7 @@ const guideWindowsHotspot = Guide(
   title: 'No router: use Windows Mobile Hotspot',
   summary: 'The Windows PC makes a Wi-Fi network; the phone joins it.',
   icon: Icons.laptop_windows,
-  platforms: ['windows', 'android'],
+  platforms: ['windows', 'android', 'ios'],
   sections: [
     GuideSection('On the Windows PC', [
       'Open Settings > Network & internet > Mobile hotspot.',
@@ -178,7 +178,52 @@ const guideNotFound = Guide(
   ],
 );
 
+const guideIphone = Guide(
+  platforms: ['ios', 'android', 'macos', 'windows', 'linux'],
+  id: 'iphone',
+  title: 'iPhone and iPad: how it works',
+  summary: 'What Apple allows, and how to connect an iPhone.',
+  icon: Icons.phone_iphone,
+  sections: [
+    GuideSection('Connecting', [
+      'Put the iPhone and the other device on the same Wi-Fi, or join the other device\'s hotspot (iPhones cannot be joined by an app-made hotspot from Isekai Drop, but they can JOIN one).',
+      'The first time, iOS asks to find devices on your local network. Tap Allow.',
+      'Android phones and Macs appear automatically (Bonjour). Windows and Linux PCs do NOT appear on iPhone: on the iPhone tap Scan QR code and scan the PC\'s QR code, or type its address.',
+      'Compare the 16-digit codes and approve, like on any device.',
+    ]),
+    GuideSection('While sending', [
+      'Keep Isekai Drop open and on screen. iOS pauses apps in the background; the screen will not auto-lock during a transfer.',
+      'If you switch away, iOS may give a short grace period, then the transfer stops and unfinished files are deleted.',
+    ]),
+    GuideSection('Where files go', [
+      'Files app > On My iPhone > Isekai Drop > Received.',
+      'After a transfer tap "Share / Save to Files" to move files elsewhere or into Photos.',
+    ]),
+  ],
+  notes: [
+    'If you tapped Don\'t Allow: Settings > Privacy & Security > Local Network > turn on Isekai Drop.',
+    'Folders cannot be picked on iPhone yet; pick the files instead.',
+  ],
+);
+
+const guideLinux = Guide(
+  id: 'linux',
+  title: 'Linux notes',
+  summary: 'What works on Linux and what to install.',
+  icon: Icons.computer,
+  platforms: ['linux'],
+  sections: [
+    GuideSection('Setup', [
+      'The device key is kept in your keyring (GNOME Keyring / KWallet via Secret Service). Without a keyring the app uses a private file and says so in Diagnostics.',
+      'If a firewall (ufw, firewalld) is on, allow TCP port 47820 and UDP port 47821 for your local network.',
+      'iPhones do not see Linux PCs automatically: show this PC\'s QR code and scan it on the iPhone.',
+    ]),
+  ],
+);
+
 const allGuides = [
+  guideIphone,
+  guideLinux,
   guidePhoneHotspot,
   guideWindowsHotspot,
   guideAppHotspot,

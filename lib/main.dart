@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import 'app.dart';
@@ -17,7 +19,9 @@ Future<void> main() async {
         demoHistory: DemoHistory(),
       ),
     );
-  } catch (_) {
+  } catch (e, st) {
+    // Local console only (never sent anywhere), to diagnose startup issues.
+    stderr.writeln('Isekai Drop startup failed: $e\n$st');
     runApp(const StartupErrorApp());
   }
 }

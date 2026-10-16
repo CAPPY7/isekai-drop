@@ -50,7 +50,12 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     this.enableDiscovery = true,
     this.secureStorageNote,
     this.receiveLocationNote = '',
+    this.discoveryOffNote,
   });
+
+  /// Shown instead of a UDP discovery status when UDP discovery is off
+  /// (iPhone/iPad: multicast needs an Apple entitlement; Bonjour is used).
+  final String? discoveryOffNote;
 
   final Identity identity;
   final TrustStore trust;
@@ -140,7 +145,16 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   @override
   String? get startError => _startError;
   @override
-  String? get discoveryError => _discovery?.error;
+  String? get discoveryError =>
+      _discovery?.error ?? (enableDiscovery ? null : discoveryOffNote);
+
+  /// Adds a device found another way (Bonjour/mDNS). Still untrusted: the
+  /// real identity is checked inside TLS.
+  void addAnnouncement(Announcement a) {
+    if (a.deviceId == identity.deviceId) return;
+    _onFound(a);
+  }
+
   @override
   List<NearbyDevice> get nearby {
     final list = _nearby.values.toList()
@@ -193,20 +207,21 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           'fp': identity.fingerprint,
         },
       );
-      _pruneTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-        final before = _nearby.length;
-        _nearby.removeWhere(
-          (_, d) => DateTime.now().difference(d.seenAt).inSeconds > 15,
-        );
-        if (_nearby.length != before) notifyListeners();
-      });
     }
+    _pruneTimer ??= Timer.periodic(const Duration(seconds: 5), (_) {
+      final before = _nearby.length;
+      _nearby.removeWhere(
+        (_, d) => DateTime.now().difference(d.seenAt).inSeconds > 30,
+      );
+      if (_nearby.length != before) notifyListeners();
+    });
     notifyListeners();
   }
 
   @override
   Future<void> stop() async {
     _pruneTimer?.cancel();
+    _pruneTimer = null;
     _discovery?.stop();
     await _server?.close();
     _server = null;

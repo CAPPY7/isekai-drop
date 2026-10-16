@@ -6,6 +6,9 @@ import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.net.nsd.NsdManager
+import android.net.nsd.NsdServiceInfo
+import java.net.Inet4Address
 import android.net.wifi.WifiInfo
 import android.provider.DocumentsContract
 import android.provider.Settings
@@ -44,14 +47,19 @@ class MainActivity : FlutterActivity() {
     private var pendingFolder: MethodChannel.Result? = null
     private var pendingPerm: MethodChannel.Result? = null
     private var hotspot: WifiManager.LocalOnlyHotspotReservation? = null
+    private var channel: MethodChannel? = null
+    private var nsdReg: NsdManager.RegistrationListener? = null
+    private var nsdDisc: NsdManager.DiscoveryListener? = null
+    private val resolveQueue = ArrayDeque<NsdServiceInfo>()
+    private var resolving = false
     private var pendingPick: MethodChannel.Result? = null
     private var multicastLock: WifiManager.MulticastLock? = null
     private val io = Executors.newSingleThreadExecutor()
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
-            .setMethodCallHandler { call, result ->
+        channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
+        channel!!.setMethodCallHandler { call, result ->
                 when (call.method) {
                     "pickFiles" -> pickFiles(result)
                     "openFd" -> openFd(call.argument<String>("uri")!!, result)
@@ -69,6 +77,19 @@ class MainActivity : FlutterActivity() {
                         result,
                     )
                     "pickFolder" -> pickFolder(result)
+                    "nsdStart" -> {
+                        @Suppress("UNCHECKED_CAST")
+                        nsdStart(
+                            call.argument<String>("name")!!,
+                            call.argument<Int>("port")!!,
+                            call.argument<Map<String, String>>("txt") ?: emptyMap(),
+                        )
+                        result.success(null)
+                    }
+                    "nsdStop" -> {
+                        nsdStop()
+                        result.success(null)
+                    }
                     "folderExists" -> folderExists(call.argument<String>("name")!!, result)
                     "networkInfo" -> result.success(networkInfo())
                     "hotspotPermission" -> result.success(hotspotPermissionState())
@@ -76,6 +97,7 @@ class MainActivity : FlutterActivity() {
                     "startHotspot" -> startHotspot(result)
                     "stopHotspot" -> {
                         stopHotspot()
+        nsdStop()
                         result.success(null)
                     }
                     "keepScreenOn" -> {
@@ -462,5 +484,93 @@ class MainActivity : FlutterActivity() {
         } catch (_: Exception) {
         }
         hotspot = null
+    }
+
+    // ------------------------------------------- Bonjour (NSD) for iPhones
+
+    private val nsdType = "_isekaidrop._tcp."
+
+    private fun nsdStart(name: String, port: Int, txt: Map<String, String>) {
+        val nsd = getSystemService(NSD_SERVICE) as NsdManager
+        nsdStop()
+        val info = NsdServiceInfo().apply {
+            serviceName = name.take(60)
+            serviceType = nsdType
+            setPort(port)
+            for ((k, v) in txt) setAttribute(k, v)
+        }
+        val reg = object : NsdManager.RegistrationListener {
+            override fun onServiceRegistered(i: NsdServiceInfo) {}
+            override fun onRegistrationFailed(i: NsdServiceInfo, e: Int) {}
+            override fun onServiceUnregistered(i: NsdServiceInfo) {}
+            override fun onUnregistrationFailed(i: NsdServiceInfo, e: Int) {}
+        }
+        val disc = object : NsdManager.DiscoveryListener {
+            override fun onDiscoveryStarted(t: String) {}
+            override fun onDiscoveryStopped(t: String) {}
+            override fun onStartDiscoveryFailed(t: String, e: Int) {}
+            override fun onStopDiscoveryFailed(t: String, e: Int) {}
+            override fun onServiceLost(i: NsdServiceInfo) {}
+            override fun onServiceFound(i: NsdServiceInfo) {
+                runOnUiThread {
+                    resolveQueue.addLast(i)
+                    resolveNext()
+                }
+            }
+        }
+        try {
+            nsd.registerService(info, NsdManager.PROTOCOL_DNS_SD, reg)
+            nsdReg = reg
+            nsd.discoverServices(nsdType, NsdManager.PROTOCOL_DNS_SD, disc)
+            nsdDisc = disc
+        } catch (_: Exception) {
+        }
+    }
+
+    /** Android resolves one service at a time, so resolves are queued. */
+    private fun resolveNext() {
+        if (resolving) return
+        val next = resolveQueue.removeFirstOrNull() ?: return
+        resolving = true
+        val nsd = getSystemService(NSD_SERVICE) as NsdManager
+        try {
+            @Suppress("DEPRECATION")
+            nsd.resolveService(next, object : NsdManager.ResolveListener {
+                override fun onResolveFailed(i: NsdServiceInfo, e: Int) {
+                    runOnUiThread {
+                        resolving = false
+                        resolveNext()
+                    }
+                }
+
+                override fun onServiceResolved(i: NsdServiceInfo) {
+                    @Suppress("DEPRECATION")
+                    val host = i.host
+                    val txt = i.attributes.mapValues { (_, v) -> v?.let { String(it, Charsets.UTF_8) } ?: "" }
+                    runOnUiThread {
+                        resolving = false
+                        if (host is Inet4Address) {
+                            channel?.invokeMethod("bonjourFound", mapOf(
+                                "name" to i.serviceName,
+                                "host" to host.hostAddress,
+                                "port" to i.port,
+                                "txt" to txt,
+                            ))
+                        }
+                        resolveNext()
+                    }
+                }
+            })
+        } catch (_: Exception) {
+            resolving = false
+        }
+    }
+
+    private fun nsdStop() {
+        val nsd = getSystemService(NSD_SERVICE) as NsdManager
+        try { nsdReg?.let { nsd.unregisterService(it) } } catch (_: Exception) {}
+        try { nsdDisc?.let { nsd.stopServiceDiscovery(it) } } catch (_: Exception) {}
+        nsdReg = null
+        nsdDisc = null
     }
 }

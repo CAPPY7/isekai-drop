@@ -56,6 +56,18 @@ class _ConnectScreenState extends State<ConnectScreen> {
       builder: (context, _) => PageBody(
         children: [
           ThisDeviceCard(engine: engine),
+          if (Platform.isIOS)
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.info_outline),
+                title: const Text('On iPhone/iPad'),
+                subtitle: const Text(
+                  'Keep the app open while sending. Windows and Linux PCs do not '
+                  'appear automatically: scan their QR code.',
+                ),
+                onTap: () => openGuide(context, guideIphone),
+              ),
+            ),
           SectionCard(
             title: 'Found automatically',
             child: engine.nearby.isEmpty

@@ -171,17 +171,21 @@ class _FilesScreenState extends State<FilesScreen> {
           label: Text(_picking ? 'Opening...' : 'Pick files'),
         ),
         const SizedBox(height: IdSpacing.sm),
-        OutlinedButton.icon(
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(200, IdLayout.minTouchTarget),
+        if (canPickFolder)
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(200, IdLayout.minTouchTarget),
+            ),
+            onPressed: _picking ? null : _pickFolder,
+            icon: const Icon(Icons.create_new_folder_outlined),
+            label: const Text('Pick a folder'),
           ),
-          onPressed: _picking ? null : _pickFolder,
-          icon: const Icon(Icons.create_new_folder_outlined),
-          label: const Text('Pick a folder'),
-        ),
         const SizedBox(height: IdSpacing.xs),
         Text(
-          'Files of any type, or a whole folder (its sub-folders are kept).',
+          canPickFolder
+              ? 'Files of any type, or a whole folder (its sub-folders are kept).'
+              : 'Files of any type. Folders cannot be picked on iPhone/iPad yet - '
+                    'pick the files inside instead.',
           textAlign: TextAlign.center,
           style: theme.textTheme.bodySmall,
         ),

@@ -81,3 +81,6 @@ No home-made cryptography: TLS is BoringSSL inside Flutter/Dart (`dart:io`
 
 ## Not yet (later phases)
 Resume after the app closes, auto-receive, Wi-Fi Direct, real history.
+
+## Phase 5: Bonjour discovery (untrusted hint, same as UDP)
+Service type `_isekaidrop._tcp`, port = the TLS port (47820). TXT keys: `id` (device id), `fp` (certificate fingerprint), `pl` (platform), `v` (protocol version, 1). A found service becomes a normal announcement; pairing/TLS pinning rules are unchanged. Own `id` is ignored.

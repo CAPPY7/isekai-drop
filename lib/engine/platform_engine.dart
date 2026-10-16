@@ -8,22 +8,49 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import 'bonjour.dart';
 import 'core/engine.dart';
 import 'core/identity.dart';
 import 'core/send_source.dart';
 import 'core/trust_store.dart';
 
 const _android = MethodChannel('isekai_drop/android');
+const _apple = MethodChannel('isekai_drop/apple');
+BonjourBridge? _bonjour;
 const _identityKey = 'isekai_identity_v1';
 
 /// Loads (or creates once) this install's identity. The private key is kept
 /// in the platform's secure storage: Android Keystore-backed encryption,
 /// Apple Keychain, Windows DPAPI-protected storage, Linux Secret Service.
 /// Returns a note if secure storage was not available.
+const _fallbackNote =
+    'Secure key storage is not available here. Your device key is kept in the app\'s private folder instead.';
+
+/// How long to wait for the system key store. On Linux without a set-up
+/// keyring, GNOME Keyring shows a "create keyring" dialog and the call blocks
+/// until the user answers (seen on the build box under Xvfb).
+const _secureStorageTimeout = Duration(seconds: 30);
+
 Future<(Identity, String?)> _loadIdentity(Directory support) async {
+  final fallback = File(p.join(support.path, 'identity_fallback.json'));
+  // Once the fallback file is used it stays in use, so this device's
+  // identity can never silently change between the file and the keyring.
+  if (await fallback.exists()) {
+    return (
+      Identity.fromJson(
+        jsonDecode(await fallback.readAsString()) as Map<String, dynamic>,
+      ),
+      _fallbackNote,
+    );
+  }
+  if (Platform.isLinux && !await _linuxKeyringReady()) {
+    return _useFallback(fallback, _linuxNoKeyringNote);
+  }
   const storage = FlutterSecureStorage();
   try {
-    final saved = await storage.read(key: _identityKey);
+    final saved = await storage
+        .read(key: _identityKey)
+        .timeout(_secureStorageTimeout);
     if (saved != null) {
       return (
         Identity.fromJson(jsonDecode(saved) as Map<String, dynamic>),
@@ -31,30 +58,56 @@ Future<(Identity, String?)> _loadIdentity(Directory support) async {
       );
     }
     final id = await _generate();
-    await storage.write(key: _identityKey, value: jsonEncode(id.toJson()));
+    await storage
+        .write(key: _identityKey, value: jsonEncode(id.toJson()))
+        .timeout(_secureStorageTimeout);
+    // Read back: only trust the key store if it really kept the key.
+    final check = await storage
+        .read(key: _identityKey)
+        .timeout(_secureStorageTimeout);
+    if (check == null) throw const FileSystemException('not stored');
     return (id, null);
   } catch (_) {
-    // e.g. Linux without a keyring service. Fall back to a private app file.
-    final f = File(p.join(support.path, 'identity_fallback.json'));
-    if (await f.exists()) {
-      return (
-        Identity.fromJson(
-          jsonDecode(await f.readAsString()) as Map<String, dynamic>,
-        ),
-        'Secure key storage is not available here. Your device key is kept in the app\'s private folder instead.',
-      );
-    }
-    final id = await _generate();
-    await f.writeAsString(jsonEncode(id.toJson()), flush: true);
-    if (!Platform.isWindows) {
-      try {
-        await Process.run('chmod', ['600', f.path]);
-      } catch (_) {}
-    }
-    return (
-      id,
-      'Secure key storage is not available here. Your device key is kept in the app\'s private folder instead.',
-    );
+    return _useFallback(fallback, _fallbackNote);
+  }
+}
+
+Future<(Identity, String?)> _useFallback(File fallback, String note) async {
+  final id = await _generate();
+  await fallback.parent.create(recursive: true);
+  await fallback.writeAsString(jsonEncode(id.toJson()), flush: true);
+  if (!Platform.isWindows) {
+    try {
+      await Process.run('chmod', ['600', fallback.path]);
+    } catch (_) {}
+  }
+  return (id, note);
+}
+
+const _linuxNoKeyringNote =
+    'No unlocked keyring was found (GNOME Keyring / KWallet). Your device key is kept in the app\'s private folder instead.';
+
+/// Linux: Flutter runs Dart on the GTK thread, and libsecret blocks that
+/// thread while it shows a "create/unlock keyring" dialog - the whole app
+/// would freeze. So first ask the Secret Service (in a separate process,
+/// which cannot freeze us) whether a default keyring exists and is unlocked.
+Future<bool> _linuxKeyringReady() async {
+  try {
+    final r = await Process.run('gdbus', [
+      'call',
+      '--session',
+      '--dest',
+      'org.freedesktop.secrets',
+      '--object-path',
+      '/org/freedesktop/secrets/aliases/default',
+      '--method',
+      'org.freedesktop.DBus.Properties.Get',
+      'org.freedesktop.Secret.Collection',
+      'Locked',
+    ]).timeout(const Duration(seconds: 5));
+    return r.exitCode == 0 && '${r.stdout}'.contains('false');
+  } catch (_) {
+    return false;
   }
 }
 
@@ -118,9 +171,7 @@ Future<IsekaiEngine> createPlatformEngine(String Function() deviceName) async {
     finalizer = directoryFinalizer(tempDir);
     where = 'Files app > On My iPhone > Isekai Drop > Received';
   } else {
-    final base =
-        await getDownloadsDirectory() ??
-        await getApplicationDocumentsDirectory();
+    final base = await _desktopReceiveBase(support);
     tempDir = Directory(p.join(base.path, 'Isekai Drop'));
     finalizer = directoryFinalizer(tempDir);
     where = tempDir.path;
@@ -147,8 +198,16 @@ Future<IsekaiEngine> createPlatformEngine(String Function() deviceName) async {
     finalizer: finalizer,
     secureStorageNote: note,
     receiveLocationNote: where,
+    // iPhone/iPad: UDP multicast/broadcast needs Apple's multicast
+    // entitlement (not available to us), so only Bonjour is used there.
+    enableDiscovery: !Platform.isIOS,
+    discoveryOffNote: Platform.isIOS
+        ? 'Bonjour only (iPhone rules). Windows and Linux PCs do not appear here: scan their QR code or type their address.'
+        : null,
   );
   await engine.start();
+  _bonjour = BonjourBridge(engine);
+  await _bonjour!.start();
   return engine;
 }
 
@@ -240,11 +299,28 @@ Future<List<SendSource>> pickFolderToSend() async {
 
 /// Android only: keep the screen on while a transfer runs.
 Future<void> setKeepScreenOn(bool on) async {
-  if (!Platform.isAndroid) return;
   try {
-    await _android.invokeMethod('keepScreenOn', {'on': on});
+    if (Platform.isAndroid) {
+      await _android.invokeMethod('keepScreenOn', {'on': on});
+    } else if (Platform.isIOS) {
+      // Also asks iOS for a short background grace period.
+      await _apple.invokeMethod('keepAwake', {'on': on});
+    }
   } catch (_) {}
 }
+
+/// iPhone/iPad only: system share sheet (Save to Files, AirDrop, ...).
+bool get canShareFiles => Platform.isIOS;
+
+Future<void> shareFiles(List<String> paths) async {
+  if (!Platform.isIOS || paths.isEmpty) return;
+  try {
+    await _apple.invokeMethod('share', {'paths': paths});
+  } catch (_) {}
+}
+
+/// Folder picking: not offered by the iOS file picker plugin we use.
+bool get canPickFolder => !Platform.isIOS;
 
 /// Connection facts for Diagnostics. Contains no network names, no
 /// addresses and nothing personal.
@@ -390,4 +466,24 @@ Future<void> stopAppHotspot() async {
   try {
     await _android.invokeMethod('stopHotspot');
   } catch (_) {}
+}
+
+/// Where desktop receives go: Downloads, else Documents, else ~/Downloads,
+/// else the app's own folder. Some Linux sessions have no XDG user folders,
+/// where path_provider returns null or throws (found by running the Linux
+/// build on the build box).
+Future<Directory> _desktopReceiveBase(Directory support) async {
+  try {
+    final d = await getDownloadsDirectory();
+    if (d != null) return d;
+  } catch (_) {}
+  try {
+    return await getApplicationDocumentsDirectory();
+  } catch (_) {}
+  final home =
+      Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
+  if (home != null && home.isNotEmpty) {
+    return Directory(p.join(home, 'Downloads'));
+  }
+  return support;
 }

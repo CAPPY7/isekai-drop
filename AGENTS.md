@@ -120,3 +120,16 @@ file before every phase. Stop after each phase and wait for "next".
   (native libs compressed in the APK, extracted on install: smaller download,
   a bit more space used after install). Alternative if ever needed: the
   unbundled ML Kit (needs Google Play services + an internet model download).
+- 2026-10-16: Owner decided to KEEP Google ML Kit (via mobile_scanner) for
+  Android QR scanning, accepting the disclosed Google usage data. Do not
+  replace it unless the owner asks.
+- 2026-10-16: Owner decided: NO App Store and NO paid Apple Developer
+  Program. iOS stays unsigned in CI. Only free options are documented
+  (docs/IOS_NOTES.md); never sign or enrol without a new owner decision.
+
+## Phase 5 decisions and findings (2026-10-16)
+- iOS: UDP broadcast discovery disabled (needs Apple's multicast entitlement, which needs Apple approval + paid account). Bonjour is used instead (needs NSBonjourServices + NSLocalNetworkUsageDescription).
+- Android: we target SDK 36. If targetSdk is ever raised to 37+, add ACCESS_LOCAL_NETWORK (see docs/IOS_NOTES.md source list).
+- Linux: Flutter runs Dart on the GTK main thread; a blocking libsecret call (keyring password dialog) freezes the whole app and Dart timeouts cannot fire. Keep the gdbus "Locked" pre-check + sticky identity_fallback.json (chmod 600).
+- Linux: some sessions have no XDG user folders; path_provider throws. Keep _desktopReceiveBase fallbacks.
+- Windows/Linux cannot advertise Bonjour (browse only); others find them via UDP or IP/QR.

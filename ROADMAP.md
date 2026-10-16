@@ -57,8 +57,12 @@
 - [ ] Owner runs the manual test plan and records numbers
 
 ## Phase 5 - iPhone/iPad interoperability and platform fallbacks
-- [ ] iOS signing (owner SKIPPED for now; revisit only if owner asks)
-- [ ] Hotspot / manual fallbacks documented and tested
+- [x] Apple rules researched with real sources: docs/IOS_NOTES.md
+- [x] Bonjour `_isekaidrop._tcp` (iOS/macOS advertise+browse, Android NSD advertise+browse, Windows/Linux browse only)
+- [x] iOS: UDP discovery off (needs Apple multicast entitlement), IP/QR fallback, Files app (Documents), share sheet, foreground-only note
+- [x] Linux build runs headless under xvfb; keyring + no-keyring fallback; XDG-folder fallback
+- [ ] iOS runtime on a real iPhone: NOT TESTED (no Mac/iPhone; owner declined paid program, no signing by us)
+- [ ] iOS signing: owner decision = NO App Store, NO paid program (2026-10-16)
 
 ## Phase 6 - Trusted devices, history, queues, integrity, resume
 - [ ] Trusted Devices screen (rename, revoke, reverify)
