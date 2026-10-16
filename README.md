@@ -43,6 +43,29 @@ QR scanning, folders, pause/resume are not built yet.
 6. If asked, tap **Settings**, turn on **Allow from this source**, then go back.
 7. Tap **Install**. Then tap **Open**.
 
+## Install on iPhone (UNSIGNED .ipa - NOT TESTED)
+The iPhone file is **UNSIGNED**. We do not sign it. You sign it yourself with your own free Apple ID. With a free Apple ID the app stops opening after **7 days**; repeat the steps (or refresh) to keep it working.
+These steps have NOT been tested by us.
+
+Get the file: open the "latest-build" release on GitHub and download `isekai-drop-ios-unsigned-N.ipa` (highest N = newest).
+
+AltStore (Windows 10+ or macOS 11+):
+1. Install AltServer from https://altstore.io/ on your computer.
+2. Connect the iPhone by cable and tap "Trust" on the phone.
+3. Use AltServer to install AltStore on the iPhone, signing in with your Apple ID.
+4. On the iPhone: Settings > General > VPN & Device Management > trust your Apple ID.
+5. Copy the .ipa to the iPhone, open AltStore > My Apps > "+", and pick the .ipa.
+6. Open AltStore every few days to refresh the app before the 7 days run out.
+
+Sideloadly (Windows or macOS):
+1. Install Sideloadly from https://sideloadly.io/.
+2. Connect the iPhone by cable and tap "Trust".
+3. Drag the .ipa into Sideloadly, type your Apple ID, and press Start.
+4. On the iPhone: Settings > General > VPN & Device Management > trust your Apple ID.
+5. After 7 days, repeat step 3.
+
+First start on iPhone: allow "Local Network" when asked. Keep the app open while sending.
+
 ## Update
 Repeat the same steps with the newer APK. It installs over the old one and
 keeps your data, because every test build is signed with the same key.

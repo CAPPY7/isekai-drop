@@ -133,3 +133,5 @@ file before every phase. Stop after each phase and wait for "next".
 - Linux: Flutter runs Dart on the GTK main thread; a blocking libsecret call (keyring password dialog) freezes the whole app and Dart timeouts cannot fire. Keep the gdbus "Locked" pre-check + sticky identity_fallback.json (chmod 600).
 - Linux: some sessions have no XDG user folders; path_provider throws. Keep _desktopReceiveBase fallbacks.
 - Windows/Linux cannot advertise Bonjour (browse only); others find them via UDP or IP/QR.
+
+- 2026-10-16 owner decision: publish an UNSIGNED .ipa (ios.yml -> artifact + latest-build release). The owner sideloads it with their own free Apple ID (AltStore/Sideloadly). We never sign it. Label it UNSIGNED, sideload-only, 7-day expiry.

@@ -108,6 +108,7 @@ jobs:
             Signed with the throwaway DEV key. Not for public distribution.
             The newest APK has the highest number in its file name.
             "arm64" = smaller file for most phones from about 2017 on. The other file works on all phones.
+            iPhone: isekai-drop-ios-unsigned-N.ipa is UNSIGNED. It needs sideloading (AltStore/Sideloadly with your own free Apple ID) and expires after 7 days. See README.
           files: |
             isekai-drop-android-${{ github.run_number }}.apk
             isekai-drop-android-arm64-${{ github.run_number }}.apk

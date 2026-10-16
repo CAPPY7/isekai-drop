@@ -1,10 +1,9 @@
-name: iOS build attempt (UNSIGNED - NOT INSTALLABLE)
+name: iOS UNSIGNED .ipa (needs sideloading)
 
-# What this CAN do: prove the iOS code compiles on a real macOS runner.
-# What this CANNOT do: produce an app you can install on an iPhone.
-# Installing needs Apple signing (free 7-day account via Xcode on a Mac,
-# or the paid Apple Developer Program for TestFlight). See
-# docs/BUILD_AND_INSTALL.md. No signing is set up yet.
+# Builds an UNSIGNED .ipa. We sign nothing (owner decision 2026-10-16).
+# It cannot be installed as is: the owner re-signs it with their own free
+# Apple ID using AltStore or Sideloadly. A free Apple ID install expires
+# after 7 days. See README "Install on iPhone".
 
 on:
   push:
@@ -27,16 +26,42 @@ jobs:
           cache: true
       - run: flutter pub get
       - run: flutter build ios --release --no-codesign --build-number=${{ github.run_number }}
-      - name: Pack UNSIGNED app and check it is not empty
+      - name: Pack UNSIGNED .ipa and check it is not empty
         run: |
           mkdir -p Payload
           cp -R build/ios/iphoneos/Runner.app Payload/
-          zip -qry isekai-drop-ios-UNSIGNED-not-installable.zip Payload
-          test -s isekai-drop-ios-UNSIGNED-not-installable.zip
-          ls -l isekai-drop-ios-UNSIGNED-not-installable.zip
+          zip -qry isekai-drop-ios-unsigned-${{ github.run_number }}.ipa Payload
+          test -s isekai-drop-ios-unsigned-${{ github.run_number }}.ipa
+          ls -l isekai-drop-ios-unsigned-${{ github.run_number }}.ipa
       - uses: actions/upload-artifact@v7.0.2
         with:
-          name: isekai-drop-ios-UNSIGNED-not-installable
-          path: isekai-drop-ios-UNSIGNED-not-installable.zip
+          name: isekai-drop-ios-unsigned
+          path: isekai-drop-ios-unsigned-${{ github.run_number }}.ipa
           if-no-files-found: error
           retention-days: 14
+
+  publish:
+    name: Publish UNSIGNED .ipa to release "latest-build"
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: publish-latest-build
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: isekai-drop-ios-unsigned
+      - run: |
+          ls -l *.ipa
+          test -s isekai-drop-ios-unsigned-${{ github.run_number }}.ipa
+      # No name/body here: the Android workflow owns the release text.
+      - uses: softprops/action-gh-release@v3.0.3
+        with:
+          tag_name: latest-build
+          prerelease: true
+          make_latest: false
+          overwrite_files: true
+          files: isekai-drop-ios-unsigned-${{ github.run_number }}.ipa
