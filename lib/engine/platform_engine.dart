@@ -13,6 +13,7 @@ import 'core/benchmark_store.dart';
 import 'core/engine.dart';
 import 'core/history_store.dart';
 import 'core/identity.dart';
+import 'core/key_migration.dart';
 import 'core/resume_store.dart';
 import 'core/send_source.dart';
 import 'core/trust_store.dart';
@@ -39,6 +40,23 @@ Future<(Identity, String?)> _loadIdentity(Directory support) async {
   // Once the fallback file is used it stays in use, so this device's
   // identity can never silently change between the file and the keyring.
   if (await fallback.exists()) {
+    // Audit #3: move it into secure storage as soon as that works.
+    if (!Platform.isLinux || await _linuxKeyringReady()) {
+      final r = await migrateFallbackIdentity(
+        fallback,
+        _SecureSlot(),
+        timeout: _secureStorageTimeout,
+      );
+      if (r == MigrationResult.migrated) {
+        final saved = await const FlutterSecureStorage().read(
+          key: _identityKey,
+        );
+        return (
+          Identity.fromJson(jsonDecode(saved!) as Map<String, dynamic>),
+          null,
+        );
+      }
+    }
     return (
       Identity.fromJson(
         jsonDecode(await fallback.readAsString()) as Map<String, dynamic>,
@@ -73,6 +91,14 @@ Future<(Identity, String?)> _loadIdentity(Directory support) async {
   } catch (_) {
     return _useFallback(fallback, _fallbackNote);
   }
+}
+
+class _SecureSlot implements SecretSlot {
+  static const _s = FlutterSecureStorage();
+  @override
+  Future<String?> read() => _s.read(key: _identityKey);
+  @override
+  Future<void> write(String value) => _s.write(key: _identityKey, value: value);
 }
 
 Future<(Identity, String?)> _useFallback(File fallback, String note) async {
