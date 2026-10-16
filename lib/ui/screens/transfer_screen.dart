@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../engine/platform_engine.dart' show canShareFiles, shareFiles;
 import '../../engine/transfer_engine.dart';
 import '../app_scope.dart';
+import 'benchmark_screen.dart' show saveJobAsBenchmark;
 import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
 
@@ -191,6 +192,18 @@ class TransferScreen extends StatelessWidget {
                             icon: const Icon(Icons.close),
                             label: const Text('Cancel'),
                           ),
+                          if (!job.isActive && benchmarkBlocker(job) == null)
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size(
+                                  140,
+                                  IdLayout.minTouchTarget,
+                                ),
+                              ),
+                              onPressed: () => saveJobAsBenchmark(context, job),
+                              icon: const Icon(Icons.speed),
+                              label: const Text('Save as benchmark run'),
+                            ),
                           if (job.canRetry)
                             FilledButton.icon(
                               style: FilledButton.styleFrom(

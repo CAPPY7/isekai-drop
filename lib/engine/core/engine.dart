@@ -53,6 +53,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     this.receiveLocationNote = '',
     this.discoveryOffNote,
     this.history,
+    this.benchmarks,
     this.resume,
     bool Function()? acceptingFiles,
     bool Function(TrustedDevice device)? autoAccept,
@@ -69,6 +70,10 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   /// Finished transfers are written here (no file contents).
   @override
   final HistoryStore? history;
+
+  /// Benchmark runs (measured numbers + conditions only).
+  @override
+  final BenchmarkStore? benchmarks;
 
   /// Receiver-side resume state. Null = interrupted transfers start over.
   final ResumeStore? resume;
@@ -567,6 +572,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       fileCount: names.length,
       totalBytes: total,
       peerDeviceId: dev.deviceId,
+      peerPlatform: dev.platform,
       trustedId: dev.id,
       fileNames: names,
     );
@@ -915,6 +921,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       fileCount: files.length,
       totalBytes: files.fold<int>(0, (a, f) => a + f.size),
       peerDeviceId: dev.deviceId,
+      peerPlatform: dev.platform,
       trustedId: dev.id,
       sources: List.unmodifiable(files),
       fileNames: [for (final f in files) f.relativePath],

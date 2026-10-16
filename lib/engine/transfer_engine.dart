@@ -8,11 +8,13 @@ library;
 import 'package:flutter/foundation.dart';
 
 import 'core/engine.dart';
+import 'core/benchmark_store.dart';
 import 'core/history_store.dart';
 import 'core/jobs.dart';
 import 'core/send_source.dart';
 import 'core/trust_store.dart';
 
+export 'core/benchmark_store.dart';
 export 'core/history_store.dart';
 export 'core/engine.dart' show NearbyDevice, PairingSession, PairingException;
 export 'core/identity.dart' show shortFingerprint;
@@ -77,4 +79,7 @@ abstract class TransferEngine implements Listenable {
 
   /// Finished transfers (persisted). Null in tests without storage.
   HistoryStore? get history;
+
+  /// Benchmark log (no names, numbers + conditions only).
+  BenchmarkStore? get benchmarks;
 }

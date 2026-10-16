@@ -17,6 +17,7 @@ class TransferJob extends ChangeNotifier {
     required this.fileCount,
     required this.totalBytes,
     this.peerDeviceId,
+    this.peerPlatform = '',
     this.trustedId,
     this.sources = const [],
     this.fileNames = const [],
@@ -26,6 +27,9 @@ class TransferJob extends ChangeNotifier {
 
   /// The other device's id (for History). Null if unknown.
   final String? peerDeviceId;
+
+  /// Other device's platform name ("android", ...), for benchmark records.
+  final String peerPlatform;
 
   /// TrustStore record id of the other device (for Retry).
   final String? trustedId;
@@ -93,9 +97,14 @@ class TransferJob extends ChangeNotifier {
       !paused &&
       _clock.elapsedMilliseconds - _lastProgressMs > 5000;
 
+  /// True if this transfer was ever paused (then it is not a fair
+  /// benchmark run).
+  bool wasPaused = false;
+
   void pause() {
     if (!canPause || paused) return;
     paused = true;
+    wasPaused = true;
     _resume = Completer<void>();
     _clock.stop();
     _samples.clear();
@@ -123,6 +132,7 @@ class TransferJob extends ChangeNotifier {
   void setPeerPaused(bool v) {
     if (pausedByPeer == v) return;
     pausedByPeer = v;
+    if (v) wasPaused = true;
     if (v) {
       _samples.clear();
       _clock.stop();

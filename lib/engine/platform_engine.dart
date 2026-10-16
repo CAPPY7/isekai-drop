@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import 'bonjour.dart';
+import 'core/benchmark_store.dart';
 import 'core/engine.dart';
 import 'core/history_store.dart';
 import 'core/identity.dart';
@@ -135,6 +136,12 @@ Future<IsekaiEngine> createPlatformEngine(
   } catch (_) {
     // A damaged database must not stop the app; start empty.
   }
+  final benchmarks = BenchmarkStore(
+    File(p.join(support.path, 'benchmarks.json')),
+  );
+  try {
+    await benchmarks.load();
+  } catch (_) {}
   final history = HistoryStore(File(p.join(support.path, 'history.json')));
   try {
     await history.load();
@@ -216,6 +223,7 @@ Future<IsekaiEngine> createPlatformEngine(
     // entitlement (not available to us), so only Bonjour is used there.
     enableDiscovery: !Platform.isIOS,
     history: history,
+    benchmarks: benchmarks,
     // Partial data of interrupted receives, next to where files land
     // (hidden folder), so finishing a file is a cheap rename.
     resume: ResumeStore(Directory(p.join(tempDir.path, '.isekai-resume'))),
@@ -519,4 +527,42 @@ Future<void> setPlatformVisible(bool visible) async {
     await b.stop();
     if (visible) await b.start();
   } catch (_) {}
+}
+
+/// Saves benchmark CSV text where the user can get it. Returns a plain
+/// description of where it went, or null if the user cancelled.
+Future<String?> exportBenchmarkCsv(String csv) async {
+  final stamp = DateTime.now()
+      .toIso8601String()
+      .replaceAll(RegExp(r'[:.]'), '-')
+      .substring(0, 19);
+  final name = 'isekai-benchmarks-$stamp.csv';
+  if (Platform.isAndroid) {
+    final tmp = File(p.join((await getTemporaryDirectory()).path, name));
+    await tmp.writeAsString(csv, flush: true);
+    return _android.invokeMethod<String>('exportToDownloads', {
+      'path': tmp.path,
+      'name': name,
+      'sub': '',
+    });
+  }
+  if (Platform.isIOS) {
+    final dir = Directory(
+      p.join((await getApplicationDocumentsDirectory()).path, 'Benchmarks'),
+    );
+    await dir.create(recursive: true);
+    final f = File(p.join(dir.path, name));
+    await f.writeAsString(csv, flush: true);
+    await shareFiles([f.path]);
+    return 'Files app > On My iPhone > Isekai Drop > Benchmarks';
+  }
+  final loc = await getSaveLocation(
+    suggestedName: name,
+    acceptedTypeGroups: const [
+      XTypeGroup(label: 'CSV', extensions: ['csv']),
+    ],
+  );
+  if (loc == null) return null;
+  await File(loc.path).writeAsString(csv, flush: true);
+  return loc.path;
 }

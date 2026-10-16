@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../engine/transfer_engine.dart';
 import '../app_scope.dart';
 import '../guides/guides.dart';
+import 'benchmark_screen.dart';
 import 'diagnostics_screen.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
@@ -235,6 +236,21 @@ class SettingsScreen extends StatelessWidget {
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
                       builder: (_) => const GuidesScreen(),
+                    ),
+                  ),
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  minTileHeight: IdLayout.minTouchTarget,
+                  leading: const Icon(Icons.speed),
+                  title: const Text('Benchmark log'),
+                  subtitle: const Text(
+                    'Measured runs, median/min/max, CSV export',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const BenchmarkScreen(),
                     ),
                   ),
                 ),
