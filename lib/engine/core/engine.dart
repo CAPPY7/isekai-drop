@@ -285,8 +285,6 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   @override
   String get version => 'engine-v$kProtocolVersion';
   @override
-  bool get isDemo => false;
-  @override
   String get myName => deviceName();
   @override
   String get myFingerprint => identity.fingerprint;
@@ -1127,7 +1125,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           ],
         }),
       );
-      await sock.flush();
+      await _flushOrClosed(sock);
       final answer = await reader.nextJson(
         kApprovalTimeout + const Duration(seconds: 10),
       );
@@ -1202,7 +1200,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           var sinceFlush = 0;
           await for (final chunk in f.open()) {
             if (job.paused) {
-              await sock.flush();
+              await _flushOrClosed(sock);
               await job.waitIfPaused();
             }
             if (job.cancelRequested) return;
@@ -1228,13 +1226,13 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
             job.addBytes(part.length);
             final drop = debugDropAfterBytes;
             if (drop != null && sentThisAttempt >= drop) {
-              await sock.flush();
+              await _flushOrClosed(sock);
               sock.destroy();
               throw const SocketException('debug drop');
             }
             if (sinceFlush >= 4 * 1024 * 1024) {
               sinceFlush = 0;
-              await sock.flush();
+              await _flushOrClosed(sock);
             }
           }
           await f.close();
@@ -1243,7 +1241,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           }
           final digest = await hasher.close();
           sock.add(jsonFrame({'t': 'file_end', 'i': i, 'sha256': digest}));
-          await sock.flush();
+          await _flushOrClosed(sock);
           final r = await _nextControl(reader, job);
           if (r['t'] != 'file_ok') {
             job.finish(
@@ -1258,7 +1256,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         sendHasher?.dispose();
       }
       sock.add(jsonFrame({'t': 'done'}));
-      await sock.flush();
+      await _flushOrClosed(sock);
       await _nextControl(reader, job);
       job.finish(JobState.completed, 'Sent and verified by the other device.');
     } on PairingException catch (e) {
@@ -1450,3 +1448,14 @@ String cleanDeviceName(Object? v) {
   final r = s.runes.toList();
   return r.length > 40 ? String.fromCharCodes(r.take(40)) : s;
 }
+
+/// Flushes, but gives up as soon as the socket is closed or broken. A plain
+/// flush() can wait forever after the other side has destroyed the
+/// connection, because our frame reader pauses the socket between frames.
+Future<void> _flushOrClosed(Socket sock) => Future.any<void>([
+  sock.flush(),
+  sock.done.then<void>(
+    (_) => throw const SocketException('Connection closed'),
+    onError: (Object _) => throw const SocketException('Connection closed'),
+  ),
+]);

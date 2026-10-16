@@ -54,7 +54,13 @@ class BgHasher implements FileHasher {
 
   static Future<BgHasher> start() async {
     final rp = ReceivePort();
-    final iso = await Isolate.spawn(_main, rp.sendPort);
+    final iso = await Isolate.spawn(
+      _main,
+      rp.sendPort,
+      onError: rp.sendPort,
+      onExit: rp.sendPort,
+      errorsAreFatal: true,
+    );
     final it = StreamIterator<Object?>(rp);
     await it.moveNext();
     final to = it.current! as SendPort;
@@ -75,14 +81,23 @@ class BgHasher implements FileHasher {
   @override
   Future<String> close() async {
     _to.send(null);
-    await _it.moveNext();
-    final hex = _it.current! as String;
-    dispose();
-    return hex;
+    try {
+      if (!await _it.moveNext()) throw StateError('hasher stopped');
+      final r = _it.current;
+      if (r is! String) throw StateError('hasher failed: $r');
+      return r;
+    } finally {
+      _done = true;
+      _results.close(); // the isolate ends by itself after replying
+    }
   }
+
+  bool _done = false;
 
   @override
   void dispose() {
+    if (_done) return;
+    _done = true;
     _results.close();
     _isolate.kill(priority: Isolate.immediate);
   }
