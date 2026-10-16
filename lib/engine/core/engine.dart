@@ -1346,13 +1346,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     }
   }
 
-  String _cleanName(Object? v) {
-    final s = (v is String ? v : 'Device')
-        .replaceAll(RegExp(r'[\x00-\x1F\x7F]'), '')
-        .trim();
-    if (s.isEmpty) return 'Device';
-    return s.length > 40 ? s.substring(0, 40) : s;
-  }
+  String _cleanName(Object? v) => cleanDeviceName(v);
 }
 
 class PairingException implements Exception {
@@ -1437,4 +1431,22 @@ String transferIdFor(String peerFingerprint, List<SendSource> files) {
     b.write('|${f.relativePath}|${f.size}');
   }
   return sha256.convert(utf8.encode(b.toString())).toString().substring(0, 32);
+}
+
+/// Display-safe device name from untrusted input (pairing, UDP, Bonjour):
+/// removes control and bidi-override characters, collapses spaces, max 40
+/// characters. Audit #12.
+String cleanDeviceName(Object? v) {
+  final s = (v is String ? v : 'Device')
+      .replaceAll(
+        RegExp(
+          r'[\x00-\x1F\x7F-\x9F\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]',
+        ),
+        '',
+      )
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+  if (s.isEmpty) return 'Device';
+  final r = s.runes.toList();
+  return r.length > 40 ? String.fromCharCodes(r.take(40)) : s;
 }

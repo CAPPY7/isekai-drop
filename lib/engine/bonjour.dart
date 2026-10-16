@@ -109,6 +109,14 @@ class BonjourBridge {
     return null;
   }
 
+  @visibleForTesting
+  void debugAdd({
+    required String name,
+    required String host,
+    required int port,
+    required Map<String, String> txt,
+  }) => _add(name: name, host: host, port: port, txt: txt);
+
   void _add({
     required String name,
     required String host,
@@ -122,7 +130,7 @@ class BonjourBridge {
     engine.addAnnouncement(
       Announcement(
         deviceId: id,
-        name: name.length > 40 ? name.substring(0, 40) : name,
+        name: cleanDeviceName(name),
         platform: txt['pl'] ?? 'unknown',
         port: port,
         fingerprint: fp,

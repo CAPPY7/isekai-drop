@@ -230,6 +230,26 @@ void main() {
     );
   });
 
+  test('#12 Bonjour/announced names are cleaned', () {
+    expect(cleanDeviceName('Evil\u202Egnp.exe\n\x07PC'), 'Evilgnp.exePC');
+    expect(cleanDeviceName('  a \t  b  '), 'a b');
+    expect(cleanDeviceName('\x00\x01'), 'Device');
+    expect(cleanDeviceName('x' * 99).length, 40);
+    expect(cleanDeviceName(null), 'Device');
+  });
+
+  test('#12 BonjourBridge stores the cleaned name', () async {
+    final e = await eng(dir, 'bn');
+    addTearDown(e.stop);
+    BonjourBridge(e).debugAdd(
+      name: 'Bad\u202E\x1bName',
+      host: '127.0.0.2',
+      port: 5000,
+      txt: {'id': 'did1', 'fp': 'ff' * 32, 'pl': 'ios'},
+    );
+    expect(e.nearby.single.name, 'BadName');
+  });
+
   group('#3 fallback identity moves into secure storage', () {
     test('migrated: stored, read back, file wiped and deleted', () async {
       final f = File(p.join(dir.path, 'identity_fallback.json'));
