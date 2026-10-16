@@ -27,6 +27,12 @@ const int kDefaultPort = 47820;
 const int kProtocolVersion = 1;
 const Duration kApprovalTimeout = Duration(minutes: 2);
 
+/// Audit #4: limits against connection floods from the local network.
+const int kMaxHandshakes = 8; // TLS handshakes + first message at once
+const int kMaxSessions = 32; // all incoming connections at once
+const Duration kHandshakeTimeout = Duration(seconds: 10);
+const Duration kFirstMessageTimeout = Duration(seconds: 10);
+
 /// Default finalizer for desktop: rename inside [dir] without overwriting.
 ReceiveFinalizer directoryFinalizer(Directory dir) =>
     (temp, safeRelPath, batch) async {
@@ -367,7 +373,39 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
 
   // ------------------------------------------------------------------ server
 
+  int _sessions = 0;
+  int _handshaking = 0;
+
+  @visibleForTesting
+  int get debugOpenSessions => _sessions;
+
   Future<void> _onIncoming(Socket raw) async {
+    if (_sessions >= kMaxSessions || _handshaking >= kMaxHandshakes) {
+      raw.destroy(); // too many at once: refuse immediately
+      return;
+    }
+    _sessions++;
+    _handshaking++;
+    var handshakeDone = false;
+    void endHandshake() {
+      if (!handshakeDone) {
+        handshakeDone = true;
+        _handshaking--;
+      }
+    }
+
+    try {
+      await _onIncomingSession(raw, endHandshake);
+    } finally {
+      endHandshake();
+      _sessions--;
+    }
+  }
+
+  Future<void> _onIncomingSession(
+    Socket raw,
+    void Function() endHandshake,
+  ) async {
     SecureSocket s;
     try {
       // Small control messages must not wait ~40 ms (Nagle + delayed ACK).
@@ -376,7 +414,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         raw,
         _serverContext(),
         requestClientCertificate: true,
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(kHandshakeTimeout);
       // Write errors after the peer left (broken pipe) surface here; the
       // session code already handles the lost connection.
       unawaited(s.done.then((_) {}, onError: (_) {}));
@@ -387,7 +425,8 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     }
     final reader = FrameReader(s);
     try {
-      final first = await reader.nextJson(const Duration(seconds: 30));
+      final first = await reader.nextJson(kFirstMessageTimeout);
+      endHandshake();
       final peerCert = s.peerCertificate;
       if (peerCert == null) {
         // No client certificate: the only thing allowed is a pairing request.
