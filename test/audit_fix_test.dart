@@ -1,3 +1,4 @@
+import 'dart:convert';
 // Tests for the Phase 7 audit fixes #3-#9 (see docs/AUDIT.md).
 import 'dart:io';
 
@@ -71,6 +72,51 @@ void main() {
     addTearDown(a.stop);
     await (await a.beginPairing('127.0.0.1', b.listeningPort!)).confirm();
     expect(b.trustedDevices, hasLength(1));
+  });
+
+  test(
+    '#5 one damaged trust entry: others kept, backup made, warning set',
+    () async {
+      final f = File(p.join(dir.path, 'trusted_devices.json'));
+      final now = DateTime.now().toUtc().toIso8601String();
+      Map<String, dynamic> dev(String fp) => {
+        'id': fp,
+        'device_id': fp,
+        'name': fp,
+        'fingerprint': fp,
+        'cert_pem': 'x',
+        'platform': 'linux',
+        'status': 'trusted',
+        'created_at': now,
+        'updated_at': now,
+      };
+      await f.writeAsString(
+        jsonEncode({
+          'schema_version': 2,
+          'devices': [
+            dev('aa'),
+            {'name': 7, 'created_at': 'garbage'},
+            dev('bb'),
+          ],
+        }),
+      );
+      final t = TrustStore(f);
+      await t.load();
+      expect(t.devices.map((d) => d.fingerprint), ['aa', 'bb']);
+      expect(t.loadWarning, isNotNull);
+      expect(t.backupFile!.existsSync(), isTrue);
+      expect(t.backupFile!.readAsStringSync(), contains('garbage'));
+    },
+  );
+
+  test('#5 fully unreadable trust file: backup made, warning set', () async {
+    final f = File(p.join(dir.path, 'trusted_devices.json'));
+    await f.writeAsString('{not json');
+    final t = TrustStore(f);
+    await t.load();
+    expect(t.devices, isEmpty);
+    expect(t.loadWarning, isNotNull);
+    expect(t.backupFile!.readAsStringSync(), '{not json');
   });
 
   group('#3 fallback identity moves into secure storage', () {

@@ -188,6 +188,14 @@ class TrustedDevicesScreen extends StatelessWidget {
         listenable: engine,
         builder: (context, _) => PageBody(
           children: [
+            if (engine.trustLoadWarning != null)
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.warning_amber_rounded),
+                  title: const Text('Trusted devices file was damaged'),
+                  subtitle: Text(engine.trustLoadWarning!),
+                ),
+              ),
             if (engine.trustedDevices.isEmpty)
               const StateMessage(
                 icon: Icons.shield_outlined,

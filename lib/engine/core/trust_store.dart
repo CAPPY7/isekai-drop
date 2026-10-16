@@ -106,15 +106,59 @@ class TrustStore {
 
   List<TrustedDevice> get devices => List.unmodifiable(_devices);
 
+  /// Audit #5: set when load() had to skip damaged data. A copy of the
+  /// original file is kept next to it (see [backupFile]) before any save.
+  String? loadWarning;
+  File? backupFile;
+
   Future<void> load() async {
     _devices.clear();
+    loadWarning = null;
+    backupFile = null;
     if (!await file.exists()) return;
-    final raw = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
-    final migrated = migrate(raw);
-    for (final d in (migrated['devices'] as List)) {
-      _devices.add(TrustedDevice.fromJson(d as Map<String, dynamic>));
+    final text = await file.readAsString();
+    Map<String, dynamic> raw;
+    try {
+      raw = jsonDecode(text) as Map<String, dynamic>;
+    } catch (_) {
+      await _backup();
+      loadWarning =
+          'The trusted-devices file was damaged and could not be '
+          'read. A backup was kept; devices need to be paired again.';
+      return;
+    }
+    final entries = raw['devices'] is List ? raw['devices'] as List : const [];
+    var skipped = 0;
+    for (final e in entries) {
+      try {
+        final one = migrate({
+          ...raw,
+          'devices': [e as Map<String, dynamic>],
+        });
+        _devices.add(
+          TrustedDevice.fromJson(
+            (one['devices'] as List).single as Map<String, dynamic>,
+          ),
+        );
+      } catch (_) {
+        skipped++;
+      }
+    }
+    if (skipped > 0) {
+      await _backup();
+      loadWarning =
+          '$skipped damaged trusted-device '
+          '${skipped == 1 ? 'entry was' : 'entries were'} skipped. '
+          'A backup was kept; pair that device again.';
+      await _save();
+      return;
     }
     if ((raw['schema_version'] as int? ?? 0) != schemaVersion) await _save();
+  }
+
+  Future<void> _backup() async {
+    final ts = DateTime.now().toUtc().toIso8601String().replaceAll(':', '-');
+    backupFile = await file.copy('${file.path}.bak-$ts');
   }
 
   /// Upgrades older files step by step. Version 0 = early draft without

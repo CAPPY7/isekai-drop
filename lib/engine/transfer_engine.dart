@@ -39,6 +39,9 @@ abstract class TransferEngine implements Listenable {
 
   List<NearbyDevice> get nearby;
   List<TrustedDevice> get trustedDevices;
+
+  /// Audit #5: non-null when damaged trusted-device data was skipped.
+  String? get trustLoadWarning;
   List<PendingRequest> get pending;
   List<TransferJob> get jobs;
 

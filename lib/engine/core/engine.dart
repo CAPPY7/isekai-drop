@@ -249,6 +249,8 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   @override
   List<TrustedDevice> get trustedDevices => trust.devices;
   @override
+  String? get trustLoadWarning => trust.loadWarning;
+  @override
   List<PendingRequest> get pending => List.unmodifiable(_pending);
   @override
   List<TransferJob> get jobs => List.unmodifiable(_jobs);
