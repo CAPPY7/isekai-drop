@@ -250,6 +250,18 @@ void main() {
     expect(e.nearby.single.name, 'BadName');
   });
 
+  test('#13 no leftover demo code in lib/', () {
+    final hits = <String>[];
+    for (final f in Directory('lib').listSync(recursive: true)) {
+      if (f is! File || !f.path.endsWith('.dart')) continue;
+      final src = f.readAsStringSync();
+      if (RegExp(r'\bDemo[A-Z]\w*|\bisDemo\b|kDemoLabel').hasMatch(src)) {
+        hits.add(f.path);
+      }
+    }
+    expect(hits, isEmpty);
+  });
+
   group('#3 fallback identity moves into secure storage', () {
     test('migrated: stored, read back, file wiped and deleted', () async {
       final f = File(p.join(dir.path, 'identity_fallback.json'));

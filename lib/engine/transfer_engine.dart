@@ -27,7 +27,6 @@ export 'models.dart';
 
 abstract class TransferEngine implements Listenable {
   String get version;
-  bool get isDemo;
 
   String get myName;
   String get myFingerprint;
