@@ -1,0 +1,226 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'identity.dart';
+
+enum TrustStatus { trusted, identityChanged }
+
+/// A paired device. Trust is tied to its certificate fingerprint, never to
+/// its name or IP address.
+class TrustedDevice {
+  TrustedDevice({
+    required this.id,
+    required this.deviceId,
+    required this.name,
+    required this.platform,
+    required this.fingerprint,
+    required this.certPem,
+    required this.status,
+    required this.createdAt,
+    required this.updatedAt,
+    this.lastHost,
+    this.lastPort,
+  });
+
+  final String id;
+  final String deviceId;
+  final String name;
+  final String platform;
+  final String fingerprint;
+  final String certPem;
+  final TrustStatus status;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final String? lastHost;
+  final int? lastPort;
+
+  bool get isTrusted => status == TrustStatus.trusted;
+
+  TrustedDevice copyWith({
+    String? name,
+    TrustStatus? status,
+    String? lastHost,
+    int? lastPort,
+  }) => TrustedDevice(
+    id: id,
+    deviceId: deviceId,
+    name: name ?? this.name,
+    platform: platform,
+    fingerprint: fingerprint,
+    certPem: certPem,
+    status: status ?? this.status,
+    createdAt: createdAt,
+    updatedAt: DateTime.now().toUtc(),
+    lastHost: lastHost ?? this.lastHost,
+    lastPort: lastPort ?? this.lastPort,
+  );
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'device_id': deviceId,
+    'name': name,
+    'platform': platform,
+    'fingerprint': fingerprint,
+    'cert_pem': certPem,
+    'status': status.name,
+    'created_at': createdAt.toUtc().toIso8601String(),
+    'updated_at': updatedAt.toUtc().toIso8601String(),
+    'last_host': lastHost,
+    'last_port': lastPort,
+  };
+
+  factory TrustedDevice.fromJson(Map<String, dynamic> j) => TrustedDevice(
+    id: j['id'] as String,
+    deviceId: j['device_id'] as String,
+    name: j['name'] as String,
+    platform: j['platform'] as String,
+    fingerprint: j['fingerprint'] as String,
+    certPem: j['cert_pem'] as String,
+    status: TrustStatus.values.byName(j['status'] as String),
+    createdAt: DateTime.parse(j['created_at'] as String),
+    updatedAt: DateTime.parse(j['updated_at'] as String),
+    lastHost: j['last_host'] as String?,
+    lastPort: j['last_port'] as int?,
+  );
+}
+
+/// Trusted-device database: a versioned JSON file, written atomically
+/// (write temp file, then rename). Survives app updates.
+class TrustStore {
+  TrustStore(this.file);
+
+  static const int schemaVersion = 1;
+
+  final File file;
+  final List<TrustedDevice> _devices = [];
+
+  List<TrustedDevice> get devices => List.unmodifiable(_devices);
+
+  Future<void> load() async {
+    _devices.clear();
+    if (!await file.exists()) return;
+    final raw = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+    final migrated = migrate(raw);
+    for (final d in (migrated['devices'] as List)) {
+      _devices.add(TrustedDevice.fromJson(d as Map<String, dynamic>));
+    }
+    if ((raw['schema_version'] as int? ?? 0) != schemaVersion) await _save();
+  }
+
+  /// Upgrades older files step by step. Version 0 = early draft without
+  /// status / timestamps.
+  static Map<String, dynamic> migrate(Map<String, dynamic> data) {
+    var v = data['schema_version'] as int? ?? 0;
+    final out = Map<String, dynamic>.from(data);
+    if (v < 1) {
+      final now = DateTime.now().toUtc().toIso8601String();
+      out['devices'] = [
+        for (final d in (out['devices'] as List? ?? const []))
+          {
+            ...(d as Map<String, dynamic>),
+            'id': d['id'] ?? randomHex(16),
+            'status': d['status'] ?? 'trusted',
+            'created_at': d['created_at'] ?? now,
+            'updated_at': d['updated_at'] ?? now,
+          },
+      ];
+      v = 1;
+    }
+    out['schema_version'] = v;
+    return out;
+  }
+
+  Future<void> _save() async {
+    await file.parent.create(recursive: true);
+    final tmp = File('${file.path}.tmp');
+    await tmp.writeAsString(
+      jsonEncode({
+        'schema_version': schemaVersion,
+        'devices': [for (final d in _devices) d.toJson()],
+      }),
+      flush: true,
+    );
+    await tmp.rename(file.path);
+  }
+
+  TrustedDevice? byFingerprint(String fp) {
+    for (final d in _devices) {
+      if (d.fingerprint == fp) return d;
+    }
+    return null;
+  }
+
+  TrustedDevice? byDeviceId(String deviceId) {
+    for (final d in _devices) {
+      if (d.deviceId == deviceId) return d;
+    }
+    return null;
+  }
+
+  TrustedDevice? byId(String id) {
+    for (final d in _devices) {
+      if (d.id == id) return d;
+    }
+    return null;
+  }
+
+  Future<TrustedDevice> addTrusted({
+    required String deviceId,
+    required String name,
+    required String platform,
+    required String certPem,
+    String? host,
+    int? port,
+  }) async {
+    final now = DateTime.now().toUtc();
+    _devices.removeWhere((d) => d.deviceId == deviceId);
+    final d = TrustedDevice(
+      id: randomHex(16),
+      deviceId: deviceId,
+      name: name,
+      platform: platform,
+      fingerprint: fingerprintOfCertPem(certPem),
+      certPem: certPem,
+      status: TrustStatus.trusted,
+      createdAt: now,
+      updatedAt: now,
+      lastHost: host,
+      lastPort: port,
+    );
+    _devices.add(d);
+    await _save();
+    return d;
+  }
+
+  Future<void> _replace(TrustedDevice d) async {
+    final i = _devices.indexWhere((x) => x.id == d.id);
+    if (i >= 0) {
+      _devices[i] = d;
+      await _save();
+    }
+  }
+
+  Future<void> rename(String id, String name) async {
+    final d = byId(id);
+    if (d != null) await _replace(d.copyWith(name: name));
+  }
+
+  Future<void> markIdentityChanged(String id) async {
+    final d = byId(id);
+    if (d != null) {
+      await _replace(d.copyWith(status: TrustStatus.identityChanged));
+    }
+  }
+
+  Future<void> rememberAddress(String id, String host, int port) async {
+    final d = byId(id);
+    if (d != null && (d.lastHost != host || d.lastPort != port)) {
+      await _replace(d.copyWith(lastHost: host, lastPort: port));
+    }
+  }
+
+  Future<void> revoke(String id) async {
+    _devices.removeWhere((d) => d.id == id);
+    await _save();
+  }
+}

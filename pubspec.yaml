@@ -9,10 +9,16 @@ environment:
   sdk: ^3.13.5
 
 dependencies:
+  basic_utils: ^5.8.2
+  convert: ^3.1.2
+  crypto: ^3.0.7
   desktop_drop: ^0.8.0
   file_selector: ^1.1.0
   flutter:
     sdk: flutter
+  flutter_secure_storage: ^11.2.0
+  path: ^1.9.1
+  path_provider: ^2.1.6
   shared_preferences: ^2.5.6
 
 dev_dependencies:
