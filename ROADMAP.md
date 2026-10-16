@@ -13,7 +13,7 @@
 - [x] GitHub Actions: Android, Windows, macOS, Linux, iOS (unsigned attempt)
 - [x] README, ROADMAP, AGENTS, PRIVACY, THIRD_PARTY_NOTICES
 - [ ] Owner installs the APK on Android and confirms
-- [ ] DEV key fingerprint confirmed identical over two consecutive builds
+- [x] DEV key fingerprint identical over two consecutive builds (runs 1 and 2: 5b36ee…57c1)
 - [ ] Owner chooses iOS signing option (needed before Phase 4)
 
 ## Phase 2 - Secure pairing, direct connections, reliable file streaming
