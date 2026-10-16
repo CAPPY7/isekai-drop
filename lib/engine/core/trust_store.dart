@@ -155,17 +155,23 @@ class TrustStore {
     return out;
   }
 
-  Future<void> _save() async {
-    await file.parent.create(recursive: true);
-    final tmp = File('${file.path}.tmp');
-    await tmp.writeAsString(
-      jsonEncode({
-        'schema_version': schemaVersion,
-        'devices': [for (final d in _devices) d.toJson()],
-      }),
-      flush: true,
-    );
-    await tmp.rename(file.path);
+  Future<void> _writeChain = Future.value();
+
+  /// Writes are serialised: two saves at the same time used to race on the
+  /// same .tmp file (audit #17).
+  Future<void> _save() {
+    final snapshot = jsonEncode({
+      'schema_version': schemaVersion,
+      'devices': [for (final d in _devices) d.toJson()],
+    });
+    final next = _writeChain.then((_) async {
+      await file.parent.create(recursive: true);
+      final tmp = File('${file.path}.tmp');
+      await tmp.writeAsString(snapshot, flush: true);
+      await tmp.rename(file.path);
+    });
+    _writeChain = next.catchError((_) {});
+    return next;
   }
 
   TrustedDevice? byFingerprint(String fp) {

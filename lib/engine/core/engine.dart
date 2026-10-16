@@ -970,7 +970,11 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       s = await _connectTrusted(dev, host, port ?? kDefaultPort);
       final sock = s;
       // Authenticated by TLS (key matched): now it is safe to remember.
-      unawaited(trust.rememberAddress(dev.id, host, port ?? kDefaultPort));
+      unawaited(
+        trust
+            .rememberAddress(dev.id, host, port ?? kDefaultPort)
+            .catchError((_) {}),
+      );
       reader = FrameReader(sock);
       job.onCancel = () {
         try {

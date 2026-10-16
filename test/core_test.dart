@@ -109,6 +109,30 @@ void main() {
       expect(raw['schema_version'], TrustStore.schemaVersion);
     });
 
+    test('many saves at the same time do not race (audit #17)', () async {
+      final dir = await Directory.systemTemp.createTemp('isekai_race');
+      addTearDown(() => dir.delete(recursive: true));
+      final f = File(p.join(dir.path, 'trusted.json'));
+      final s = TrustStore(f);
+      await s.load();
+      final peer = Identity.generate();
+      final d = await s.addTrusted(
+        deviceId: peer.deviceId,
+        name: 'P',
+        platform: 'android',
+        certPem: peer.certPem,
+      );
+      await Future.wait([
+        for (var i = 0; i < 50; i++)
+          s.rememberAddress(d.id, '10.0.0.$i', i + 1),
+        for (var i = 0; i < 20; i++) s.rename(d.id, 'P$i'),
+      ]);
+      final again = TrustStore(f);
+      await again.load();
+      expect(again.byId(d.id)!.name, 'P19');
+      expect(again.byId(d.id)!.lastPort, 50);
+    });
+
     test('migrates a version 0 file', () async {
       final dir = await Directory.systemTemp.createTemp('isekai_mig');
       addTearDown(() => dir.delete(recursive: true));
