@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import 'send_source.dart';
+
 enum JobDirection { sending, receiving }
 
 enum JobState { waiting, running, completed, failed, cancelled }
@@ -14,7 +16,40 @@ class TransferJob extends ChangeNotifier {
     required this.peerName,
     required this.fileCount,
     required this.totalBytes,
-  });
+    this.peerDeviceId,
+    this.trustedId,
+    this.sources = const [],
+    this.fileNames = const [],
+  }) : createdAt = DateTime.now().toUtc();
+
+  final DateTime createdAt;
+
+  /// The other device's id (for History). Null if unknown.
+  final String? peerDeviceId;
+
+  /// TrustStore record id of the other device (for Retry).
+  final String? trustedId;
+
+  /// What was sent (sending jobs only), kept so Retry can send it again.
+  final List<SendSource> sources;
+
+  /// Relative file names, kept in memory only (History stores them only if
+  /// the user allows it). Never logged.
+  final List<String> fileNames;
+
+  /// Bytes that were already on the receiver from an earlier, interrupted
+  /// attempt and were not sent again.
+  int resumedBytes = 0;
+
+  /// Set when a newer job retries this one.
+  String? retriedBy;
+
+  bool get canRetry =>
+      direction == JobDirection.sending &&
+      !isActive &&
+      state != JobState.completed &&
+      sources.isNotEmpty &&
+      retriedBy == null;
 
   final String id;
   final JobDirection direction;
@@ -117,8 +152,9 @@ class TransferJob extends ChangeNotifier {
   /// Measured average speed for the whole transfer so far.
   double? get averageSpeed {
     final ms = _clock.elapsedMilliseconds;
-    if (ms < 300 || bytesDone == 0) return null;
-    return bytesDone * 1000 / ms;
+    final moved = bytesDone - resumedBytes;
+    if (ms < 300 || moved <= 0) return null;
+    return moved * 1000 / ms;
   }
 
   Duration? get timeLeft {
@@ -132,6 +168,13 @@ class TransferJob extends ChangeNotifier {
     queued = false;
     state = JobState.running;
     _clock.start();
+    notifyListeners();
+  }
+
+  /// Counts bytes that were already received earlier (not measured speed).
+  void addResumed(int n) {
+    resumedBytes += n;
+    bytesDone += n;
     notifyListeners();
   }
 
@@ -183,7 +226,15 @@ class PendingRequest {
     this.fileNames = const [],
     this.totalBytes = 0,
     this.job,
+    this.keyChanged = false,
+    this.resumeBytes = 0,
   });
+
+  /// Pairing: a device with this id was known with a DIFFERENT key.
+  final bool keyChanged;
+
+  /// Transfer: bytes already received in an earlier attempt.
+  final int resumeBytes;
 
   final String id;
   final RequestKind kind;

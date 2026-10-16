@@ -10,6 +10,7 @@ import '../transfer_engine.dart';
 import 'discovery.dart';
 import 'frames.dart';
 import 'identity.dart';
+import 'resume_store.dart';
 import 'safe_files.dart';
 import 'trust_store.dart';
 
@@ -51,7 +52,39 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     this.secureStorageNote,
     this.receiveLocationNote = '',
     this.discoveryOffNote,
-  });
+    this.history,
+    this.resume,
+    bool Function()? acceptingFiles,
+    bool Function(TrustedDevice device)? autoAccept,
+    bool Function()? saveFileNames,
+    bool Function()? visible,
+  }) : acceptingFiles = acceptingFiles ?? _yes,
+       autoAccept = autoAccept ?? _no,
+       saveFileNames = saveFileNames ?? _yes,
+       visible = visible ?? _yes;
+
+  static bool _yes() => true;
+  static bool _no(TrustedDevice _) => false;
+
+  /// Finished transfers are written here (no file contents).
+  @override
+  final HistoryStore? history;
+
+  /// Receiver-side resume state. Null = interrupted transfers start over.
+  final ResumeStore? resume;
+
+  /// Settings: receive files at all (from trusted devices).
+  final bool Function() acceptingFiles;
+
+  /// Settings: accept without asking. The engine additionally requires the
+  /// device to be VERIFIED; anything else is always asked.
+  final bool Function(TrustedDevice device) autoAccept;
+
+  /// Settings: keep file names in History (on this device only).
+  final bool Function() saveFileNames;
+
+  /// Settings: announce this device on the network.
+  final bool Function() visible;
 
   /// Shown instead of a UDP discovery status when UDP discovery is off
   /// (iPhone/iPad: multicast needs an Apple entitlement; Bonjour is used).
@@ -80,6 +113,11 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   @visibleForTesting
   Future<bool> Function(PendingRequest request)? debugAutoDecide;
 
+  /// Test hook only: the sender drops the connection after this many bytes
+  /// of file data were sent in one attempt (simulates a network drop).
+  @visibleForTesting
+  int? debugDropAfterBytes;
+
   ServerSocket? _server;
   Discovery? _discovery;
   final Map<String, NearbyDevice> _nearby = {};
@@ -101,9 +139,44 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   @override
   TransferJob? get lastFinishedJob => _lastFinished;
 
+  final Set<String> _recorded = {};
+
   void _recordEnd(TransferJob job) {
     if (job.isActive) return;
+    if (!_recorded.add(job.id)) return;
     _lastFinished = job;
+    final h = history;
+    if (h != null) {
+      final now = DateTime.now().toUtc();
+      unawaited(
+        h.add(
+          HistoryEntry(
+            id: job.id,
+            direction: job.direction == JobDirection.sending
+                ? HistoryDirection.sent
+                : HistoryDirection.received,
+            outcome: switch (job.state) {
+              JobState.completed => HistoryOutcome.completed,
+              JobState.cancelled => HistoryOutcome.cancelled,
+              _ => HistoryOutcome.failed,
+            },
+            peerName: job.peerName,
+            peerDeviceId: job.peerDeviceId,
+            fileCount: job.fileCount,
+            totalBytes: job.totalBytes,
+            bytesDone: job.bytesDone,
+            createdAt: job.createdAt,
+            updatedAt: now,
+            fileNames: saveFileNames() ? job.fileNames : const [],
+            destination: job.direction == JobDirection.receiving
+                ? receiveLocationNote
+                : null,
+            message: job.message,
+            resumedBytes: job.resumedBytes,
+          ),
+        ),
+      );
+    }
     if (job.state == JobState.failed) {
       _lastError = job.message ?? 'Transfer failed';
       _lastErrorAt = DateTime.now();
@@ -186,6 +259,9 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   @override
   Future<void> start() async {
     try {
+      await resume?.cleanup();
+    } catch (_) {}
+    try {
       final addr = bindAddress ?? InternetAddress.anyIPv4;
       try {
         _server = await ServerSocket.bind(addr, port);
@@ -197,7 +273,11 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       _startError = 'Could not start receiving on this device.';
     }
     if (enableDiscovery && _server != null) {
-      _discovery = Discovery(ownDeviceId: identity.deviceId, onFound: _onFound);
+      _discovery = Discovery(
+        ownDeviceId: identity.deviceId,
+        onFound: _onFound,
+        shouldAnnounce: visible,
+      );
       await _discovery!.start(
         () => {
           'device_id': identity.deviceId,
@@ -293,6 +373,9 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         _serverContext(),
         requestClientCertificate: true,
       ).timeout(const Duration(seconds: 15));
+      // Write errors after the peer left (broken pipe) surface here; the
+      // session code already handles the lost connection.
+      unawaited(s.done.then((_) {}, onError: (_) {}));
     } catch (_) {
       // Unknown, revoked or broken client certificate: rejected by TLS.
       raw.destroy();
@@ -360,12 +443,14 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       s.add(jsonFrame({'t': 'pair_denied', 'reason': 'same_device'}));
       return;
     }
+    final known = trust.byDeviceId(peerId);
     final req = PendingRequest(
       id: randomHex(8),
       kind: RequestKind.pairing,
       peerName: name,
       peerPlatform: platform,
       code: verificationCode(identity.fingerprint, peerFp),
+      keyChanged: known != null && known.fingerprint != peerFp,
     );
     final ok = await _ask(req);
     if (!ok) {
@@ -403,6 +488,10 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       s.add(jsonFrame({'t': 'decline', 'reason': 'bad_offer'}));
       return;
     }
+    if (!acceptingFiles()) {
+      s.add(jsonFrame({'t': 'decline', 'reason': 'not_accepting'}));
+      return;
+    }
     final names = <String>[];
     final sizes = <int>[];
     for (final f in files) {
@@ -420,12 +509,43 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       sizes.add(size);
     }
     final total = sizes.fold<int>(0, (a, b) => a + b);
+
+    // Resume (optional): only for this sender's key + this transfer id.
+    final rawTid = offer['tid'];
+    final tid =
+        rawTid is String && RegExp(r'^[0-9a-f]{16,64}$').hasMatch(rawTid)
+        ? rawTid
+        : null;
+    final store = tid == null ? null : resume;
+    final offerList = [
+      for (var i = 0; i < names.length; i++) (names[i], sizes[i]),
+    ];
+    ResumeState? state;
+    var already = 0;
+    if (store != null) {
+      state = await store.load(dev.fingerprint, tid!);
+      if (state != null && !state.matches(offerList)) {
+        await store.discard(state.key);
+        state = null;
+      }
+      if (state != null) {
+        for (final i in state.done.keys) {
+          already += sizes[i];
+        }
+        final pi = state.partialIndex;
+        if (pi != null) already += await store.partialLength(state, pi);
+      }
+    }
+
     final job = TransferJob(
       id: randomHex(8),
       direction: JobDirection.receiving,
       peerName: dev.name,
       fileCount: names.length,
       totalBytes: total,
+      peerDeviceId: dev.deviceId,
+      trustedId: dev.id,
+      fileNames: names,
     );
     final req = PendingRequest(
       id: job.id,
@@ -435,14 +555,19 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       fileNames: names,
       totalBytes: total,
       job: job,
+      resumeBytes: already,
     );
-    if (!await _ask(req)) {
+    // Auto-receive only from VERIFIED devices, and only when switched on.
+    final auto = dev.isVerified && autoAccept(dev);
+    if (!auto && !await _ask(req)) {
       s.add(jsonFrame({'t': 'decline', 'reason': 'declined'}));
       return;
     }
     _jobs.insert(0, job);
     notifyListeners();
+    var discardState = false;
     job.onCancel = () {
+      discardState = true;
       try {
         s.add(jsonFrame({'t': 'cancel'}));
       } catch (_) {}
@@ -453,28 +578,79 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         s.add(jsonFrame({'t': p ? 'pause' : 'resume'}));
       } catch (_) {}
     };
+    if (store != null) {
+      state ??= await store.create(dev.fingerprint, tid!, offerList);
+    }
+    final offsets = <int, int>{};
+    if (state != null) {
+      final pi = state.partialIndex;
+      if (pi != null && !state.done.containsKey(pi)) {
+        final n = await store!.partialLength(state, pi);
+        if (n > 0) offsets[pi] = n;
+      }
+      for (final e in state.done.entries) {
+        job.savedTo.add(e.value);
+        job.filesDone++;
+      }
+    }
     job.start();
-    s.add(jsonFrame({'t': 'accept'}));
+    if (already > 0) job.addResumed(already);
+    s.add(
+      jsonFrame({
+        't': 'accept',
+        if (state != null) ...{
+          'skip': state.done.keys.toList()..sort(),
+          'offsets': {for (final e in offsets.entries) '${e.key}': e.value},
+        },
+      }),
+    );
     await s.flush();
-    final batch = ReceiveBatch();
+    final batch = state != null ? store!.batchFor(state) : ReceiveBatch();
     File? temp;
     RandomAccessFile? out;
+    var keepPartial = false;
     try {
       for (var i = 0; i < names.length; i++) {
+        if (state != null && state.done.containsKey(i)) continue;
         await job.waitIfPaused();
         final head = await _nextControl(reader, job);
         if (head['t'] == 'cancel') {
+          discardState = true;
           job.finish(JobState.cancelled, 'The sender cancelled.');
           return;
         }
-        if (head['t'] != 'file' || head['i'] != i) {
+        final offset = offsets[i] ?? 0;
+        if (head['t'] != 'file' ||
+            head['i'] != i ||
+            ((head['offset'] as int?) ?? 0) != offset) {
           throw const FormatException('Unexpected message');
         }
-        temp = await createTempPart(tempDir);
-        out = await temp.open(mode: FileMode.writeOnly);
         final digestOut = AccumulatorSink<Digest>();
         final hasher = sha256.startChunkedConversion(digestOut);
-        var got = 0;
+        if (state != null) {
+          temp = store!.partFile(state.key);
+          if (offset > 0) {
+            // Re-hash what is already on disk; the final check covers the
+            // whole file from byte 0.
+            var n = 0;
+            await for (final c in temp.openRead(0, offset)) {
+              hasher.add(c);
+              n += c.length;
+            }
+            if (n != offset) throw const FileSystemException('Partial changed');
+            out = await temp.open(mode: FileMode.append);
+          } else {
+            await store.dir.create(recursive: true);
+            out = await temp.open(mode: FileMode.write);
+            state.partialIndex = i;
+            await store.save(state);
+          }
+          keepPartial = true;
+        } else {
+          temp = await createTempPart(tempDir);
+          out = await temp.open(mode: FileMode.writeOnly);
+        }
+        var got = offset;
         while (got < sizes[i]) {
           // Pausing here stops reading; TCP then makes the sender wait.
           await job.waitIfPaused();
@@ -491,6 +667,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
               continue;
             }
             if (t == 'cancel') {
+              discardState = true;
               job.finish(JobState.cancelled, 'The sender cancelled.');
               return;
             }
@@ -514,32 +691,54 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
             end['sha256'] != actual) {
           await temp.delete();
           temp = null;
+          keepPartial = false;
+          discardState = true;
           s.add(jsonFrame({'t': 'file_bad', 'i': i}));
           job.finish(
             JobState.failed,
-            'Integrity check failed. The damaged file was deleted.',
+            'Integrity check failed. The damaged file was deleted. '
+            'Retry sends it again from the start.',
           );
           return;
         }
         final where = await finalizer(temp, names[i], batch);
         temp = null;
+        keepPartial = false;
+        if (state != null) {
+          state.done[i] = where;
+          state.partialIndex = null;
+          state.topFolders
+            ..clear()
+            ..addAll(batch.topFolders);
+          await store!.save(state);
+        }
         job.savedTo.add(where);
         job.filesDone++;
         s.add(jsonFrame({'t': 'file_ok', 'i': i}));
       }
       final done = await _nextControl(reader, job);
       if (done['t'] == 'done') s.add(jsonFrame({'t': 'done_ok'}));
+      discardState = true;
       job.finish(JobState.completed, 'All files received and verified.');
     } catch (_) {
       job.finish(
         JobState.failed,
-        'The transfer stopped. Nothing unverified was kept.',
+        state != null && !discardState
+            ? 'The connection was lost. Nothing unverified was saved. '
+                  'When the sender taps Retry, it continues where it stopped.'
+            : 'The transfer stopped. Nothing unverified was kept.',
       );
     } finally {
       try {
         await out?.close();
       } catch (_) {}
-      if (temp != null && await temp.exists()) await temp.delete();
+      if (state != null) {
+        if (discardState || job.cancelRequested) {
+          await store!.discard(state.key);
+        }
+      } else if (!keepPartial && temp != null && await temp.exists()) {
+        await temp.delete();
+      }
       _recordEnd(job);
       notifyListeners();
     }
@@ -654,6 +853,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       try {
         sock.setOption(SocketOption.tcpNoDelay, true);
       } catch (_) {}
+      unawaited(sock.done.then((_) {}, onError: (_) {}));
       return sock;
     } catch (e) {
       if (mismatch) {
@@ -681,6 +881,10 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       peerName: dev.name,
       fileCount: files.length,
       totalBytes: files.fold<int>(0, (a, f) => a + f.size),
+      peerDeviceId: dev.deviceId,
+      trustedId: dev.id,
+      sources: List.unmodifiable(files),
+      fileNames: [for (final f in files) f.relativePath],
     );
     job.queued = _jobs.any(
       (j) => j.direction == JobDirection.sending && j.isActive,
@@ -708,7 +912,10 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     String? host,
     int? port,
   ) async {
-    if (!job.isActive) return; // cancelled while queued
+    if (!job.isActive) {
+      _recordEnd(job); // cancelled while queued
+      return;
+    }
     job.queued = false;
     job.notifyListeners();
     if (!dev.isTrusted) {
@@ -745,6 +952,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         jsonFrame({
           't': 'offer',
           'v': kProtocolVersion,
+          'tid': transferIdFor(dev.fingerprint, files),
           'files': [
             for (final f in files)
               {'name': f.name, 'path': f.relativePath, 'size': f.size},
@@ -763,16 +971,59 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         return;
       }
       if (answer['t'] != 'accept') {
-        job.finish(JobState.failed, 'The other device declined.');
+        job.finish(
+          JobState.failed,
+          answer['reason'] == 'not_accepting'
+              ? 'The other device is not accepting files right now (turned off in its Settings).'
+              : 'The other device declined.',
+        );
         return;
       }
+      final skip = <int>{
+        for (final x in (answer['skip'] as List? ?? const []))
+          if (x is int && x >= 0 && x < files.length) x,
+      };
+      final offsets = <int, int>{};
+      final rawOffsets = answer['offsets'];
+      if (rawOffsets is Map) {
+        for (final e in rawOffsets.entries) {
+          final i = int.tryParse('${e.key}');
+          final v = e.value;
+          if (i != null &&
+              i >= 0 &&
+              i < files.length &&
+              v is int &&
+              v > 0 &&
+              v <= files[i].size) {
+            offsets[i] = v;
+          }
+        }
+      }
       job.start();
+      var resumed = 0;
+      for (final i in skip) {
+        resumed += files[i].size;
+      }
+      for (final v in offsets.values) {
+        resumed += v;
+      }
+      if (resumed > 0) job.addResumed(resumed);
+      job.filesDone += skip.length;
+      var sentThisAttempt = 0;
       for (var i = 0; i < files.length; i++) {
+        if (skip.contains(i)) continue;
         final f = files[i];
+        final offset = offsets[i] ?? 0;
         await job.waitIfPaused();
         if (job.cancelRequested) return;
         sock.add(
-          jsonFrame({'t': 'file', 'i': i, 'name': f.name, 'size': f.size}),
+          jsonFrame({
+            't': 'file',
+            'i': i,
+            'name': f.name,
+            'size': f.size,
+            if (offset > 0) 'offset': offset,
+          }),
         );
         final digestOut = AccumulatorSink<Digest>();
         final hasher = sha256.startChunkedConversion(digestOut);
@@ -787,12 +1038,29 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           if (sent + chunk.length > f.size) {
             throw const FileSystemException('File changed while sending');
           }
+          // The whole file is always hashed from byte 0; bytes the receiver
+          // already has are hashed but not sent again.
           hasher.add(chunk);
-          final wire = debugTamper != null ? debugTamper!(chunk) : chunk;
+          List<int> part = chunk;
+          if (sent < offset) {
+            final skipN = offset - sent;
+            sent += chunk.length;
+            if (chunk.length <= skipN) continue;
+            part = chunk.sublist(skipN);
+          } else {
+            sent += chunk.length;
+          }
+          final wire = debugTamper != null ? debugTamper!(part) : part;
           sock.add(encodeFrame(frameData, wire));
-          sent += chunk.length;
-          sinceFlush += chunk.length;
-          job.addBytes(chunk.length);
+          sinceFlush += part.length;
+          sentThisAttempt += part.length;
+          job.addBytes(part.length);
+          final drop = debugDropAfterBytes;
+          if (drop != null && sentThisAttempt >= drop) {
+            await sock.flush();
+            sock.destroy();
+            throw const SocketException('debug drop');
+          }
           if (sinceFlush >= 4 * 1024 * 1024) {
             sinceFlush = 0;
             await sock.flush();
@@ -860,6 +1128,45 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   Future<void> revokeTrustedDevice(String id) async {
     await trust.revoke(id);
     _refreshNearbyTrust();
+    notifyListeners();
+  }
+
+  @override
+  Future<void> forgetTrustedDevice(String id) async {
+    await trust.forget(id);
+    _refreshNearbyTrust();
+    notifyListeners();
+  }
+
+  @override
+  Future<bool> markDeviceVerified(String id) async {
+    final ok = await trust.markVerified(id);
+    _refreshNearbyTrust();
+    notifyListeners();
+    return ok;
+  }
+
+  @override
+  String codeFor(TrustedDevice d) =>
+      verificationCode(identity.fingerprint, d.fingerprint);
+
+  /// Sends the same files again to the same device. If the receiver kept
+  /// the interrupted part, it continues from there (same transfer id).
+  @override
+  Future<TransferJob?> retry(TransferJob job) async {
+    if (!job.canRetry) return null;
+    final dev = trust.byId(job.trustedId ?? '');
+    if (dev == null) return null;
+    final next = await send(dev, job.sources);
+    job.retriedBy = next.id;
+    notifyListeners();
+    return next;
+  }
+
+  /// Removes finished jobs from the list (History keeps the record).
+  @override
+  void clearFinishedJobs() {
+    _jobs.removeWhere((j) => !j.isActive);
     notifyListeners();
   }
 
@@ -950,4 +1257,16 @@ class NearbyDevice {
     trusted: t,
     fingerprintMismatch: fingerprintMismatch && t != null,
   );
+}
+
+/// Same files to the same device => same id, so the receiver can continue an
+/// interrupted transfer even after this app was restarted. Contains no
+/// file data. A different file with the same name and size gives the same
+/// id; the final SHA-256 check then fails and the next retry starts fresh.
+String transferIdFor(String peerFingerprint, List<SendSource> files) {
+  final b = StringBuffer('isekai-tid-v1|$peerFingerprint');
+  for (final f in files) {
+    b.write('|${f.relativePath}|${f.size}');
+  }
+  return sha256.convert(utf8.encode(b.toString())).toString().substring(0, 32);
 }

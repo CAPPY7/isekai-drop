@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'engine/demo_engine.dart';
 import 'engine/transfer_engine.dart';
 import 'settings/settings_controller.dart';
 import 'ui/app_scope.dart';
@@ -12,19 +11,16 @@ class IsekaiDropApp extends StatelessWidget {
     super.key,
     required this.engine,
     required this.settings,
-    required this.demoHistory,
   });
 
   final TransferEngine engine;
   final SettingsController settings;
-  final DemoHistory demoHistory;
 
   @override
   Widget build(BuildContext context) {
     return AppScope(
       engine: engine,
       settings: settings,
-      demoHistory: demoHistory,
       child: ListenableBuilder(
         listenable: settings,
         builder: (context, _) => MaterialApp(

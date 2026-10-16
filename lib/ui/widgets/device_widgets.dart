@@ -7,14 +7,16 @@ import 'common.dart';
 DisplayTrust trustOfNearby(NearbyDevice d) {
   final t = d.trusted;
   if (t == null) return DisplayTrust.unknown;
-  if (!t.isTrusted || d.fingerprintMismatch) {
-    return DisplayTrust.identityChanged;
-  }
-  return DisplayTrust.trusted;
+  if (d.fingerprintMismatch) return DisplayTrust.identityChanged;
+  return trustOf(t);
 }
 
-DisplayTrust trustOf(TrustedDevice d) =>
-    d.isTrusted ? DisplayTrust.trusted : DisplayTrust.identityChanged;
+DisplayTrust trustOf(TrustedDevice d) => switch (d.status) {
+  TrustStatus.verified => DisplayTrust.verified,
+  TrustStatus.trusted => DisplayTrust.trusted,
+  TrustStatus.identityChanged => DisplayTrust.identityChanged,
+  TrustStatus.revoked => DisplayTrust.revoked,
+};
 
 /// This device's address and key, so the other device can connect by hand.
 class ThisDeviceCard extends StatefulWidget {
@@ -104,11 +106,12 @@ class NearbyTile extends StatelessWidget {
       title: Text(device.name),
       subtitle: TrustBadge(trust: trust),
       trailing: Text(switch (trust) {
-        DisplayTrust.trusted => 'Send',
+        DisplayTrust.verified || DisplayTrust.trusted => 'Send',
         DisplayTrust.unknown => 'Pair',
-        DisplayTrust.identityChanged => 'Blocked',
+        // Blocked: the only way back is pairing again and comparing the code.
+        DisplayTrust.identityChanged || DisplayTrust.revoked => 'Pair again',
       }, style: const TextStyle(fontWeight: FontWeight.w700)),
-      onTap: trust == DisplayTrust.identityChanged ? null : onTap,
+      onTap: onTap,
     );
   }
 }

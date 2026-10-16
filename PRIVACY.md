@@ -42,3 +42,9 @@ Drop never reads or stores your location.
 
 ## Bonjour / mDNS (all platforms, Phase 5)
 While the app is open it advertises a `_isekaidrop._tcp` service on your local network (not on Windows/Linux, which only look). The service carries: device name, a random device id, your certificate fingerprint, platform name and protocol version. Nothing leaves your local network. On iPhone/iPad, iOS asks for Local Network permission first.
+
+## Transfer History (Phase 6)
+History is stored only on this device (history.json in the app's private folder). It holds: direction, other device name/id, file count, sizes, result, times, and (only while "Save file names in History" is on) the file names. File contents are never stored. You can turn names off (and delete old names), delete one entry, or clear everything. The app writes no logs containing file names.
+
+## Interrupted transfers (Phase 6)
+To let a transfer continue, the receiver keeps the unfinished file in a hidden folder (.isekai-resume) next to received files, for up to 7 days. It is deleted when the transfer finishes, is cancelled, or fails its integrity check.

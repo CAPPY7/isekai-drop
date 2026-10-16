@@ -5,34 +5,16 @@ import '../app_scope.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
 
-class HistoryScreen extends StatefulWidget {
+/// Real, saved transfer history (this device only). No file contents.
+class HistoryScreen extends StatelessWidget {
   const HistoryScreen({super.key});
 
-  @override
-  State<HistoryScreen> createState() => _HistoryScreenState();
-}
-
-class _HistoryScreenState extends State<HistoryScreen> {
-  Future<List<TransferRecord>>? _future;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _future ??= AppScope.of(context).demoHistory.history();
-  }
-
-  void _reload() => setState(() {
-    _future = AppScope.of(context).demoHistory.history();
-  });
-
-  Future<void> _clear() async {
+  Future<bool> _ask(BuildContext context, String title, String body) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Clear history?'),
-        content: const Text(
-          'All entries will be removed. Your files are not deleted.',
-        ),
+        title: Text(title),
+        content: Text(body),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(c, false),
@@ -41,68 +23,138 @@ class _HistoryScreenState extends State<HistoryScreen> {
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: IdColors.danger),
             onPressed: () => Navigator.pop(c, true),
-            child: const Text('Clear'),
+            child: const Text('Delete'),
           ),
         ],
       ),
     );
-    if (ok != true || !mounted) return;
-    await AppScope.of(context).demoHistory.clearHistory();
-    _reload();
+    return ok == true;
   }
 
   @override
   Widget build(BuildContext context) {
-    return PageBody(
-      children: [
-        const DemoBanner(),
-        const SizedBox(height: IdSpacing.md),
-        AsyncSection<List<TransferRecord>>(
-          future: _future!,
-          onRetry: _reload,
-          isEmpty: (l) => l.isEmpty,
-          empty: const StateMessage(
+    final scope = AppScope.of(context);
+    final history = scope.engine.history;
+    if (history == null) {
+      return const PageBody(
+        children: [
+          StateMessage(
             icon: Icons.history,
-            title: 'No transfers yet',
-            message: 'Finished transfers will be listed here.',
+            title: 'History is not available',
+            message: 'This device could not open its history file.',
           ),
-          builder: (list) => Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (final t in list)
-                Card(
-                  child: ListTile(
-                    minTileHeight: IdLayout.minTouchTarget,
-                    leading: Icon(
-                      t.direction == TransferDirection.sent
-                          ? Icons.north_east
-                          : Icons.south_west,
-                    ),
-                    title: Text(
-                      '${t.direction == TransferDirection.sent ? 'Sent to' : 'Received from'} ${t.deviceName}',
-                    ),
-                    subtitle: Text(
-                      '${t.outcome.label} - ${t.fileCount} file(s), ${formatBytes(t.totalBytes)}\n'
-                      'Saved to: ${t.destination}\n${formatTime(t.createdAt)}',
-                    ),
-                    isThreeLine: true,
-                    trailing: const DemoChip(),
+        ],
+      );
+    }
+    return ListenableBuilder(
+      listenable: Listenable.merge([history, scope.settings]),
+      builder: (context, _) {
+        final list = history.entries;
+        final showNames = scope.settings.historyFileNames;
+        return PageBody(
+          children: [
+            Text(
+              'Saved on this device only. File contents are never stored'
+              '${showNames ? '; file names are (turn off in Settings)' : '; file names are not saved'}.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: IdSpacing.md),
+            if (list.isEmpty)
+              const StateMessage(
+                icon: Icons.history,
+                title: 'No transfers yet',
+                message: 'Finished transfers will be listed here.',
+              ),
+            for (final t in list)
+              Card(
+                child: ExpansionTile(
+                  minTileHeight: IdLayout.minTouchTarget,
+                  leading: Icon(
+                    t.direction == HistoryDirection.sent
+                        ? Icons.north_east
+                        : Icons.south_west,
                   ),
+                  title: Text(
+                    '${t.direction == HistoryDirection.sent ? 'Sent to' : 'Received from'} ${t.peerName}',
+                  ),
+                  subtitle: Text(
+                    '${_outcome(t.outcome)} - ${t.fileCount} file(s), ${formatBytes(t.totalBytes)}\n'
+                    '${formatTime(t.createdAt.toLocal())}',
+                  ),
+                  childrenPadding: const EdgeInsets.fromLTRB(
+                    IdSpacing.md,
+                    0,
+                    IdSpacing.md,
+                    IdSpacing.md,
+                  ),
+                  expandedCrossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (t.message != null) Text(t.message!),
+                    Text('Moved: ${formatBytes(t.bytesDone)}'),
+                    if (t.resumedBytes > 0)
+                      Text(
+                        'Continued an earlier attempt: ${formatBytes(t.resumedBytes)} were already there.',
+                      ),
+                    if (t.destination != null)
+                      Text('Saved to: ${t.destination}'),
+                    if (showNames && t.fileNames.isNotEmpty) ...[
+                      const SizedBox(height: IdSpacing.xs),
+                      for (final n in t.fileNames.take(20))
+                        Text('- $n', overflow: TextOverflow.ellipsis),
+                      if (t.fileNames.length > 20)
+                        Text('...and ${t.fileNames.length - 20} more'),
+                    ],
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        style: TextButton.styleFrom(
+                          foregroundColor: IdColors.danger,
+                        ),
+                        onPressed: () async {
+                          if (await _ask(
+                            context,
+                            'Delete this entry?',
+                            'Only the history entry is removed. Your files are not deleted.',
+                          )) {
+                            await history.remove(t.id);
+                          }
+                        },
+                        icon: const Icon(Icons.delete_outline),
+                        label: const Text('Delete entry'),
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+            if (list.isNotEmpty) ...[
               const SizedBox(height: IdSpacing.sm),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: IdColors.danger,
                   minimumSize: const Size.fromHeight(IdLayout.minTouchTarget),
                 ),
-                onPressed: _clear,
+                onPressed: () async {
+                  if (await _ask(
+                    context,
+                    'Clear history?',
+                    'All entries will be removed. Your files are not deleted.',
+                  )) {
+                    await history.clear();
+                  }
+                },
                 icon: const Icon(Icons.delete_outline),
                 label: const Text('Clear history'),
               ),
             ],
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
+
+  static String _outcome(HistoryOutcome o) => switch (o) {
+    HistoryOutcome.completed => 'Completed',
+    HistoryOutcome.failed => 'Failed',
+    HistoryOutcome.cancelled => 'Cancelled',
+  };
 }

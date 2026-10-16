@@ -94,7 +94,17 @@ void main() {
       await third.revoke(d.id);
       final fourth = TrustStore(f);
       await fourth.load();
-      expect(fourth.devices, isEmpty);
+      expect(fourth.byId(d.id)!.status, TrustStatus.revoked);
+      expect(fourth.byId(d.id)!.isTrusted, isFalse);
+      expect(
+        await fourth.markVerified(d.id),
+        isFalse,
+        reason: 'blocked devices must pair again',
+      );
+      await fourth.forget(d.id);
+      final fifth = TrustStore(f);
+      await fifth.load();
+      expect(fifth.devices, isEmpty);
       final raw = jsonDecode(await f.readAsString()) as Map<String, dynamic>;
       expect(raw['schema_version'], TrustStore.schemaVersion);
     });
@@ -122,7 +132,7 @@ void main() {
       expect(s.devices.single.status, TrustStatus.trusted);
       expect(s.devices.single.id, isNotEmpty);
       final raw = jsonDecode(await f.readAsString()) as Map<String, dynamic>;
-      expect(raw['schema_version'], 1);
+      expect(raw['schema_version'], 2);
     });
   });
 

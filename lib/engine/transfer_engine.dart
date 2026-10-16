@@ -1,17 +1,19 @@
 /// The boundary between the UI and the transfer engine.
 ///
 /// Screens only use [TransferEngine]. The real implementation is
-/// IsekaiEngine (lib/engine/core/engine.dart). Transfer History is still
-/// DEMO data in Phase 3 (see demo_engine.dart) and is labelled DEMO.
+/// IsekaiEngine (lib/engine/core/engine.dart). History is real and
+/// persisted (core/history_store.dart) since Phase 6.
 library;
 
 import 'package:flutter/foundation.dart';
 
 import 'core/engine.dart';
+import 'core/history_store.dart';
 import 'core/jobs.dart';
 import 'core/send_source.dart';
 import 'core/trust_store.dart';
 
+export 'core/history_store.dart';
 export 'core/engine.dart' show NearbyDevice, PairingSession, PairingException;
 export 'core/identity.dart' show shortFingerprint;
 export 'core/jobs.dart';
@@ -64,4 +66,15 @@ abstract class TransferEngine implements Listenable {
 
   Future<void> renameTrustedDevice(String id, String newName);
   Future<void> revokeTrustedDevice(String id);
+  Future<void> forgetTrustedDevice(String id);
+
+  /// The user compared [codeFor] with the other device: mark as Verified.
+  Future<bool> markDeviceVerified(String id);
+  String codeFor(TrustedDevice d);
+
+  Future<TransferJob?> retry(TransferJob job);
+  void clearFinishedJobs();
+
+  /// Finished transfers (persisted). Null in tests without storage.
+  HistoryStore? get history;
 }

@@ -86,9 +86,15 @@ class HomeScreen extends StatelessWidget {
             if (engine.jobs.isNotEmpty)
               SectionCard(
                 title: 'Transfers this session',
+                trailing: engine.jobs.any((j) => !j.isActive)
+                    ? TextButton(
+                        onPressed: engine.clearFinishedJobs,
+                        child: const Text('Clear finished'),
+                      )
+                    : null,
                 child: Column(
                   children: [
-                    for (final j in engine.jobs.take(5))
+                    for (final j in engine.jobs.take(8))
                       ListenableBuilder(
                         listenable: j,
                         builder: (context, _) => ListTile(
@@ -103,8 +109,15 @@ class HomeScreen extends StatelessWidget {
                             '${j.direction == JobDirection.sending ? 'To' : 'From'} ${j.peerName}',
                           ),
                           subtitle: Text(
-                            '${j.state.name} - ${(j.progress * 100).round()}% of ${formatBytes(j.totalBytes)}',
+                            '${j.queued ? 'queued' : j.state.name} - ${(j.progress * 100).round()}% of ${formatBytes(j.totalBytes)}'
+                            '${j.state == JobState.failed && j.message != null ? '\n${j.message}' : ''}',
                           ),
+                          trailing: j.canRetry
+                              ? TextButton(
+                                  onPressed: () => engine.retry(j),
+                                  child: const Text('Retry'),
+                                )
+                              : null,
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute<void>(
                               builder: (_) => TransferScreen(job: j),
@@ -131,7 +144,7 @@ class HomeScreen extends StatelessWidget {
                         for (final d in engine.nearby)
                           NearbyTile(
                             device: d,
-                            onTap: () => d.trusted != null
+                            onTap: () => trustOfNearby(d).canSend
                                 ? onSend()
                                 : startPairingFlow(context, d.host, d.port),
                           ),

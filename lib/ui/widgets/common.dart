@@ -210,14 +210,19 @@ class AsyncSection<T> extends StatelessWidget {
   }
 }
 
-enum DisplayTrust { trusted, unknown, identityChanged }
+enum DisplayTrust { verified, trusted, unknown, identityChanged, revoked }
 
 extension DisplayTrustLabel on DisplayTrust {
   String get label => switch (this) {
-    DisplayTrust.trusted => 'Trusted (key verified)',
+    DisplayTrust.verified => 'Verified (code compared)',
+    DisplayTrust.trusted => 'Trusted (code not re-checked)',
     DisplayTrust.unknown => 'Unknown - not paired',
     DisplayTrust.identityChanged => 'Identity changed - blocked',
+    DisplayTrust.revoked => 'Revoked - blocked',
   };
+
+  bool get canSend =>
+      this == DisplayTrust.verified || this == DisplayTrust.trusted;
 }
 
 class TrustBadge extends StatelessWidget {
@@ -228,7 +233,12 @@ class TrustBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (color, icon) = switch (trust) {
-      DisplayTrust.trusted => (IdColors.success, Icons.verified_user),
+      DisplayTrust.verified => (IdColors.success, Icons.verified_user),
+      DisplayTrust.trusted => (IdColors.success, Icons.shield_outlined),
+      DisplayTrust.revoked => (
+        IdColors.danger,
+        Icons.remove_moderator_outlined,
+      ),
       DisplayTrust.unknown => (IdColors.darkOnSurfaceMuted, Icons.help_outline),
       DisplayTrust.identityChanged => (IdColors.danger, Icons.gpp_bad_outlined),
     };

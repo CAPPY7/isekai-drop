@@ -43,6 +43,66 @@ class SettingsScreen extends StatelessWidget {
     if (name != null) await settings.setDeviceName(name);
   }
 
+  Future<void> _setAuto(BuildContext context, bool v) async {
+    final settings = AppScope.of(context).settings;
+    if (!v) return settings.setAutoReceiveVerified(false);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Turn on auto-receive?'),
+        content: const Text(
+          'Devices marked "Verified" will be able to send files to this device '
+          'without asking you. Files still go only to the normal receive folder '
+          'and are still checked for damage. You can turn this off at any time.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Turn on'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) await settings.setAutoReceiveVerified(true);
+  }
+
+  Future<void> _setNames(BuildContext context, bool v) async {
+    final scope = AppScope.of(context);
+    if (v) return scope.settings.setHistoryFileNames(true);
+    final r = await showDialog<String>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Stop saving file names?'),
+        content: const Text(
+          'New history entries will not contain file names. '
+          'Do you also want to delete the names already saved?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(c, 'keep'),
+            child: const Text('Keep old names'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: IdColors.danger),
+            onPressed: () => Navigator.pop(c, 'delete'),
+            child: const Text('Delete old names'),
+          ),
+        ],
+      ),
+    );
+    if (r == null) return;
+    await scope.settings.setHistoryFileNames(false);
+    if (r == 'delete') await scope.engine.history?.forgetFileNames();
+  }
+
   @override
   Widget build(BuildContext context) {
     final scope = AppScope.of(context);
@@ -94,27 +154,57 @@ class SettingsScreen extends StatelessWidget {
               onTap: () => _editName(context),
             ),
           ),
-          const SectionCard(
+          SectionCard(
             title: 'Receiving',
             child: Column(
               children: [
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  value: true,
-                  onChanged: null,
-                  title: Text('Ask me before receiving'),
-                  subtitle: Text(
-                    'Always on. Unknown devices cannot send at all; they must pair first.',
+                  value: settings.acceptFiles,
+                  onChanged: (v) => settings.setAcceptFiles(v),
+                  title: const Text('Receive files from trusted devices'),
+                  subtitle: const Text(
+                    'When off, every offer is declined. Unknown devices can never send; they must pair first.',
                   ),
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  value: false,
-                  onChanged: null,
-                  title: Text('Auto-receive from trusted devices'),
-                  subtitle: Text('Not built yet - arrives in a later phase.'),
+                  value: settings.autoReceiveVerified,
+                  onChanged: settings.acceptFiles
+                      ? (v) => _setAuto(context, v)
+                      : null,
+                  title: const Text('Auto-receive from verified devices'),
+                  subtitle: const Text(
+                    'Off: you are asked every time (recommended). On: only devices marked '
+                    '"Verified" can send without asking. "Trusted" and blocked devices are always asked or refused.',
+                  ),
                 ),
               ],
+            ),
+          ),
+          SectionCard(
+            title: 'History',
+            child: SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: settings.historyFileNames,
+              onChanged: (v) => _setNames(context, v),
+              title: const Text('Save file names in History'),
+              subtitle: const Text(
+                'Names are kept on this device only and never written to logs. File contents are never saved.',
+              ),
+            ),
+          ),
+          SectionCard(
+            title: 'Connection',
+            child: SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: settings.visibleOnNetwork,
+              onChanged: (v) => settings.setVisibleOnNetwork(v),
+              title: const Text('Visible to nearby devices'),
+              subtitle: const Text(
+                'Off: this device stops announcing itself (and stops Bonjour). '
+                'Paired devices and QR/typed-address connections still work.',
+              ),
             ),
           ),
           SectionCard(
@@ -124,7 +214,9 @@ class SettingsScreen extends StatelessWidget {
               minTileHeight: IdLayout.minTouchTarget,
               leading: const Icon(Icons.verified_user_outlined),
               title: const Text('Trusted devices'),
-              subtitle: const Text('Rename or revoke devices'),
+              subtitle: const Text(
+                'Check codes, rename, revoke or remove devices',
+              ),
               trailing: const Icon(Icons.chevron_right),
               onTap: onTrusted,
             ),
@@ -194,8 +286,8 @@ class SettingsScreen extends StatelessWidget {
                     const Text(
                       'Encryption: TLS 1.3 with both devices\' keys checked.',
                     ),
-                    const Text(
-                      'Transfer History: DEMO data (real history comes later).',
+                    Text(
+                      'History entries: ${e.history?.entries.length ?? 'unavailable'}',
                     ),
                     const Text(
                       'Isekai Drop itself has no analytics, no cloud, no crash reporting. '

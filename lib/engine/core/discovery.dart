@@ -27,7 +27,14 @@ class Announcement {
 /// Local discovery: small UDP announcements every 3 seconds to a multicast
 /// group and the local broadcast address. Contains no file data.
 class Discovery {
-  Discovery({required this.ownDeviceId, required this.onFound});
+  Discovery({
+    required this.ownDeviceId,
+    required this.onFound,
+    this.shouldAnnounce,
+  });
+
+  /// Settings "Visible to nearby devices". When false we still listen.
+  final bool Function()? shouldAnnounce;
 
   static final InternetAddress group = InternetAddress('239.255.42.99');
   static const int udpPort = 47821;
@@ -89,6 +96,7 @@ class Discovery {
     final s = _socket;
     final p = _payload;
     if (s == null || p == null) return;
+    if (shouldAnnounce != null && !shouldAnnounce!()) return;
     final bytes = utf8.encode(
       jsonEncode({'app': 'isekai-drop', 'v': 1, ...p()}),
     );

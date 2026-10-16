@@ -84,3 +84,13 @@ Resume after the app closes, auto-receive, Wi-Fi Direct, real history.
 
 ## Phase 5: Bonjour discovery (untrusted hint, same as UDP)
 Service type `_isekaidrop._tcp`, port = the TLS port (47820). TXT keys: `id` (device id), `fp` (certificate fingerprint), `pl` (platform), `v` (protocol version, 1). A found service becomes a normal announcement; pairing/TLS pinning rules are unchanged. Own `id` is ignored.
+
+## Phase 6: resume (still protocol version 1, backward compatible)
+- `offer` may carry `tid`: 32 hex = SHA-256("isekai-tid-v1|<receiver fp>|<path>|<size>|...")[:32]. Same files to the same device => same id, even after a restart. No file data in it.
+- The receiver keys its state by (sender fingerprint from mutual TLS, tid). Another device can never use it.
+- `accept` may carry `skip` (indices already verified and saved) and `offsets` ({index: bytes already stored}).
+- `file` may carry `offset`; the receiver requires it to equal what it announced. The sender hashes the WHOLE file from byte 0 and sends only bytes after the offset. The receiver hashes the stored bytes again, then the new ones. `file_end` sha256 covers the whole file.
+- Hash mismatch => the partial data and state are deleted; the next retry starts fresh.
+- Cancel (either side) deletes the state. A completed transfer deletes it. States older than 7 days are deleted at start.
+- `decline` reason `not_accepting` = receiving turned off in Settings.
+- Old peers without `tid`: unchanged behaviour (no resume).

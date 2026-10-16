@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../engine/platform_engine.dart' show canShareFiles, shareFiles;
 import '../../engine/transfer_engine.dart';
+import '../app_scope.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
 
@@ -137,6 +138,10 @@ class TransferScreen extends StatelessWidget {
                         ),
                       if (!job.isActive)
                         Text('Time taken: ${_fmtDuration(job.elapsed)}'),
+                      if (job.resumedBytes > 0)
+                        Text(
+                          'Continued an earlier attempt: ${formatBytes(job.resumedBytes)} were already on the receiver (not counted in speed).',
+                        ),
                       if (job.savedTo.isNotEmpty) ...[
                         const SizedBox(height: IdSpacing.sm),
                         Text('Saved to:', style: theme.textTheme.bodySmall),
@@ -186,6 +191,29 @@ class TransferScreen extends StatelessWidget {
                             icon: const Icon(Icons.close),
                             label: const Text('Cancel'),
                           ),
+                          if (job.canRetry)
+                            FilledButton.icon(
+                              style: FilledButton.styleFrom(
+                                minimumSize: const Size(
+                                  140,
+                                  IdLayout.minTouchTarget,
+                                ),
+                              ),
+                              onPressed: () async {
+                                final nav = Navigator.of(context);
+                                final next = await AppScope.of(context).engine
+                                    .retry(job);
+                                if (next != null) {
+                                  nav.pushReplacement(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => TransferScreen(job: next),
+                                    ),
+                                  );
+                                }
+                              },
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Retry'),
+                            ),
                           if (!job.isActive)
                             FilledButton(
                               style: FilledButton.styleFrom(

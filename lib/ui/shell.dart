@@ -112,6 +112,18 @@ class _AppShellState extends State<AppShell> {
                     Text(
                       '${platformLabel(r.peerPlatform)} device "${r.peerName}" asks to pair.',
                     ),
+                    if (r.keyChanged) ...[
+                      const SizedBox(height: IdSpacing.sm),
+                      const Text(
+                        'WARNING: a device with this id was paired before with a DIFFERENT key. '
+                        'Approve only if you reinstalled or reset Isekai Drop on it. '
+                        'Approving replaces the old key.',
+                        style: TextStyle(
+                          color: IdColors.danger,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: IdSpacing.md),
                     const Text(
                       'Approve ONLY if the other screen shows exactly this code:',
@@ -133,6 +145,10 @@ class _AppShellState extends State<AppShell> {
                       '${r.fileNames.length} file(s), ${formatBytes(r.totalBytes)} from trusted device "${r.peerName}".',
                     ),
                     const SizedBox(height: IdSpacing.sm),
+                    if (r.resumeBytes > 0)
+                      Text(
+                        'Continues an interrupted transfer: ${formatBytes(r.resumeBytes)} are already here.',
+                      ),
                     for (final n in r.fileNames.take(5))
                       Text('- $n', overflow: TextOverflow.ellipsis),
                     if (r.fileNames.length > 5)

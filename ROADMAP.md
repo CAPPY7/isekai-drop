@@ -65,8 +65,14 @@
 - [ ] iOS signing: owner decision = NO App Store, NO paid program (2026-10-16)
 
 ## Phase 6 - Trusted devices, history, queues, integrity, resume
-- [ ] Trusted Devices screen (rename, revoke, reverify)
-- [ ] History, queue, pause/resume/cancel, database migrations
+- [x] Trusted devices: Verified / Trusted / Unknown / Identity changed / Revoked; rename, Check code (re-verify), revoke, remove (all destructive actions ask)
+- [x] Identity change blocks until paired again (with key-changed warning); revoked devices rejected by TLS
+- [x] Send queue, clear errors, Retry, Clear finished
+- [x] Resume: authenticated (sender key + transfer id), offset-based, whole file re-hashed; survives network drop and app restart (receiver state on disk, 7-day expiry)
+- [x] Real persisted History (no contents; names optional, hide/delete names; clear asks); DEMO history removed
+- [x] Settings: receive on/off, auto-receive (verified only, off by default, confirm), history names, visibility
+- [x] Versioned migrations: trust 1->2, settings 1->2, history 0->1; tests (test/phase6_test.dart, app_test.dart)
+- [ ] On-device tests (NOT TESTED on phones yet)
 
 ## Phase 7 - Benchmark against LocalSend (identical conditions)
 - [ ] Measured results table, no unmeasured claims

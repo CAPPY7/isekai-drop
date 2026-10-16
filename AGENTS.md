@@ -135,3 +135,11 @@ file before every phase. Stop after each phase and wait for "next".
 - Windows/Linux cannot advertise Bonjour (browse only); others find them via UDP or IP/QR.
 
 - 2026-10-16 owner decision: publish an UNSIGNED .ipa (ios.yml -> artifact + latest-build release). The owner sideloads it with their own free Apple ID (AltStore/Sideloadly). We never sign it. Label it UNSIGNED, sideload-only, 7-day expiry.
+
+## Phase 6 decisions (2026-10-16)
+- Trust store schema 2: verified | trusted (migrated, code not re-checked) | identityChanged | revoked. Revoke keeps the record (blocked); Remove deletes it. Only re-pairing unblocks.
+- Pairing from a known device id with a different key shows a red warning (PendingRequest.keyChanged).
+- Auto-receive: settings flag AND device must be VERIFIED (engine enforces). Off by default; turning on asks.
+- Resume: see docs/PROTOCOL.md "Phase 6". Receiver state = ResumeStore in <receive dir>/.isekai-resume. Never trust partial bytes: whole-file SHA-256 at the end.
+- History: HistoryStore (history.json, schema 1). No contents; names optional. The app must never print/log (test enforces: phase6_test "no file names in logs").
+- Always `unawaited(socket.done.then(..., onError: ...))` on SecureSockets, otherwise a broken pipe after the peer leaves is an uncaught async error.

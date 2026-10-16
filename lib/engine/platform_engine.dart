@@ -10,7 +10,9 @@ import 'package:path_provider/path_provider.dart';
 
 import 'bonjour.dart';
 import 'core/engine.dart';
+import 'core/history_store.dart';
 import 'core/identity.dart';
+import 'core/resume_store.dart';
 import 'core/send_source.dart';
 import 'core/trust_store.dart';
 
@@ -118,7 +120,13 @@ Future<Identity> _generate() async {
   return Identity.fromJson(jsonDecode(json) as Map<String, dynamic>);
 }
 
-Future<IsekaiEngine> createPlatformEngine(String Function() deviceName) async {
+Future<IsekaiEngine> createPlatformEngine(
+  String Function() deviceName, {
+  bool Function()? acceptingFiles,
+  bool Function(TrustedDevice device)? autoAccept,
+  bool Function()? saveFileNames,
+  bool Function()? visible,
+}) async {
   final support = await getApplicationSupportDirectory();
   final (identity, note) = await _loadIdentity(support);
   final trust = TrustStore(File(p.join(support.path, 'trusted_devices.json')));
@@ -126,6 +134,12 @@ Future<IsekaiEngine> createPlatformEngine(String Function() deviceName) async {
     await trust.load();
   } catch (_) {
     // A damaged database must not stop the app; start empty.
+  }
+  final history = HistoryStore(File(p.join(support.path, 'history.json')));
+  try {
+    await history.load();
+  } catch (_) {
+    // Damaged history must not stop the app.
   }
 
   Directory tempDir;
@@ -201,13 +215,21 @@ Future<IsekaiEngine> createPlatformEngine(String Function() deviceName) async {
     // iPhone/iPad: UDP multicast/broadcast needs Apple's multicast
     // entitlement (not available to us), so only Bonjour is used there.
     enableDiscovery: !Platform.isIOS,
+    history: history,
+    // Partial data of interrupted receives, next to where files land
+    // (hidden folder), so finishing a file is a cheap rename.
+    resume: ResumeStore(Directory(p.join(tempDir.path, '.isekai-resume'))),
+    acceptingFiles: acceptingFiles,
+    autoAccept: autoAccept,
+    saveFileNames: saveFileNames,
+    visible: visible,
     discoveryOffNote: Platform.isIOS
         ? 'Bonjour only (iPhone rules). Windows and Linux PCs do not appear here: scan their QR code or type their address.'
         : null,
   );
   await engine.start();
   _bonjour = BonjourBridge(engine);
-  await _bonjour!.start();
+  if (visible?.call() ?? true) await _bonjour!.start();
   return engine;
 }
 
@@ -486,4 +508,15 @@ Future<Directory> _desktopReceiveBase(Directory support) async {
     return Directory(p.join(home, 'Downloads'));
   }
   return support;
+}
+
+/// Settings "Visible to nearby devices" changed. UDP announcements check the
+/// setting each time; Bonjour is stopped/started here.
+Future<void> setPlatformVisible(bool visible) async {
+  final b = _bonjour;
+  if (b == null) return;
+  try {
+    await b.stop();
+    if (visible) await b.start();
+  } catch (_) {}
 }
