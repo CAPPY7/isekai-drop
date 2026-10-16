@@ -98,6 +98,10 @@ class MainActivity : FlutterActivity() {
                     // Audit #15: partial files live here (not cache: the
                     // system may clear it; not backed up to the cloud).
                     "noBackupDir" -> result.success(noBackupFilesDir.absolutePath)
+                    // Audit #16: free bytes before accepting a transfer.
+                    "freeSpace" -> result.success(
+                        try { android.os.StatFs(call.argument<String>("path")!!).availableBytes } catch (e: Exception) { null }
+                    )
                     "exportToDownloads" -> exportToDownloads(
                         call.argument<String>("path")!!,
                         call.argument<String>("name")!!,

@@ -27,6 +27,19 @@ class MainFlutterWindow: NSWindow {
           txt: args["txt"] as? [String: String] ?? [:],
           advertise: args["advertise"] as? Bool ?? true)
         result(nil)
+      case "freeSpace":
+        // Audit #16: free bytes before accepting a transfer.
+        let path = args["path"] as? String ?? NSHomeDirectory()
+        var free: Int64? = nil
+        if let v = try? URL(fileURLWithPath: path).resourceValues(
+          forKeys: [.volumeAvailableCapacityForImportantUsageKey]),
+          let c = v.volumeAvailableCapacityForImportantUsage, c > 0 {
+          free = c
+        } else if let a = try? FileManager.default.attributesOfFileSystem(forPath: path),
+          let n = a[.systemFreeSize] as? NSNumber {
+          free = n.int64Value
+        }
+        result(free)
       case "bonjourStop":
         bj.stop()
         result(nil)

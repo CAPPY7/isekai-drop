@@ -14,6 +14,7 @@ import 'package:isekaidrop/engine/core/send_source.dart';
 import 'package:isekaidrop/engine/core/identity.dart';
 import 'package:isekaidrop/engine/core/key_migration.dart';
 import 'package:isekaidrop/engine/core/trust_store.dart';
+import 'package:isekaidrop/engine/free_space.dart';
 import 'package:isekaidrop/engine/platform_engine.dart';
 import 'package:path/path.dart' as p;
 
@@ -293,6 +294,22 @@ void main() {
       androidIncomingDir(support: support).path,
       '/data/user/0/x/files/incoming',
     );
+  });
+
+  test('#16 free space: df parsing and a real Linux reading', () async {
+    expect(
+      parseDfAvailable(
+        'Filesystem 1024-blocks Used Available Capacity '
+        'Mounted on\n/dev/sda1 100 40 60 40% /\n',
+      ),
+      60 * 1024,
+    );
+    expect(parseDfAvailable('garbage'), isNull);
+    if (Platform.isLinux) {
+      final v = await freeBytesFor(dir);
+      expect(v, isNotNull);
+      expect(v!, greaterThan(0));
+    }
   });
 
   group('#3 fallback identity moves into secure storage', () {

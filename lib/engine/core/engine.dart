@@ -34,6 +34,11 @@ const int kMaxSessions = 32; // all incoming connections at once
 const Duration kHandshakeTimeout = Duration(seconds: 10);
 const Duration kFirstMessageTimeout = Duration(seconds: 10);
 
+/// Audit #16: keep this much space free after receiving.
+const int kFreeSpaceMargin = 64 * 1024 * 1024;
+
+String _mb(int b) => (b / (1024 * 1024)).ceil().toString();
+
 /// Default finalizer for desktop: rename inside [dir] without overwriting.
 ReceiveFinalizer directoryFinalizer(Directory dir) =>
     (temp, safeRelPath, batch) async {
@@ -63,6 +68,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     this.benchmarks,
     this.resume,
     this.pendingSends,
+    this.freeSpace,
     this.sourceCodec = const SendSourceCodec(),
     bool Function()? acceptingFiles,
     bool Function(TrustedDevice device)? autoAccept,
@@ -83,6 +89,10 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   /// Benchmark runs (measured numbers + conditions only).
   @override
   final BenchmarkStore? benchmarks;
+
+  /// Audit #16: free bytes where incoming files are written, or null if
+  /// this platform cannot tell (then no check is made).
+  final Future<int?> Function(Directory dir)? freeSpace;
 
   /// Audit #9: failed sends kept for retry after a restart. Null = off.
   final PendingSendStore? pendingSends;
@@ -683,6 +693,29 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       }
     }
 
+    // Audit #16: refuse at once if this device cannot hold the files.
+    final need = total - already + kFreeSpaceMargin;
+    int? free;
+    try {
+      free = await freeSpace?.call(tempDir);
+    } catch (_) {}
+    if (free != null && free < need) {
+      _lastError =
+          'Not enough free space to receive from "${dev.name}" '
+          '(${_mb(need)} MB needed, ${_mb(free)} MB free).';
+      _lastErrorAt = DateTime.now();
+      notifyListeners();
+      s.add(
+        jsonFrame({
+          't': 'decline',
+          'reason': 'no_space',
+          'need': need,
+          'free': free,
+        }),
+      );
+      return;
+    }
+
     final job = TransferJob(
       id: randomHex(8),
       direction: JobDirection.receiving,
@@ -1139,12 +1172,13 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       }
       if (answer['t'] != 'accept') {
         job.refusedByPeer = true;
-        job.finish(
-          JobState.failed,
-          answer['reason'] == 'not_accepting'
-              ? 'The other device is not accepting files right now (turned off in its Settings).'
-              : 'The other device declined.',
-        );
+        job.finish(JobState.failed, switch (answer['reason']) {
+          'not_accepting' => 'The other device is not accepting files right now (turned off in its Settings).',
+          'no_space' =>
+            'The other device does not have enough free space'
+                '${answer['need'] is int && answer['free'] is int ? ' (${_mb(answer['need'] as int)} MB needed, ${_mb(answer['free'] as int)} MB free)' : ''}.',
+          _ => 'The other device declined.',
+        });
         return;
       }
       final skip = <int>{

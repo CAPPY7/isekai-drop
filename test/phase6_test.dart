@@ -33,6 +33,7 @@ class N {
   bool approve = true;
   bool accepting = true;
   bool auto = false;
+  int? freeBytes;
 
   Directory get inbox => Directory(p.join(root.path, 'inbox'));
   Directory get resumeDir => Directory(p.join(inbox.path, '.isekai-resume'));
@@ -60,6 +61,7 @@ class N {
       history: history,
       resume: ResumeStore(resumeDir),
       pendingSends: pendingSends,
+      freeSpace: (_) async => freeBytes,
       acceptingFiles: () => accepting,
       autoAccept: (_) => auto,
     );
@@ -492,6 +494,36 @@ void main() {
       },
     );
   });
+
+  test(
+    'audit #16: receiver without free space refuses before asking',
+    () async {
+      await pair(a, b);
+      b.freeBytes = 10 * 1024 * 1024; // below file + 64 MiB margin
+      final f = await rnd(src, 'nospace.bin', 300 * 1024);
+      final j = await done(
+        await a.engine.send(a.engine.trustedDevices.single, [
+          FileSendSource(f),
+        ]),
+      );
+      expect(j.state, JobState.failed);
+      expect(j.message, contains('free space'));
+      expect(
+        b.asked,
+        isEmpty,
+        reason: 'no approval dialog for an impossible transfer',
+      );
+      expect(b.received(), isEmpty);
+      expect(b.engine.lastError, contains('free space'));
+      b.freeBytes = null; // unknown: no check
+      final ok = await done(
+        await a.engine.send(a.engine.trustedDevices.single, [
+          FileSendSource(f),
+        ]),
+      );
+      expect(ok.state, JobState.completed, reason: ok.message);
+    },
+  );
 
   group('resume', () {
     test(

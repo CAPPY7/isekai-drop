@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'android_export.dart';
 import 'bonjour.dart';
+import 'free_space.dart';
 import 'core/benchmark_store.dart';
 import 'core/engine.dart';
 import 'core/history_store.dart';
@@ -257,6 +258,7 @@ Future<IsekaiEngine> createPlatformEngine(
     // (hidden folder), so finishing a file is a cheap rename.
     resume: ResumeStore(Directory(p.join(tempDir.path, '.isekai-resume'))),
     pendingSends: pendingSends,
+    freeSpace: freeBytesFor,
     sourceCodec: const _PlatformSourceCodec(),
     acceptingFiles: acceptingFiles,
     autoAccept: autoAccept,
