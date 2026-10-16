@@ -1,0 +1,38 @@
+name: Linux build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Install Linux build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev
+      - uses: subosito/flutter-action@v2.23.0
+        with:
+          channel: stable
+          flutter-version: "3.47.7"
+          cache: true
+      - run: flutter pub get
+      - run: flutter build linux --release --build-number=${{ github.run_number }}
+      - name: Pack and check output
+        run: |
+          tar -czf isekai-drop-linux-x64.tar.gz -C build/linux/x64/release bundle
+          test -s isekai-drop-linux-x64.tar.gz
+          ls -l isekai-drop-linux-x64.tar.gz
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: isekai-drop-linux
+          path: isekai-drop-linux-x64.tar.gz
+          if-no-files-found: error
+          retention-days: 30

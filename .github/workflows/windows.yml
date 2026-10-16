@@ -1,0 +1,34 @@
+name: Windows build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: subosito/flutter-action@v2.23.0
+        with:
+          channel: stable
+          flutter-version: "3.47.7"
+          cache: true
+      - run: flutter pub get
+      - run: flutter build windows --release --build-number=${{ github.run_number }}
+      - name: Check output is not empty
+        shell: bash
+        run: |
+          test -s "build/windows/x64/runner/Release/isekaidrop.exe"
+          du -sh build/windows/x64/runner/Release
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: isekai-drop-windows
+          path: build/windows/x64/runner/Release/
+          if-no-files-found: error
+          retention-days: 30

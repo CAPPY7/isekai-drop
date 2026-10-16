@@ -1,0 +1,36 @@
+name: macOS build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  build:
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: subosito/flutter-action@v2.23.0
+        with:
+          channel: stable
+          flutter-version: "3.47.7"
+          cache: true
+      - run: flutter pub get
+      - run: flutter build macos --release --build-number=${{ github.run_number }}
+      - name: Zip the app (unsigned, not notarized)
+        run: |
+          cd build/macos/Build/Products/Release
+          ls
+          ditto -c -k --keepParent "Isekai Drop.app" "$GITHUB_WORKSPACE/isekai-drop-macos.zip"
+          test -s "$GITHUB_WORKSPACE/isekai-drop-macos.zip"
+          ls -l "$GITHUB_WORKSPACE/isekai-drop-macos.zip"
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: isekai-drop-macos
+          path: isekai-drop-macos.zip
+          if-no-files-found: error
+          retention-days: 30
