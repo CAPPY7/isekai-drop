@@ -84,6 +84,10 @@
 - [ ] Owner runs the benchmark (docs/BENCHMARK_STEPS.md) -> measured results table
 - [ ] Owner picks a signing option and adds secrets
 
+## Phase 7b - Audit fixes before the release key (0.7.1)
+- [x] Audit #3-#9 fixed, one commit + test each (docs/AUDIT.md)
+- [ ] Devices: Android 9 Downloads, Visible off browsing, Interrupted sends retry (NOT TESTED)
+
 ## Phase 8 - Fix security, compatibility, performance, usability
 - [ ] Security tests for all acceptance tests
 - [ ] Real release key (never committed)

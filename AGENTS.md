@@ -149,3 +149,12 @@ file before every phase. Stop after each phase and wait for "next".
 - Discovery data is untrusted: never let it change trust records or saved addresses (audit #1). Addresses are saved only after a TLS session succeeds. identityChanged is set only on a key mismatch at the last AUTHENTICATED host:port.
 - Benchmark log: numbers + conditions only. Refuse paused/resumed runs. CSV cells starting with = + - @ are escaped.
 - Release signing: gradle uses the release key only if ISEKAI_RELEASE_KEYSTORE is set (android-release.yml, manual). NEVER set repo secrets or create the key without the owner's explicit OK. Switching keys forces every user to uninstall once.
+
+## Phase 7b notes (2026-10-16, 0.7.1)
+- Audit #3-#9 fixed (see docs/AUDIT.md). Tests: test/audit_fix_test.dart, app_test "audit #7", phase6_test "audit #9".
+- Connection limits: kMaxHandshakes 8, kMaxSessions 32, 10 s TLS + 10 s first message (engine.dart). Do not raise without a reason.
+- TrustStore.load never throws on bad data: skips entries, writes .bak-<time>, sets loadWarning.
+- WRITE_EXTERNAL_STORAGE is declared with maxSdkVersion=28 only (Android 9 and older have no MediaStore.Downloads). Never request it on 10+.
+- BonjourBridge.setVisible(false) keeps browsing (advertise flag to native).
+- pending_sends.json keeps failed sends (local file paths/URIs). Removed on success, cancel, peer decline, or user Remove.
+

@@ -1,6 +1,15 @@
-# Isekai Drop 0.7.0 (DRAFT release notes, test build)
+# Isekai Drop 0.7.1 (DRAFT release notes, test build)
 
 **Test build, signed with the throwaway dev key. Not a public release.** Nothing here has been benchmarked against LocalSend yet. Device testing is limited (docs/ACCEPTANCE.md).
+
+## New in 0.7.1 (audit fixes, docs/AUDIT.md #3-#9)
+- If the device key had to be kept in a file, it now moves into secure storage once that works, and the file is wiped (#3).
+- Limits on simultaneous and unauthenticated connections; shorter handshake timeout (#4).
+- One damaged trusted-device entry no longer loses all devices: it is skipped, a backup is kept, a warning is shown (#5).
+- Android 9 and older: files are saved to the real Downloads/Isekai Drop folder (asks for storage permission once; if refused, the real location is shown) (#6).
+- The approval dialog closes itself when it times out ("Request expired") (#7).
+- "Visible" off now only hides this device; it still finds others (#8).
+- Failed sends are kept and can be retried after the app restarts (Home > Interrupted sends) (#9).
 
 ## New in 0.7.0
 - **Benchmark log** (Settings > Benchmark log): save a finished transfer as a benchmark run (measured by the app) or add a hand-timed run (e.g. LocalSend). Shows median/min/max per test setup. Export CSV (Android: Downloads/Isekai Drop, iPhone: share sheet, PC: choose a place) or copy CSV. Saves only numbers and conditions: no file names, device names or addresses. Paused or resumed transfers can't be saved (not comparable).
