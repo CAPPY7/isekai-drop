@@ -202,13 +202,26 @@ void main() {
     final data = List<int>.generate(3 * 1024 * 1024 + 5, (i) => i * 31 & 255);
     final bg = await BgHasher.start();
     for (var o = 0; o < data.length; o += 65536) {
-      bg.add(data.sublist(o, (o + 65536).clamp(0, data.length)));
+      await bg.add(data.sublist(o, (o + 65536).clamp(0, data.length)));
     }
     expect(await bg.close(), sha256.convert(data).toString());
     expect(await fileHasher(10), isA<InlineHasher>());
     final big = await fileHasher(kBgHashMinBytes);
     expect(big, isA<BgHasher>());
     big.dispose();
+  });
+
+  test('#18 background hasher queue is bounded (back-pressure)', () async {
+    final bg = await BgHasher.start();
+    final chunk = Uint8List(256 * 1024);
+    var peak = 0;
+    for (var i = 0; i < 256; i++) {
+      // 64 MiB offered as fast as possible
+      await bg.add(chunk);
+      if (bg.inFlight > peak) peak = bg.inFlight;
+    }
+    await bg.close();
+    expect(peak, lessThanOrEqualTo(kBgHashMaxInFlight + chunk.length));
   });
 
   test('#10 transfer with background hashing: file arrives intact', () async {

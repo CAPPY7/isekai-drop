@@ -24,6 +24,19 @@ class _FakeSource extends SendSource {
   Stream<List<int>> open() => Stream.value(bytes);
 }
 
+/// Reads a real file slowly (64 KiB every 5 ms, at most ~13 MB/s), so pause
+/// and cancel tests do not depend on how fast the machine is.
+class _SlowFileSource extends FileSendSource {
+  _SlowFileSource(super.file);
+  @override
+  Stream<List<int>> open() async* {
+    await for (final c in file.openRead()) {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      yield c;
+    }
+  }
+}
+
 Future<void> until(bool Function() test, {int ms = 10000}) async {
   final sw = Stopwatch()..start();
   while (!test()) {
@@ -144,7 +157,7 @@ void main() {
       final f = await randomFile(src, 'big.bin', 48 * 1024 * 1024);
       final job = await a.engine.send(
         a.engine.trustedDevices.single,
-        [FileSendSource(f)],
+        [_SlowFileSource(f)],
         host: '127.0.0.1',
         port: b.port,
       );
@@ -209,7 +222,7 @@ void main() {
     final f = await randomFile(src, 'c.bin', 32 * 1024 * 1024);
     final job = await a.engine.send(
       a.engine.trustedDevices.single,
-      [FileSendSource(f)],
+      [_SlowFileSource(f)],
       host: '127.0.0.1',
       port: b.port,
     );
@@ -229,7 +242,7 @@ void main() {
     final dev = a.engine.trustedDevices.single;
     final j1 = await a.engine.send(
       dev,
-      [FileSendSource(f1)],
+      [_SlowFileSource(f1)],
       host: '127.0.0.1',
       port: b.port,
     );

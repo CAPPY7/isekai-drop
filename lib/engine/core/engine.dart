@@ -35,6 +35,10 @@ const Duration kHandshakeTimeout = Duration(seconds: 10);
 const Duration kFirstMessageTimeout = Duration(seconds: 10);
 
 /// Audit #16: keep this much space free after receiving.
+/// Audit #18: flush (wait for the socket to drain) after this many bytes,
+/// so unsent TLS data in memory stays small.
+const int kFlushEveryBytes = 1024 * 1024;
+
 const int kFreeSpaceMargin = 64 * 1024 * 1024;
 
 String _mb(int b) => (b / (1024 * 1024)).ceil().toString();
@@ -815,7 +819,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
             // whole file from byte 0.
             var n = 0;
             await for (final c in temp.openRead(0, offset)) {
-              hasher.add(c);
+              await hasher.add(c);
               n += c.length;
             }
             if (n != offset) throw const FileSystemException('Partial changed');
@@ -858,7 +862,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
             throw const FormatException('More data than announced');
           }
           await out.writeFrom(fr.payload);
-          hasher.add(fr.payload);
+          await hasher.add(fr.payload);
           got += fr.payload.length;
           job.addBytes(fr.payload.length);
         }
@@ -1243,7 +1247,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
             }
             // The whole file is always hashed from byte 0; bytes the receiver
             // already has are hashed but not sent again.
-            hasher.add(chunk);
+            await hasher.add(chunk);
             List<int> part = chunk;
             if (sent < offset) {
               final skipN = offset - sent;
@@ -1264,7 +1268,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
               sock.destroy();
               throw const SocketException('debug drop');
             }
-            if (sinceFlush >= 4 * 1024 * 1024) {
+            if (sinceFlush >= kFlushEveryBytes) {
               sinceFlush = 0;
               await _flushOrClosed(sock);
             }

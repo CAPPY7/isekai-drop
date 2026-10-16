@@ -10,7 +10,8 @@ import 'package:crypto/crypto.dart';
 /// [TransferableTypedData] (one copy, no per-message serialisation).
 /// Use one [BgHasher] per file: [add] chunks in order, then [close].
 abstract class FileHasher {
-  void add(List<int> chunk);
+  /// Await it: it may wait while the background hasher catches up.
+  Future<void> add(List<int> chunk);
   Future<String> close();
   void dispose();
 }
@@ -34,7 +35,7 @@ class InlineHasher implements FileHasher {
   final _out = _DigestSink();
   late final ByteConversionSink _h;
   @override
-  void add(List<int> chunk) => _h.add(chunk);
+  Future<void> add(List<int> chunk) async => _h.add(chunk);
   @override
   Future<String> close() async {
     _h.close();
@@ -45,15 +46,26 @@ class InlineHasher implements FileHasher {
   void dispose() {}
 }
 
+/// At most this many bytes may wait in the hashing isolate. Above it,
+/// [BgHasher.add] waits (audit #18: no unbounded queue if hashing is
+/// slower than the network).
+const int kBgHashMaxInFlight = 8 * 1024 * 1024;
+
 class BgHasher implements FileHasher {
-  BgHasher._(this._to, this._results, this._isolate);
+  BgHasher._(this._to, this._rp, this._isolate);
 
   final SendPort _to;
-  final ReceivePort _results;
+  final ReceivePort _rp;
   final Isolate _isolate;
+  int _inFlight = 0;
+  Completer<void>? _room;
+  final Completer<String> _digest = Completer<String>();
+  bool _done = false;
 
   static Future<BgHasher> start() async {
     final rp = ReceivePort();
+    final first = Completer<SendPort>();
+    late BgHasher h;
     final iso = await Isolate.spawn(
       _main,
       rp.sendPort,
@@ -61,44 +73,69 @@ class BgHasher implements FileHasher {
       onExit: rp.sendPort,
       errorsAreFatal: true,
     );
-    final it = StreamIterator<Object?>(rp);
-    await it.moveNext();
-    final to = it.current! as SendPort;
-    final h = BgHasher._(to, rp, iso);
-    h._it = it;
+    rp.listen((m) {
+      if (!first.isCompleted) {
+        if (m is SendPort) {
+          first.complete(m);
+        } else {
+          first.completeError(StateError('hasher did not start'));
+        }
+        return;
+      }
+      h._onMessage(m);
+    });
+    h = BgHasher._(await first.future, rp, iso);
     return h;
   }
 
-  late final StreamIterator<Object?> _it;
-
-  @override
-  void add(List<int> chunk) {
-    final bytes = chunk is Uint8List ? chunk : Uint8List.fromList(chunk);
-    _to.send(TransferableTypedData.fromList([bytes]));
+  void _onMessage(Object? m) {
+    if (m is int) {
+      _inFlight -= m;
+      if (_inFlight < kBgHashMaxInFlight) {
+        _room?.complete();
+        _room = null;
+      }
+    } else if (m is String) {
+      if (!_digest.isCompleted) _digest.complete(m);
+    } else {
+      // Error or exit before the digest.
+      if (!_digest.isCompleted) {
+        _digest.completeError(StateError('hasher failed'));
+      }
+      _room?.completeError(StateError('hasher failed'));
+      _room = null;
+    }
   }
 
-  /// Returns the hex digest and stops the isolate.
+  /// Bytes waiting in the isolate (tests).
+  int get inFlight => _inFlight;
+
+  @override
+  Future<void> add(List<int> chunk) async {
+    final bytes = chunk is Uint8List ? chunk : Uint8List.fromList(chunk);
+    _inFlight += bytes.length;
+    _to.send(TransferableTypedData.fromList([bytes]));
+    if (_inFlight >= kBgHashMaxInFlight) {
+      await (_room ??= Completer<void>()).future;
+    }
+  }
+
   @override
   Future<String> close() async {
     _to.send(null);
     try {
-      if (!await _it.moveNext()) throw StateError('hasher stopped');
-      final r = _it.current;
-      if (r is! String) throw StateError('hasher failed: $r');
-      return r;
+      return await _digest.future;
     } finally {
       _done = true;
-      _results.close(); // the isolate ends by itself after replying
+      _rp.close(); // the isolate ends by itself after replying
     }
   }
-
-  bool _done = false;
 
   @override
   void dispose() {
     if (_done) return;
     _done = true;
-    _results.close();
+    _rp.close();
     _isolate.kill(priority: Isolate.immediate);
   }
 
@@ -114,7 +151,9 @@ class BgHasher implements FileHasher {
         inbox.close();
         return;
       }
-      h.add((m as TransferableTypedData).materialize().asUint8List());
+      final b = (m as TransferableTypedData).materialize().asUint8List();
+      h.add(b);
+      back.send(b.length);
     });
   }
 }
