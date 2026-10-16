@@ -88,6 +88,12 @@
 - [x] Audit #3-#9 fixed, one commit + test each (docs/AUDIT.md)
 - [ ] Devices: Android 9 Downloads, Visible off browsing, Interrupted sends retry (NOT TESTED)
 
+## Phase 7c - Minor audit fixes (0.8.0)
+- [x] Audit #10-#16, #18 fixed or improved, plus #19 (hang) found and fixed; tests for each
+- [x] Measured loopback speed and memory before/after (docs/AUDIT.md #10, #18)
+- [x] Release key created by the owner; release workflow run (draft only)
+- [ ] Phone measurements (speed, memory, UI smoothness) NOT TESTED
+
 ## Phase 8 - Fix security, compatibility, performance, usability
 - [ ] Security tests for all acceptance tests
 - [ ] Real release key (never committed)

@@ -158,3 +158,11 @@ file before every phase. Stop after each phase and wait for "next".
 - BonjourBridge.setVisible(false) keeps browsing (advertise flag to native).
 - pending_sends.json keeps failed sends (local file paths/URIs). Removed on success, cancel, peer decline, or user Remove.
 
+## Phase 7c notes (2026-10-16, 0.8.0)
+- Hashing: core/bg_hasher.dart. Files >= 1 MiB use a background isolate; ALWAYS `await hasher.add()` (back-pressure, max 8 MiB queued). Small files hash inline.
+- Never `await sock.flush()` directly in the engine: use `_flushOrClosed(sock)` (plain flush can hang after the peer destroyed the socket, audit #19).
+- Resume id is v2 (name + size + modification time).
+- Android incoming/partials: no-backup folder (androidIncomingDir). Free-space check: free_space.dart (null = unknown, no check), margin kFreeSpaceMargin 64 MiB.
+- Pause/queue tests use a throttled source: do not make them depend on machine speed.
+- Release key: owner holds it; secrets ISEKAI_RELEASE_* are set. Expected release cert SHA-256 55:35:13:AC:F3:A6:A9:F4:34:97:35:FF:A0:29:DD:58:1C:89:68:3A:B9:CD:45:3D:B5:E6:7A:7A:18:61:98:22. Test builds stay on the dev key (5b36eeb0...57c1). Release workflow makes DRAFT releases only; publishing is the owner's call.
+

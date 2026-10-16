@@ -1,6 +1,17 @@
-# Isekai Drop 0.7.1 (DRAFT release notes, test build)
+# Isekai Drop 0.8.0 (DRAFT release notes, test build)
 
 **Test build, signed with the throwaway dev key. Not a public release.** Nothing here has been benchmarked against LocalSend yet. Device testing is limited (docs/ACCEPTANCE.md).
+
+## New in 0.8.0 (minor fixes, docs/AUDIT.md #10-#19)
+- Faster: file checksums are calculated in the background. On the test machine (1 GiB, loopback) 17.6-18.0 MB/s became 31.1-32.8 MB/s (#10). Not measured on phones yet.
+- Less memory during big transfers: on the test machine the peak was +38 to +318 MiB before and +51 to +58 MiB now (#18).
+- Status words are plain English: Sending, Receiving, Paused, Done... (#11).
+- Device names found on the network are cleaned of hidden/control characters (#12).
+- A different file with the same name and size no longer tries to resume the old one (#14). Transfers interrupted with an older version start again once.
+- Android keeps unfinished downloads in a folder the system does not clear (#15).
+- The receiver checks free space first and says how much is needed (#16).
+- Fixed a rare hang after the receiver cancelled (#19).
+- Unused demo code removed (#13; no feature changed).
 
 ## New in 0.7.1 (audit fixes, docs/AUDIT.md #3-#9)
 - If the device key had to be kept in a file, it now moves into secure storage once that works, and the file is wiped (#3).
