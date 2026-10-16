@@ -233,7 +233,11 @@ void main() {
     await waitDone(receiverJob());
     expect(receiverJob().state, isNot(JobState.completed));
     expect(b.inboxNames().where((n) => !n.startsWith('.')).toList(), isEmpty);
-    expect(b.inboxNames().where((n) => n.endsWith('.part')).toList(), isEmpty);
+    // Cleanup runs right after the job is marked finished: allow a moment.
+    await until(
+      () => b.inboxNames().where((n) => n.endsWith('.part')).isEmpty,
+      ms: 5000,
+    );
   });
 
   test('queue: a second send waits until the first one finishes', () async {
