@@ -9,5 +9,6 @@ Isekai Drop collects **no data**.
 - Settings, device keys and transfer history stay only on your own devices.
 - Logs never contain file names, file contents or personal data.
 
-Phase 1 note: the current app only shows one screen and does not send or
-receive anything yet.
+Phase 2 note: the app shows DEMO data only and does not send or receive
+anything. It saves only your theme choice and device name on this device.
+Picked files are only listed (name and size); their contents are not read.

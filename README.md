@@ -3,8 +3,9 @@
 A free, private app for sending files **directly** between your own devices
 (and friends' and family's). No cloud upload, no accounts, no ads.
 
-**Status: Phase 1.** The app opens and shows "Isekai Drop - Phase 1 works".
-File sending is **not built yet** (Phase 2).
+**Status: Phase 2.** All seven screens exist with **DEMO data** (labelled
+"DEMO - not a real transfer"). Picking files and the theme setting are real.
+Sending files between devices is **not built yet** (Phase 3).
 
 ## How it works (no computer needed by you)
 1. Code changes are pushed to this private GitHub repo.
@@ -19,8 +20,10 @@ File sending is **not built yet** (Phase 2).
 ## Install on Android (first time)
 1. On your phone, open Chrome and go to `github.com`. Log in.
 2. Open `https://github.com/iSujaykumar/Isekai-Drop/releases/tag/latest-build`.
-3. Under **Assets**, tap the file `isekai-drop-android-<number>.apk`
-   (pick the highest number).
+3. Under **Assets**, pick the highest number and tap
+   `isekai-drop-android-arm64-<number>.apk` (smaller, works on most phones from
+   about 2017 on). If it says "App not installed", use
+   `isekai-drop-android-<number>.apk` instead (works on all phones).
 4. When Chrome warns about the file, tap **Download anyway**.
 5. Tap **Open** when the download finishes.
 6. If asked, tap **Settings**, turn on **Allow from this source**, then go back.
