@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../engine/platform_engine.dart';
 import '../../engine/transfer_engine.dart';
+import '../../engine/win_firewall.dart';
 import '../app_scope.dart';
 import '../diag_report.dart';
 import '../theme/design_tokens.dart';
@@ -24,6 +25,21 @@ class DiagnosticsScreen extends StatefulWidget {
 class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
   ConnectionInfo? _info;
   List<String> _own = const [];
+  FirewallStatus? _firewall;
+  bool _checkingFirewall = false;
+
+  Future<void> _checkFirewall() async {
+    setState(() => _checkingFirewall = true);
+    final r = await checkWindowsFirewall();
+    if (!mounted) return;
+    setState(() {
+      _firewall = r;
+      _checkingFirewall = false;
+    });
+  }
+
+  String? get _firewallLine =>
+      _firewall == null ? null : 'Windows Firewall: ${_firewall!.summary}';
 
   @override
   void initState() {
@@ -52,6 +68,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
       platform: Platform.operatingSystem,
       ownAddresses: _own,
       connectionMethod: _info?.method,
+      platformNote: _firewallLine,
     );
     await Clipboard.setData(ClipboardData(text: text));
     if (!mounted) return;
@@ -124,6 +141,45 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                   ],
                 ),
               ),
+              if (Platform.isWindows)
+                SectionCard(
+                  title: 'Windows Firewall',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _firewall == null
+                            ? 'If phones cannot find or reach this PC, the '
+                                  'firewall is the usual cause. The check only '
+                                  'reads the rules; it changes nothing.'
+                            : _firewall!.summary,
+                        style:
+                            _firewall != null &&
+                                _firewall!.verdict != FirewallVerdict.allowed
+                            ? const TextStyle(color: IdColors.danger)
+                            : null,
+                      ),
+                      if (_firewall != null && _firewall!.otherCopies > 0)
+                        Text(
+                          '${_firewall!.otherCopies} rule(s) are for another '
+                          'copy of Isekai Drop in a different folder; they do '
+                          'not apply to this one.',
+                        ),
+                      const SizedBox(height: IdSpacing.sm),
+                      const Text(kFirewallHelp),
+                      const SizedBox(height: IdSpacing.sm),
+                      OutlinedButton.icon(
+                        onPressed: _checkingFirewall ? null : _checkFirewall,
+                        icon: const Icon(Icons.shield_outlined),
+                        label: Text(
+                          _checkingFirewall
+                              ? 'Checking...'
+                              : 'Check Windows Firewall',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               SectionCard(
                 title: 'Last transfer',
                 child: last == null

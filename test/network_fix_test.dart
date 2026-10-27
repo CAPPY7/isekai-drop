@@ -14,6 +14,7 @@ import 'package:isekaidrop/engine/core/jobs.dart';
 import 'package:isekaidrop/engine/core/net_info.dart';
 import 'package:isekaidrop/engine/core/send_source.dart';
 import 'package:isekaidrop/engine/core/trust_store.dart';
+import 'package:isekaidrop/engine/win_firewall.dart';
 import 'package:isekaidrop/ui/diag_report.dart';
 import 'package:path/path.dart' as p;
 
@@ -442,6 +443,95 @@ void main() {
       nets = const [];
       await d.refreshInterfaces();
       expect(d.debugTargets, isEmpty);
+    });
+  });
+
+  group('E: Windows Firewall rules (read-only check)', () {
+    const exe = r'C:\Users\Kaz\Apps\Isekai Drop\isekaidrop.exe';
+    String rule({
+      String name = 'isekaidrop.exe',
+      String enabled = 'Yes',
+      String dir = 'In',
+      String profiles = 'Private',
+      String program = exe,
+      String action = 'Allow',
+      String protocol = 'TCP',
+    }) =>
+        'Rule Name:                            $name\r\n'
+        '----------------------------------------------------------------------\r\n'
+        'Enabled:                              $enabled\r\n'
+        'Direction:                            $dir\r\n'
+        'Profiles:                             $profiles\r\n'
+        'Grouping:                             \r\n'
+        'LocalIP:                              Any\r\n'
+        'RemoteIP:                             Any\r\n'
+        'Protocol:                             $protocol\r\n'
+        'LocalPort:                            Any\r\n'
+        'Program:                              $program\r\n'
+        'Action:                               $action\r\n\r\n';
+    final other = rule(
+      name: 'Core Networking',
+      program: r'C:\Windows\System32\svchost.exe',
+      action: 'Allow',
+    );
+
+    test('Block rule from a cancelled prompt wins over Allow', () {
+      final r = parseFirewallRules(
+        other +
+            rule(action: 'Block', profiles: 'Public') +
+            rule(action: 'Block', profiles: 'Public', protocol: 'UDP') +
+            rule(profiles: 'Private'),
+        exe,
+      );
+      expect(r.verdict, FirewallVerdict.blocked);
+      expect(r.blockedProfiles, {'Public'});
+      expect(r.summary, contains('BLOCKED'));
+    });
+
+    test('allowed on Private only: warns about Public (hotspot)', () {
+      final r = parseFirewallRules(
+        other + rule(program: exe.toUpperCase().replaceAll(r'\', '/')),
+        exe,
+      );
+      expect(r.verdict, FirewallVerdict.allowed);
+      expect(r.summary, contains('Not on Public'));
+      final all = parseFirewallRules(
+        rule(profiles: 'Domain,Private,Public'),
+        exe,
+      );
+      expect(all.summary, isNot(contains('Not on Public')));
+    });
+
+    test('no rule for this copy; rules for another copy are counted', () {
+      final r = parseFirewallRules(
+        other + rule(program: r'D:\Old\isekaidrop.exe', action: 'Block'),
+        exe,
+      );
+      expect(r.verdict, FirewallVerdict.noAllowRule);
+      expect(r.otherCopies, 1);
+    });
+
+    test('disabled and outbound rules are ignored', () {
+      final r = parseFirewallRules(
+        rule(action: 'Block', enabled: 'No') +
+            rule(action: 'Block', dir: 'Out'),
+        exe,
+      );
+      expect(r.verdict, FirewallVerdict.noAllowRule);
+    });
+
+    test('non-English or empty output is "unknown", never "allowed"', () {
+      expect(
+        parseFirewallRules('Regelname: x\nAktion: Zulassen\n', exe).verdict,
+        FirewallVerdict.unknown,
+      );
+      expect(parseFirewallRules('', exe).verdict, FirewallVerdict.unknown);
+      expect(kFirewallHelp, contains('Allow an app through firewall'));
+    });
+
+    test('not on Windows: unknown without running anything', () async {
+      if (Platform.isWindows) return;
+      expect((await checkWindowsFirewall()).verdict, FirewallVerdict.unknown);
     });
   });
 }

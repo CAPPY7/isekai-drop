@@ -136,6 +136,7 @@ const guideLocalNetwork = Guide(
       'When Windows Defender Firewall asks, allow Isekai Drop.',
       'If you blocked it: Settings > Privacy & security > Windows Security > Firewall > Allow an app through firewall > tick Isekai Drop.',
       'A new hotspot is usually a "Public" network - allow Public too, or set that network to Private.',
+      'Not sure? Settings > Diagnostics > Check Windows Firewall shows whether it is blocked (it only reads the rules).',
     ]),
     GuideSection('Android', [
       'No permission is needed for normal Wi-Fi or a phone hotspot.',
