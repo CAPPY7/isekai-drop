@@ -29,6 +29,7 @@ List<String> diagCheckLines(
         '${ownAddresses.isEmpty ? 'none (not on a network?)' : ownAddresses.join(', ')}',
     'Receiving on port: ${e.listeningPort ?? 'not running'}',
     'Discovery port (UDP 47821) open: ${_yesNo(c.udpBound)}',
+    'Discovery targets: ${c.discoveryTargets}',
     'Discovery packets sent: ${c.discoverySent}, send errors: '
         '${c.discoverySendErrors}, received from others: ${c.discoveryReceived}',
     if (c.multicastLock != null)

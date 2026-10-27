@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isekaidrop/engine/bonjour.dart';
 import 'package:isekaidrop/engine/core/diag_log.dart';
+import 'package:isekaidrop/engine/core/discovery.dart';
 import 'package:isekaidrop/engine/core/engine.dart';
 import 'package:isekaidrop/engine/core/frames.dart';
 import 'package:isekaidrop/engine/core/identity.dart';
@@ -376,5 +377,71 @@ void main() {
         expect(await a.localAddresses(), isNot(contains('127.0.0.1')));
       },
     );
+  });
+
+  group('C: discovery on every local network', () {
+    test('Android network list is parsed defensively', () {
+      final r = parseNativeNets({
+        'nets': [
+          {'name': 'wlan0', 'ip': '192.168.1.5', 'prefix': 24, 'wifi': true},
+          {'name': 'ap0', 'ip': '10.236.5.1', 'prefix': 99},
+          {'name': 'x', 'ip': 'fe80::1', 'prefix': 64},
+          {'name': 3, 'ip': '1.2.3.4'},
+          'junk',
+        ],
+        'binding': 'Wi-Fi has no internet: this app is kept on Wi-Fi',
+      });
+      expect(r.nets.map((n) => n.toString()), [
+        'wlan0 192.168.1.5/24',
+        'ap0 10.236.5.1',
+      ]);
+      expect(r.nets.first.isWifi, isTrue);
+      expect(r.binding, contains('kept on Wi-Fi'));
+      expect(parseNativeNets(null).nets, isEmpty);
+      expect(parseNativeNets('x').binding, isNull);
+    });
+
+    test('sends from each local address to group, broadcast and its subnet '
+        'broadcast; counts sends', () async {
+      final ifs = await NetworkInterface.list(type: InternetAddressType.IPv4);
+      final real = [
+        for (final i in ifs)
+          for (final a in i.addresses)
+            if (!a.isLoopback)
+              LocalNet(name: i.name, ip: a.address, prefix: 24),
+      ];
+      if (real.isEmpty) {
+        markTestSkipped('no non-loopback IPv4 address on this machine');
+        return;
+      }
+      var nets = [real.first];
+      final c = DiagCounters();
+      final d = Discovery(
+        ownDeviceId: 'me',
+        onFound: (_) {},
+        counters: c,
+        interfaces: () async => nets,
+      );
+      await d.start(
+        () => {
+          'device_id': 'me',
+          'name': 'n',
+          'platform': 'linux',
+          'port': 1,
+          'fp': 'f',
+        },
+      );
+      addTearDown(d.stop);
+      expect(c.udpBound, isTrue);
+      final ip = real.first.ip;
+      expect(d.debugTargets, contains('$ip -> 239.255.42.99'));
+      expect(d.debugTargets, contains('$ip -> ${real.first.broadcast}'));
+      expect(c.discoveryTargets, 5);
+      expect(c.discoverySent + c.discoverySendErrors, 5);
+      // The list is re-read: a network that went away loses its socket.
+      nets = const [];
+      await d.refreshInterfaces();
+      expect(d.debugTargets, isEmpty);
+    });
   });
 }

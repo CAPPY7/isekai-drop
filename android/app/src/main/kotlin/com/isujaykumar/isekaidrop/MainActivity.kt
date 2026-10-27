@@ -5,7 +5,9 @@ import android.app.Activity
 import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.net.ConnectivityManager
+import android.net.Network
 import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import java.net.Inet4Address
@@ -141,6 +143,13 @@ class MainActivity : FlutterActivity() {
                         }
                         result.success(null)
                     }
+                    "networkInfo" -> {
+                        try {
+                            result.success(networkInfo())
+                        } catch (e: Exception) {
+                            result.success(null)
+                        }
+                    }
                     "acquireMulticastLock" -> {
                         try {
                             if (multicastLock == null) {
@@ -150,8 +159,12 @@ class MainActivity : FlutterActivity() {
                                     acquire()
                                 }
                             }
+                            // Same moment: make sure traffic to a Wi-Fi
+                            // without internet stays on Wi-Fi (Phase 7d).
+                            watchWifiForBinding()
                             result.success(true)
                         } catch (e: Exception) {
+                            watchWifiForBinding()
                             result.success(false)
                         }
                     }
@@ -160,9 +173,116 @@ class MainActivity : FlutterActivity() {
             }
     }
 
+    // ------------------------------------- Wi-Fi without internet (Phase 7d)
+    //
+    // When the joined Wi-Fi (e.g. another phone's app hotspot, or a router
+    // without internet) has no internet, Android keeps mobile data as the
+    // default network. Then our connections and discovery packets can leave
+    // over mobile data and never reach the other device. Fix: bind this app's
+    // process to that Wi-Fi while it is the only Wi-Fi and the default network
+    // is not Wi-Fi; undo it as soon as that is no longer true.
+
+    private var wifiCallback: ConnectivityManager.NetworkCallback? = null
+    private val wifiNets = mutableSetOf<Network>()
+    @Volatile private var boundTo: Network? = null
+    @Volatile private var bindingNote: String? = null
+
+    private fun watchWifiForBinding() {
+        if (wifiCallback != null) return
+        val cm = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
+        val cb = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(n: Network) {
+                synchronized(wifiNets) { wifiNets.add(n) }
+                evaluateBinding()
+            }
+            override fun onCapabilitiesChanged(n: Network, c: NetworkCapabilities) {
+                evaluateBinding()
+            }
+            override fun onLost(n: Network) {
+                synchronized(wifiNets) { wifiNets.remove(n) }
+                evaluateBinding()
+            }
+        }
+        try {
+            val req = NetworkRequest.Builder()
+                .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                .removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+            cm.registerNetworkCallback(req, cb)
+            wifiCallback = cb
+        } catch (_: Exception) {
+            bindingNote = "could not watch Wi-Fi"
+        }
+    }
+
+    private fun evaluateBinding() {
+        val cm = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
+        try {
+            val wifis = synchronized(wifiNets) { wifiNets.toList() }
+            val active = cm.activeNetwork
+            val activeIsWifi = active != null &&
+                cm.getNetworkCapabilities(active)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+            val target = if (!activeIsWifi && wifis.size == 1) wifis[0] else null
+            if (target != boundTo) {
+                cm.bindProcessToNetwork(target)
+                boundTo = target
+            }
+            bindingNote = when {
+                target != null -> "Wi-Fi has no internet: this app is kept on Wi-Fi"
+                activeIsWifi -> "Wi-Fi is the default network"
+                wifis.size > 1 -> "several Wi-Fi networks: not binding"
+                else -> null
+            }
+        } catch (_: Exception) {
+            bindingNote = "binding to Wi-Fi failed"
+        }
+    }
+
+    /** This device's IPv4 addresses with prefix and Wi-Fi flag, for
+     *  discovery (subnet broadcast) and the QR code. Own addresses only. */
+    private fun networkInfo(): Map<String, Any?> {
+        val cm = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
+        val wifiIfaces = mutableSetOf<String>()
+        try {
+            @Suppress("DEPRECATION")
+            for (n in cm.allNetworks) {
+                val caps = cm.getNetworkCapabilities(n) ?: continue
+                if (!caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) continue
+                cm.getLinkProperties(n)?.interfaceName?.let { wifiIfaces.add(it) }
+            }
+        } catch (_: Exception) {
+        }
+        val list = mutableListOf<Map<String, Any?>>()
+        try {
+            for (ni in java.net.NetworkInterface.getNetworkInterfaces()?.toList() ?: emptyList()) {
+                if (!ni.isUp || ni.isLoopback) continue
+                for (ia in ni.interfaceAddresses) {
+                    val a = ia.address as? Inet4Address ?: continue
+                    list.add(mapOf(
+                        "name" to ni.name,
+                        "ip" to a.hostAddress,
+                        "prefix" to ia.networkPrefixLength.toInt(),
+                        "wifi" to (ni.name in wifiIfaces),
+                    ))
+                }
+            }
+        } catch (_: Exception) {
+        }
+        return mapOf("nets" to list, "binding" to bindingNote)
+    }
+
     override fun onDestroy() {
         try {
             multicastLock?.release()
+        } catch (_: Exception) {
+        }
+        try {
+            wifiCallback?.let {
+                (getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager).unregisterNetworkCallback(it)
+            }
+            if (boundTo != null) {
+                (getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager).bindProcessToNetwork(null)
+            }
         } catch (_: Exception) {
         }
         stopHotspot()

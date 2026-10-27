@@ -17,6 +17,7 @@ import 'core/engine.dart';
 import 'core/history_store.dart';
 import 'core/identity.dart';
 import 'core/key_migration.dart';
+import 'core/net_info.dart';
 import 'core/pending_send_store.dart';
 import 'core/resume_store.dart';
 import 'core/send_source.dart';
@@ -273,6 +274,16 @@ Future<IsekaiEngine> createPlatformEngine(
         : null,
   );
   engine.diagCounters.multicastLock = multicastLock;
+  if (Platform.isAndroid) {
+    // Exact prefixes (for subnet broadcast) and the Wi-Fi binding state.
+    engine.nativeNets = () async {
+      final r = parseNativeNets(
+        await _android.invokeMethod<Object?>('networkInfo'),
+      );
+      engine.diagCounters.networkBinding = r.binding;
+      return r.nets;
+    };
+  }
   if (multicastLock == false) {
     engine.recordProblem(
       'multicast_lock_failed',

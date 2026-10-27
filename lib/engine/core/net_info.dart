@@ -131,3 +131,33 @@ Future<List<LocalNet>> dartLocalNets() async {
     return const [];
   }
 }
+
+/// Parses Android's `networkInfo` answer ({nets: [{name, ip, prefix, wifi}],
+/// binding: String?}). Bad entries are skipped; junk gives an empty list.
+({List<LocalNet> nets, String? binding}) parseNativeNets(Object? raw) {
+  if (raw is! Map) return (nets: const <LocalNet>[], binding: null);
+  final out = <LocalNet>[];
+  final list = raw['nets'];
+  if (list is List) {
+    for (final m in list) {
+      if (m is! Map) continue;
+      final name = m['name'];
+      final ip = m['ip'];
+      final prefix = m['prefix'];
+      if (name is! String || ip is! String) continue;
+      if (InternetAddress.tryParse(ip)?.type != InternetAddressType.IPv4) {
+        continue;
+      }
+      out.add(
+        LocalNet(
+          name: name,
+          ip: ip,
+          prefix: prefix is int && prefix > 0 && prefix <= 32 ? prefix : null,
+          isWifi: m['wifi'] == true,
+        ),
+      );
+    }
+  }
+  final b = raw['binding'];
+  return (nets: out, binding: b is String ? b : null);
+}

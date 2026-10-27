@@ -415,6 +415,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         onFound: _onFound,
         shouldAnnounce: visible,
         counters: diagCounters,
+        interfaces: localNets,
       );
       await _discovery!.start(
         () => {
