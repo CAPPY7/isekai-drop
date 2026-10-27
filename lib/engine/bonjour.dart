@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:multicast_dns/multicast_dns.dart';
 
+import 'core/diag_log.dart';
 import 'core/discovery.dart';
 import 'core/engine.dart';
 
@@ -81,6 +82,7 @@ class BonjourBridge {
       }
     } catch (_) {
       error = 'Bonjour discovery is not available on this device.';
+      engine.recordProblem('bonjour_unavailable', error!);
     }
   }
 
@@ -97,6 +99,14 @@ class BonjourBridge {
   }
 
   Future<dynamic> _onNative(MethodCall call) async {
+    if (call.method == 'bonjourEvent') {
+      final m = Map<String, dynamic>.from(call.arguments as Map);
+      onNativeEvent(
+        m['what'] as String? ?? '',
+        (m['code'] as num?)?.toInt() ?? 0,
+      );
+      return null;
+    }
     if (call.method != 'bonjourFound') return null;
     final m = Map<String, dynamic>.from(call.arguments as Map);
     final txt = Map<String, dynamic>.from((m['txt'] as Map?) ?? const {});
@@ -107,6 +117,36 @@ class BonjourBridge {
       txt: txt.map((k, v) => MapEntry(k, '$v')),
     );
     return null;
+  }
+
+  /// Android NSD status (see MainActivity.nsdEvent), counted for
+  /// Diagnostics. Codes: 0 internal error, 3 already active, 4 max limit.
+  @visibleForTesting
+  void onNativeEvent(String what, int code) {
+    final c = engine.diagCounters;
+    switch (what) {
+      case 'registered':
+        c.bonjourRegistered = true;
+      case 'found':
+        c.bonjourFound++;
+      case 'resolved':
+        c.bonjourResolved++;
+      case 'discovery_started':
+      case 'resolved_not_ipv4':
+        break;
+      default:
+        c.bonjourErrors++;
+        c.bonjourErrorCodes.add('$what:$code');
+        if (c.bonjourErrorCodes.length > 5) c.bonjourErrorCodes.removeAt(0);
+        if (what == 'register_failed') c.bonjourRegistered = false;
+        // Resolve failures are frequent and harmless one by one: count only.
+        if (!what.startsWith('resolve')) {
+          engine.recordProblem(
+            'bonjour_$what',
+            'Bonjour (NSD) $what, code $code.',
+          );
+        }
+    }
   }
 
   @visibleForTesting
@@ -178,8 +218,13 @@ class BonjourBridge {
           }
         }
       }
-    } catch (_) {
+    } catch (e) {
       error = 'mDNS browsing failed on this network.';
+      engine.diagCounters.bonjourErrors++;
+      engine.diagCounters.bonjourErrorCodes.add('mdns_${classifyError(e)}');
+      if (engine.diagCounters.bonjourErrorCodes.length > 5) {
+        engine.diagCounters.bonjourErrorCodes.removeAt(0);
+      }
     } finally {
       client.stop();
       _busy = false;

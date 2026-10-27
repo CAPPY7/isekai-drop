@@ -530,6 +530,17 @@ class MainActivity : FlutterActivity() {
 
     private val nsdType = "_isekaidrop._tcp."
 
+    /** Tells Dart what NSD did (for Diagnostics). [code] is the NsdManager
+     *  error code, or 0. Never includes names or addresses. */
+    private fun nsdEvent(what: String, code: Int = 0) {
+        runOnUiThread {
+            try {
+                channel?.invokeMethod("bonjourEvent", mapOf("what" to what, "code" to code))
+            } catch (_: Exception) {
+            }
+        }
+    }
+
     private fun nsdStart(name: String, port: Int, txt: Map<String, String>, advertise: Boolean = true) {
         val nsd = getSystemService(NSD_SERVICE) as NsdManager
         nsdStop()
@@ -540,18 +551,19 @@ class MainActivity : FlutterActivity() {
             for ((k, v) in txt) setAttribute(k, v)
         }
         val reg = object : NsdManager.RegistrationListener {
-            override fun onServiceRegistered(i: NsdServiceInfo) {}
-            override fun onRegistrationFailed(i: NsdServiceInfo, e: Int) {}
+            override fun onServiceRegistered(i: NsdServiceInfo) { nsdEvent("registered") }
+            override fun onRegistrationFailed(i: NsdServiceInfo, e: Int) { nsdEvent("register_failed", e) }
             override fun onServiceUnregistered(i: NsdServiceInfo) {}
             override fun onUnregistrationFailed(i: NsdServiceInfo, e: Int) {}
         }
         val disc = object : NsdManager.DiscoveryListener {
-            override fun onDiscoveryStarted(t: String) {}
+            override fun onDiscoveryStarted(t: String) { nsdEvent("discovery_started") }
             override fun onDiscoveryStopped(t: String) {}
-            override fun onStartDiscoveryFailed(t: String, e: Int) {}
+            override fun onStartDiscoveryFailed(t: String, e: Int) { nsdEvent("discovery_failed", e) }
             override fun onStopDiscoveryFailed(t: String, e: Int) {}
             override fun onServiceLost(i: NsdServiceInfo) {}
             override fun onServiceFound(i: NsdServiceInfo) {
+                nsdEvent("found")
                 runOnUiThread {
                     resolveQueue.addLast(i)
                     resolveNext()
@@ -567,6 +579,7 @@ class MainActivity : FlutterActivity() {
             nsd.discoverServices(nsdType, NsdManager.PROTOCOL_DNS_SD, disc)
             nsdDisc = disc
         } catch (_: Exception) {
+            nsdEvent("start_exception")
         }
     }
 
@@ -580,6 +593,7 @@ class MainActivity : FlutterActivity() {
             @Suppress("DEPRECATION")
             nsd.resolveService(next, object : NsdManager.ResolveListener {
                 override fun onResolveFailed(i: NsdServiceInfo, e: Int) {
+                    nsdEvent("resolve_failed", e)
                     runOnUiThread {
                         resolving = false
                         resolveNext()
@@ -590,6 +604,7 @@ class MainActivity : FlutterActivity() {
                     @Suppress("DEPRECATION")
                     val host = i.host
                     val txt = i.attributes.mapValues { (_, v) -> v?.let { String(it, Charsets.UTF_8) } ?: "" }
+                    nsdEvent(if (host is Inet4Address) "resolved" else "resolved_not_ipv4")
                     runOnUiThread {
                         resolving = false
                         if (host is Inet4Address) {
@@ -606,6 +621,7 @@ class MainActivity : FlutterActivity() {
             })
         } catch (_: Exception) {
             resolving = false
+            nsdEvent("resolve_exception")
         }
     }
 

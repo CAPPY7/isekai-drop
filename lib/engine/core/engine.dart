@@ -220,7 +220,30 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   DateTime? _lastErrorAt;
   TransferJob? _lastFinished;
 
-  /// Last transfer problem, in plain words. Never contains file names,
+  /// Problems seen since start (newest first, max 20) and counters, for
+  /// Diagnostics. Never contain file names, device names or peer addresses.
+  @override
+  final DiagLog diagLog = DiagLog();
+  @override
+  final DiagCounters diagCounters = DiagCounters();
+
+  /// Records a problem for Diagnostics and makes it the "Last error".
+  void recordProblem(String kind, String message) {
+    final e = diagLog.add(kind, message);
+    _lastError = message;
+    _lastErrorAt = e.at;
+    notifyListeners();
+  }
+
+  /// Like [recordProblem] for an exception: the class comes from
+  /// [classifyError]; [what] says what was being done.
+  void recordException(String what, Object e) {
+    final kind = e is PairingException ? 'pair_refused' : classifyError(e);
+    final words = e is PairingException ? e.message : explainErrorClass(kind);
+    recordProblem('${what}_$kind', '$what: $words');
+  }
+
+  /// Last problem, in plain words. Never contains file names,
   /// device names or addresses.
   @override
   String? get lastError => _lastError;
@@ -268,9 +291,13 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         ),
       );
     }
-    if (job.state == JobState.failed) {
-      _lastError = job.message ?? 'Transfer failed';
-      _lastErrorAt = DateTime.now();
+    if (job.state == JobState.failed && job.message != 'Cancelled') {
+      recordProblem(
+        job.direction == JobDirection.sending
+            ? 'send_failed'
+            : 'receive_failed',
+        job.message ?? 'Transfer failed',
+      );
     }
   }
 
@@ -334,17 +361,30 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   List<TransferJob> get jobs => List.unmodifiable(_jobs);
 
   @override
-  Future<List<String>> localAddresses() async {
-    try {
-      final ifs = await NetworkInterface.list(type: InternetAddressType.IPv4);
-      return [
-        for (final i in ifs)
-          for (final a in i.addresses)
-            if (!a.isLoopback) a.address,
-      ];
-    } catch (_) {
-      return const [];
+  Future<List<String>> localAddresses() async => [
+    for (final n in await localNets()) n.ip,
+  ];
+
+  /// Android: exact interface list from the system (prefix, Wi-Fi flag).
+  /// Set by platform_engine; null elsewhere (Dart's list is used).
+  Future<List<LocalNet>> Function()? nativeNets;
+
+  /// THIS device's useful local addresses, best first: Wi-Fi/hotspot and
+  /// Ethernet first; mobile data, VPN, tunnels and link-local left out
+  /// (see rankLocalNets). Used by the QR code, "My addresses" and discovery.
+  @override
+  Future<List<LocalNet>> localNets() async {
+    List<LocalNet> raw = const [];
+    final native = nativeNets;
+    if (native != null) {
+      try {
+        raw = await native();
+      } catch (_) {
+        raw = const [];
+      }
     }
+    if (raw.isEmpty) raw = await dartLocalNets();
+    return rankLocalNets(raw);
   }
 
   @override
@@ -356,18 +396,25 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       final addr = bindAddress ?? InternetAddress.anyIPv4;
       try {
         _server = await ServerSocket.bind(addr, port);
-      } on SocketException {
+      } on SocketException catch (e) {
         _server = await ServerSocket.bind(addr, 0);
+        recordProblem(
+          'port_fallback_${classifyError(e)}',
+          'Port $port was busy; receiving on port ${_server!.port} instead. '
+              'Typed addresses must use this port.',
+        );
       }
       _server!.listen(_onIncoming);
     } catch (e) {
       _startError = 'Could not start receiving on this device.';
+      recordProblem('server_bind_${classifyError(e)}', _startError!);
     }
     if (enableDiscovery && _server != null) {
       _discovery = Discovery(
         ownDeviceId: identity.deviceId,
         onFound: _onFound,
         shouldAnnounce: visible,
+        counters: diagCounters,
       );
       await _discovery!.start(
         () => {
@@ -378,6 +425,9 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           'fp': identity.fingerprint,
         },
       );
+      if (_discovery!.error != null) {
+        recordProblem('discovery_unavailable', _discovery!.error!);
+      }
     }
     _pruneTimer ??= Timer.periodic(const Duration(seconds: 5), (_) {
       final before = _nearby.length;
@@ -488,6 +538,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     }
     _sessions++;
     _handshaking++;
+    diagCounters.incomingConnections++;
     var handshakeDone = false;
     void endHandshake() {
       if (!handshakeDone) {
@@ -520,15 +571,23 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       // Write errors after the peer left (broken pipe) surface here; the
       // session code already handles the lost connection.
       unawaited(s.done.then((_) {}, onError: (_) {}));
-    } catch (_) {
+    } catch (e) {
       // Unknown, revoked or broken client certificate: rejected by TLS.
+      diagCounters.incomingTlsRejected++;
+      recordProblem(
+        'incoming_${classifyError(e)}',
+        'Incoming connection: secure setup failed (not paired with this '
+            'device, revoked, or not Isekai Drop).',
+      );
       raw.destroy();
       return;
     }
     final reader = FrameReader(s);
+    var stage = 'incoming_first_message';
     try {
       var first = await reader.nextJson(firstMessageTimeout);
       endHandshake();
+      stage = 'incoming_session';
       final peerCert = s.peerCertificate;
       // Pairing: the client says hello at once, then its user compares the
       // code (can take a while). Only one such slow wait at a time.
@@ -538,6 +597,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           return;
         }
         _pairHelloOpen = true;
+        stage = 'incoming_pair_wait';
         try {
           first = await reader.nextJson(pairCompareTimeout);
         } finally {
@@ -547,14 +607,23 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       if (peerCert == null) {
         // No client certificate: the only thing allowed is a pairing request.
         if (first['t'] == 'pair_req') {
+          stage = 'incoming_pairing';
           await _serverPairing(s, reader, first);
         } else {
+          recordProblem(
+            'incoming_not_paired',
+            'A device that is not paired tried to connect. Pair first.',
+          );
           s.add(jsonFrame({'t': 'error', 'reason': 'not_trusted'}));
         }
         return;
       }
       final dev = trust.byFingerprint(fingerprintOfDer(peerCert.der));
       if (dev == null || !dev.isTrusted) {
+        recordProblem(
+          'incoming_not_trusted',
+          'A device that is no longer trusted tried to connect.',
+        );
         s.add(jsonFrame({'t': 'error', 'reason': 'not_trusted'}));
         return;
       }
@@ -566,8 +635,9 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         default:
           s.add(jsonFrame({'t': 'error', 'reason': 'unknown_message'}));
       }
-    } catch (_) {
+    } catch (e) {
       // Connection problems end this session only.
+      recordException(stage, e);
     } finally {
       try {
         await s.flush();
@@ -728,11 +798,11 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       free = await freeSpace?.call(tempDir);
     } catch (_) {}
     if (free != null && free < need) {
-      _lastError =
-          'Not enough free space to receive from "${dev.name}" '
-          '(${_mb(need)} MB needed, ${_mb(free)} MB free).';
-      _lastErrorAt = DateTime.now();
-      notifyListeners();
+      recordProblem(
+        'no_free_space',
+        'Not enough free space to receive '
+            '(${_mb(need)} MB needed, ${_mb(free)} MB free).',
+      );
       s.add(
         jsonFrame({
           't': 'decline',
@@ -958,6 +1028,23 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
 
   @override
   Future<PairingSession> beginPairing(
+    String host,
+    int port, {
+    String? expectFingerprint,
+  }) async {
+    try {
+      return await _beginPairing(
+        host,
+        port,
+        expectFingerprint: expectFingerprint,
+      );
+    } catch (e) {
+      recordException('pair_connect', e);
+      rethrow;
+    }
+  }
+
+  Future<PairingSession> _beginPairing(
     String host,
     int port, {
     String? expectFingerprint,
@@ -1324,7 +1411,14 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       job.finish(JobState.completed, 'Sent and verified by the other device.');
     } on PairingException catch (e) {
       job.finish(JobState.failed, e.message);
-    } catch (_) {
+    } catch (e) {
+      if (!job.cancelRequested) {
+        // Class only (no address); the job message below becomes Last error.
+        diagLog.add(
+          'send_${classifyError(e)}',
+          'Sending: ${explainErrorClass(classifyError(e))}',
+        );
+      }
       job.finish(
         JobState.failed,
         job.cancelRequested
@@ -1443,7 +1537,14 @@ class PairingSession {
   /// The other device's key matched the scanned QR code exactly.
   final bool verifiedByQr;
 
-  Future<TrustedDevice> confirm() => _engine._clientConfirmPairing(this);
+  Future<TrustedDevice> confirm() async {
+    try {
+      return await _engine._clientConfirmPairing(this);
+    } catch (e) {
+      _engine.recordException('pair_confirm', e);
+      rethrow;
+    }
+  }
 
   void cancel() => _socket.destroy();
 }

@@ -1,13 +1,19 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../engine/platform_engine.dart';
 import '../../engine/transfer_engine.dart';
 import '../app_scope.dart';
+import '../diag_report.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
 
-/// Connection facts for troubleshooting. Shows no file names, no device or
-/// network names, no addresses, nothing personal.
+/// Connection facts for troubleshooting. Shows no file names, no other
+/// device's name or address, nothing personal. Since 0.8.1 it shows THIS
+/// device's own local addresses (owner decision, Phase 7d) because they are
+/// needed to find network problems.
 class DiagnosticsScreen extends StatefulWidget {
   const DiagnosticsScreen({super.key});
 
@@ -17,20 +23,46 @@ class DiagnosticsScreen extends StatefulWidget {
 
 class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
   ConnectionInfo? _info;
+  List<String> _own = const [];
 
   @override
   void initState() {
     super.initState();
-    _refresh();
+    // AppScope is read in _refresh, so wait for the first frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
   }
 
   Future<void> _refresh() async {
+    final engine = AppScope.of(context).engine;
     final i = await readConnectionInfo();
-    if (mounted) setState(() => _info = i);
+    final nets = await engine.localNets();
+    if (mounted) {
+      setState(() {
+        _info = i;
+        _own = [for (final n in nets) '${n.name} ${n.ip}'];
+      });
+    }
   }
 
-  String _time(DateTime t) =>
-      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+  String _time(DateTime t) => diagTime(t);
+
+  Future<void> _copyReport(TransferEngine e) async {
+    final text = buildDiagReport(
+      e,
+      platform: Platform.operatingSystem,
+      ownAddresses: _own,
+      connectionMethod: _info?.method,
+    );
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Report copied. It has no file names and no other device\'s name or address.',
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -83,6 +115,16 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                 ),
               ),
               SectionCard(
+                title: 'Connection checks',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final l in diagCheckLines(e, ownAddresses: _own))
+                      Text(l),
+                  ],
+                ),
+              ),
+              SectionCard(
                 title: 'Last transfer',
                 child: last == null
                     ? const Text('None yet since the app started.')
@@ -113,6 +155,29 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                 ),
               ),
               SectionCard(
+                title: 'Problems (last 20)',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (e.diagLog.entries.isEmpty)
+                      const Text('None since the app started.'),
+                    for (final d in e.diagLog.entries)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: IdSpacing.xs),
+                        child: Text(
+                          '${_time(d.at)}  [${d.kind}]  ${d.message}',
+                        ),
+                      ),
+                    const SizedBox(height: IdSpacing.sm),
+                    FilledButton.icon(
+                      onPressed: () => _copyReport(e),
+                      icon: const Icon(Icons.copy),
+                      label: const Text('Copy report'),
+                    ),
+                  ],
+                ),
+              ),
+              SectionCard(
                 title: 'Security',
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -134,7 +199,8 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                 ),
               ),
               Text(
-                'This page shows no file names, device names, network names or addresses.',
+                'This page shows no file names and no other device\'s name or address. '
+                'It shows this device\'s own local addresses to help find network problems.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: IdSpacing.md),

@@ -187,6 +187,7 @@ Future<IsekaiEngine> createPlatformEngine(
   Directory tempDir;
   ReceiveFinalizer finalizer;
   String where;
+  bool? multicastLock;
   if (Platform.isAndroid) {
     String? noBackup;
     try {
@@ -213,8 +214,11 @@ Future<IsekaiEngine> createPlatformEngine(
     };
     where = 'Downloads/Isekai Drop';
     try {
-      await _android.invokeMethod<bool>('acquireMulticastLock');
-    } catch (_) {}
+      multicastLock =
+          await _android.invokeMethod<bool>('acquireMulticastLock') ?? false;
+    } catch (_) {
+      multicastLock = false;
+    }
   } else if (Platform.isIOS) {
     tempDir = Directory(
       p.join((await getApplicationDocumentsDirectory()).path, 'Received'),
@@ -268,6 +272,14 @@ Future<IsekaiEngine> createPlatformEngine(
         ? 'Bonjour only (iPhone rules). Windows and Linux PCs do not appear here: scan their QR code or type their address.'
         : null,
   );
+  engine.diagCounters.multicastLock = multicastLock;
+  if (multicastLock == false) {
+    engine.recordProblem(
+      'multicast_lock_failed',
+      'Android refused the Wi-Fi multicast lock: other devices may not be '
+          'found automatically. Use the QR code or type the address.',
+    );
+  }
   await engine.start();
   _bonjour = BonjourBridge(engine);
   if (visible?.call() ?? true) await _bonjour!.start();

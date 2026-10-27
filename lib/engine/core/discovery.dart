@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'diag_log.dart';
+
 /// What another device says about itself on the local network. This is NOT
 /// trusted: the real identity is checked inside TLS when connecting.
 class Announcement {
@@ -31,7 +33,11 @@ class Discovery {
     required this.ownDeviceId,
     required this.onFound,
     this.shouldAnnounce,
-  });
+    DiagCounters? counters,
+  }) : counters = counters ?? DiagCounters();
+
+  /// Sent/received/error counts for Diagnostics.
+  final DiagCounters counters;
 
   /// Settings "Visible to nearby devices". When false we still listen.
   final bool Function()? shouldAnnounce;
@@ -56,6 +62,7 @@ class Discovery {
         reuseAddress: true,
       );
       _socket = s;
+      counters.udpBound = true;
       s.broadcastEnabled = true;
       try {
         s.joinMulticast(group);
@@ -70,6 +77,7 @@ class Discovery {
           final j = jsonDecode(utf8.decode(d.data)) as Map<String, dynamic>;
           if (j['app'] != 'isekai-drop' || j['v'] != 1) return;
           if (j['device_id'] == ownDeviceId) return;
+          counters.discoveryReceived++;
           onFound(
             Announcement(
               deviceId: j['device_id'] as String,
@@ -88,6 +96,7 @@ class Discovery {
       _timer = Timer.periodic(const Duration(seconds: 3), (_) => announce());
       announce();
     } catch (e) {
+      counters.udpBound = false;
       error = 'Discovery unavailable on this network';
     }
   }
@@ -102,8 +111,15 @@ class Discovery {
     );
     for (final target in [group, InternetAddress('255.255.255.255')]) {
       try {
-        s.send(bytes, target, udpPort);
-      } catch (_) {}
+        // send() returns 0 when the OS refused it (e.g. no route).
+        if (s.send(bytes, target, udpPort) > 0) {
+          counters.discoverySent++;
+        } else {
+          counters.discoverySendErrors++;
+        }
+      } catch (_) {
+        counters.discoverySendErrors++;
+      }
     }
   }
 
