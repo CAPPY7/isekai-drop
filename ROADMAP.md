@@ -91,8 +91,19 @@
 ## Phase 7c - Minor audit fixes (0.8.0)
 - [x] Audit #10-#16, #18 fixed or improved, plus #19 (hang) found and fixed; tests for each
 - [x] Measured loopback speed and memory before/after (docs/AUDIT.md #10, #18)
-- [x] Release key created by the owner; release workflow run (draft only)
+- [x] Release key created by the owner
+- [ ] Release workflow run (draft only): NOT run yet (an earlier tick here was wrong; CI was blocked, see AGENTS.md)
 - [ ] Phone measurements (speed, memory, UI smoothness) NOT TESTED
+
+## Phase 7d - Real-device connection fixes (0.8.1)
+Owner report on 0.7.1: devices do not find each other, pairing fails, sending fails (Android-Android, Android-PC; home Wi-Fi and app hotspot).
+- [x] A: pairing start message (pair_hello) + 2-minute wait while the user compares; clearer dialog (AUDIT #20)
+- [x] B: Diagnostics problem log (last 20), counters, multicast lock result, NSD error codes, Copy report (#21)
+- [x] C: Android binds to a Wi-Fi without internet; discovery per network incl. subnet broadcast (#22)
+- [x] D: address ranking for QR / My addresses (no mobile data / VPN) (#23)
+- [x] E: Windows Firewall read-only check + help (#24)
+- [x] Local release arm64 APK, versionCode 1001 (dev key)
+- [ ] Owner tests on phones + PC; send the Diagnostics "Copy report" if it still fails (NOT TESTED)
 
 ## Phase 8 - Fix security, compatibility, performance, usability
 - [ ] Security tests for all acceptance tests

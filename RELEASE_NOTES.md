@@ -1,6 +1,17 @@
-# Isekai Drop 0.8.0 (DRAFT release notes, test build)
+# Isekai Drop 0.8.1 (DRAFT release notes, test build)
 
 **Test build, signed with the throwaway dev key. Not a public release.** Nothing here has been benchmarked against LocalSend yet. Device testing is limited (docs/ACCEPTANCE.md).
+
+## New in 0.8.1 (real-device connection fixes, docs/AUDIT.md #20-#24)
+Reported on 0.7.1: devices did not find each other, pairing failed and sending failed (Android-Android and Android-PC, home Wi-Fi and the app hotspot). Fixes:
+- **Pairing no longer fails while you compare the code** (#20). The other device used to drop the connection after 10 seconds, before most people had finished comparing. Now it waits up to 2 minutes. The code dialog wording says what happens next. **Both devices need 0.8.1** to pair (older versions refuse the new pairing start).
+- **Diagnostics shows what went wrong** (#21): the last 20 problems with time and type (for example "connect_refused", "incoming_tls_handshake_failed"), discovery and Bonjour counters, the Android multicast-lock result, this device's own addresses, and a **Copy report** button. The report has no file names and no other device's name or address.
+- **Android on a Wi-Fi without internet** (another phone's hotspot, the app hotspot, a router without internet) (#22): the app keeps its traffic on that Wi-Fi instead of mobile data.
+- **Discovery on every network** (#22): announcements now go out from each Wi-Fi/hotspot/Ethernet address, also to that network's broadcast address, and the app listens for the group on each.
+- **QR code and "My addresses" list the right address first** (#23): Wi-Fi/hotspot, then Ethernet. Mobile data, VPN, Tailscale, WSL and link-local addresses are left out.
+- **Windows: firewall check** (#24): Diagnostics > Check Windows Firewall reads the rules (changes nothing) and says Blocked / No allow rule / Allowed, with how to fix it.
+
+None of this is tested on real phones or a Windows PC yet (NOT TESTED). Box tests: see docs/AUDIT.md.
 
 ## New in 0.8.0 (minor fixes, docs/AUDIT.md #10-#19)
 - Faster: file checksums are calculated in the background. On the test machine (1 GiB, loopback) 17.6-18.0 MB/s became 31.1-32.8 MB/s (#10). Not measured on phones yet.
@@ -39,3 +50,5 @@ See docs/AUDIT.md: #3-#16 and #18 are open (for example a damaged trusted-device
 
 ## Upgrade
 Install over the previous test build (same dev key). Data is kept.
+
+**Locally built 0.8.1 APK (versionCode 1001):** built on the build box, not by GitHub. Its version number is 1001 so it can never clash with GitHub build numbers (currently below 100). Side effect: after installing it, Android refuses to install a GitHub test build (numbers below 1001) over it. Then uninstall first (this removes pairings and history on that phone) or wait for a local/GitHub build above 1001.

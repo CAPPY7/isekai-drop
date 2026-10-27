@@ -18,7 +18,10 @@ Every test APK is signed with one throwaway development key stored in the
 private repo (`android/app/isekai-drop-dev.jks`), so updates install over the
 old version. The real release key comes only in the final phase and is never
 committed. The version number (versionCode) is the GitHub run number, so it
-goes up on every build.
+goes up on every build. APKs built by hand on the build box use versionCode
+1001 or higher (file name ends in `-local.apk`) so they never clash with a
+GitHub build number; a phone with such a build installed needs an uninstall
+before it accepts a lower-numbered GitHub build.
 
 ## iPhone / iPad: your options (from Apple's docs, checked 16 Oct 2026)
 1. **Free Apple account (Personal Team)**: install via Xcode on a Mac you

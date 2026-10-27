@@ -152,7 +152,7 @@ file before every phase. Stop after each phase and wait for "next".
 
 ## Phase 7b notes (2026-10-16, 0.7.1)
 - Audit #3-#9 fixed (see docs/AUDIT.md). Tests: test/audit_fix_test.dart, app_test "audit #7", phase6_test "audit #9".
-- Connection limits: kMaxHandshakes 8, kMaxSessions 32, 10 s TLS + 10 s first message (engine.dart). Do not raise without a reason.
+- Connection limits: kMaxHandshakes 8, kMaxSessions 32, 10 s TLS + 10 s first message (engine.dart). Do not raise without a reason. Since 0.8.1 a pairing client's `pair_hello` opens ONE 2-minute wait (see Phase 7d).
 - TrustStore.load never throws on bad data: skips entries, writes .bak-<time>, sets loadWarning.
 - WRITE_EXTERNAL_STORAGE is declared with maxSdkVersion=28 only (Android 9 and older have no MediaStore.Downloads). Never request it on 10+.
 - BonjourBridge.setVisible(false) keeps browsing (advertise flag to native).
@@ -166,3 +166,12 @@ file before every phase. Stop after each phase and wait for "next".
 - Pause/queue tests use a throttled source: do not make them depend on machine speed.
 - Release key: owner holds it; secrets ISEKAI_RELEASE_* are set. Expected release cert SHA-256 55:35:13:AC:F3:A6:A9:F4:34:97:35:FF:A0:29:DD:58:1C:89:68:3A:B9:CD:45:3D:B5:E6:7A:7A:18:61:98:22. Test builds stay on the dev key (5b36eeb0...57c1). Release workflow makes DRAFT releases only; publishing is the owner's call.
 
+## Phase 7d notes (2026-10-27, 0.8.1)
+- Root cause of "pairing fails" on 0.7.1: the client sends pair_req only after its user taps "Codes match", but the server dropped connections with no first message after 10 s (audit #4). Fix: client sends `{'t':'pair_hello'}` right after connect; server then waits `pairCompareTimeout` (2 min) for pair_req, only one such wait at a time (second gets pair_denied busy). Never remove pair_hello or make the first-message limit long for everyone. Tests: test/network_fix_test.dart group A.
+- Diagnostics log: core/diag_log.dart. Use `engine.recordProblem(kind, message)` / `recordException(what, e)` instead of setting _lastError. `kind` = short class (classifyError), message in plain words. NEVER put file names, device names, peer addresses or keys in entries (test "report has no names..."). Do not swallow network errors silently: record them (resolve failures and per-packet errors are counted, not logged, to keep the 20 slots useful).
+- Privacy decision change (owner OK, 2026-10-27): Diagnostics and the copied report show THIS device's own local addresses + interface names. Other devices' names/addresses still never appear there.
+- Address ranking: core/net_info.dart `rankLocalNets` (Wi-Fi/hotspot > Ethernet > other; private ranges +; mobile data rmnet/ccmni/pdp, VPN/tunnels, WSL/Hyper-V, docker, 169.254, 100.64/10 excluded; if nothing is left, keep everything). Used by localAddresses (QR, My addresses, hotspot screen) and discovery.
+- Discovery: one listen socket on 0.0.0.0:47821 (joins the group on every interface) + one send socket per ranked address (group, 255.255.255.255, subnet broadcast). Interface list re-read every 30 s. Android exact prefixes come from MainActivity `networkInfo`.
+- Android: MainActivity binds the process to the only Wi-Fi when the default network is not Wi-Fi (Wi-Fi without internet) and unbinds otherwise (NetworkCallback). Status shows in Diagnostics ("Network:"). NOT TESTED on devices.
+- Windows firewall: engine/win_firewall.dart parses English `netsh advfirewall firewall show rule name=all dir=in verbose`; non-English output = unknown (never "allowed"). Read-only: the app never changes firewall rules.
+- Local APK builds (box): use `--build-number=1001` or higher (above GitHub run numbers, which are below 1000 for a long time; android-release.yml uses run_number*1000 but is release-key signed, a different key anyway). A phone with 1001 refuses lower GitHub builds until uninstalled. Name: releases/isekai-drop-android-arm64-<versionCode>-local.apk.
