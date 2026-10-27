@@ -421,6 +421,15 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   @visibleForTesting
   Duration approvalTimeout = kApprovalTimeout;
 
+  /// Time allowed for the first message after TLS. Changeable only for tests.
+  @visibleForTesting
+  Duration firstMessageTimeout = kFirstMessageTimeout;
+
+  /// Time a pairing client (after `pair_hello`) has for its user to compare
+  /// the code before sending `pair_req`. Changeable only for tests.
+  @visibleForTesting
+  Duration pairCompareTimeout = kApprovalTimeout;
+
   @visibleForTesting
   Future<bool> debugAsk(PendingRequest r) => _ask(r);
 
@@ -518,9 +527,23 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     }
     final reader = FrameReader(s);
     try {
-      final first = await reader.nextJson(kFirstMessageTimeout);
+      var first = await reader.nextJson(firstMessageTimeout);
       endHandshake();
       final peerCert = s.peerCertificate;
+      // Pairing: the client says hello at once, then its user compares the
+      // code (can take a while). Only one such slow wait at a time.
+      if (peerCert == null && first['t'] == 'pair_hello') {
+        if (_pairHelloOpen) {
+          s.add(jsonFrame({'t': 'pair_denied', 'reason': 'busy'}));
+          return;
+        }
+        _pairHelloOpen = true;
+        try {
+          first = await reader.nextJson(pairCompareTimeout);
+        } finally {
+          _pairHelloOpen = false;
+        }
+      }
       if (peerCert == null) {
         // No client certificate: the only thing allowed is a pairing request.
         if (first['t'] == 'pair_req') {
@@ -594,6 +617,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   }
 
   bool _pairingOpen = false;
+  bool _pairHelloOpen = false;
 
   Future<void> _serverPairingAsk(
     SecureSocket s,
@@ -945,6 +969,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       onBadCertificate: (_) => true, // Not trusted yet: user compares codes.
       timeout: const Duration(seconds: 10),
     );
+    s.add(jsonFrame({'t': 'pair_hello', 'v': kProtocolVersion}));
     final serverCert = s.peerCertificate!;
     final serverFp = fingerprintOfDer(serverCert.der);
     if (serverFp == identity.fingerprint) {

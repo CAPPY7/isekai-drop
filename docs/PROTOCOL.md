@@ -31,10 +31,16 @@ No home-made cryptography: TLS is BoringSSL inside Flutter/Dart (`dart:io`
 
 ## Pairing
 1. Device A connects with TLS **without** a client certificate. A records
-   B's certificate from the handshake.
+   B's certificate from the handshake and at once sends `pair_hello`
+   (0.8.1+). After `pair_hello`, B waits up to 2 minutes for `pair_req`
+   (instead of the normal 10 s first-message limit), one such wait at a
+   time; a second one gets `pair_denied`/`busy`. Without `pair_hello` the
+   10 s limit applies (0.8.0 and older could not pair if A's user needed
+   more than 10 s). 0.8.0 servers reject `pair_hello`: update both devices.
 2. A shows a 16-digit code = SHA-256("isekai-drop-pairing-v1|fp1|fp2")
    (fingerprints sorted) → first 8 bytes mod 10^16. A's user taps
-   "Codes match" only if B's screen shows the same code.
+   "Codes match - pair"; B then shows the code and asks its user, who
+   approves only if it is the same.
 3. A sends `pair_req` with its certificate. B shows the same code
    (computed from its own fingerprint and A's certificate) and asks its user.
 4. If B approves, B saves A as trusted and replies `pair_ok`; A saves B.

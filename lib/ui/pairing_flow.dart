@@ -91,11 +91,12 @@ Future<void> startPairingFlow(
             ),
             const SizedBox(height: IdSpacing.sm),
             const Text(
-              'The other device will ask to approve and shows this same code:',
+              'Tap "Codes match - pair". The other device then asks to approve and shows this same code:',
             ),
           ] else
             const Text(
-              'The other device will show a code. Pair only if it is EXACTLY the same:',
+              'Tap "Codes match - pair" below. The other device then asks to '
+              'approve and shows a code. Approve there only if it is EXACTLY this one:',
             ),
           const SizedBox(height: IdSpacing.md),
           SelectableText(
