@@ -138,6 +138,7 @@ void main() {
     () async {
       await pair(a, b);
       final src = await randomFile(a.root, 'photo.jpg', 5 * 1024 * 1024 + 123);
+      final watch = Stopwatch()..start();
       final job = await waitDone(
         await a.engine.send(
           a.engine.trustedDevices.single,
@@ -153,7 +154,13 @@ void main() {
         await hashOf(File(p.join(b.inbox.path, 'photo.jpg'))),
         await hashOf(src),
       );
-      expect(job.averageSpeed, isNotNull);
+      // The app shows no speed for transfers under 300 ms (too short to
+      // measure). On a fast machine 5 MiB can finish that quickly.
+      if (watch.elapsedMilliseconds >= 1000) {
+        expect(job.averageSpeed, isNotNull);
+      } else if (job.averageSpeed != null) {
+        expect(job.averageSpeed, greaterThan(0));
+      }
     },
   );
 

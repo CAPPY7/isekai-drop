@@ -83,7 +83,17 @@ class N {
 
   Future<void> dispose() async {
     await engine.stop();
-    await root.delete(recursive: true);
+    // stop() does not wait for saves already in flight (history, trust,
+    // resume state); under full-suite load one can still be writing here.
+    for (var i = 0;; i++) {
+      try {
+        await root.delete(recursive: true);
+        return;
+      } on FileSystemException {
+        if (i >= 20) rethrow;
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      }
+    }
   }
 
   List<String> received() => inbox.existsSync()
