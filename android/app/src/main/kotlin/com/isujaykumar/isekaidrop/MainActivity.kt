@@ -143,9 +143,9 @@ class MainActivity : FlutterActivity() {
                         }
                         result.success(null)
                     }
-                    "networkInfo" -> {
+                    "localNets" -> {
                         try {
-                            result.success(networkInfo())
+                            result.success(localNetsInfo())
                         } catch (e: Exception) {
                             result.success(null)
                         }
@@ -239,8 +239,9 @@ class MainActivity : FlutterActivity() {
     }
 
     /** This device's IPv4 addresses with prefix and Wi-Fi flag, for
-     *  discovery (subnet broadcast) and the QR code. Own addresses only. */
-    private fun networkInfo(): Map<String, Any?> {
+     *  discovery (subnet broadcast) and the QR code. Own addresses only.
+     *  (Not "networkInfo": that name is the Diagnostics link-speed call.) */
+    private fun localNetsInfo(): Map<String, Any?> {
         val cm = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
         val wifiIfaces = mutableSetOf<String>()
         try {

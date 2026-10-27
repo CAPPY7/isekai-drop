@@ -278,7 +278,7 @@ Future<IsekaiEngine> createPlatformEngine(
     // Exact prefixes (for subnet broadcast) and the Wi-Fi binding state.
     engine.nativeNets = () async {
       final r = parseNativeNets(
-        await _android.invokeMethod<Object?>('networkInfo'),
+        await _android.invokeMethod<Object?>('localNets'),
       );
       engine.diagCounters.networkBinding = r.binding;
       return r.nets;

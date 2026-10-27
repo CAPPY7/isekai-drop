@@ -132,7 +132,7 @@ Future<List<LocalNet>> dartLocalNets() async {
   }
 }
 
-/// Parses Android's `networkInfo` answer ({nets: [{name, ip, prefix, wifi}],
+/// Parses Android's `localNets` answer ({nets: [{name, ip, prefix, wifi}],
 /// binding: String?}). Bad entries are skipped; junk gives an empty list.
 ({List<LocalNet> nets, String? binding}) parseNativeNets(Object? raw) {
   if (raw is! Map) return (nets: const <LocalNet>[], binding: null);
