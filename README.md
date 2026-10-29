@@ -8,7 +8,7 @@ A free, private app for sending files **directly** between your own devices
 ## What works where (honest limits)
 | Platform | Install | Finds others | Others find it | Limits |
 |---|---|---|---|---|
-| Android 8+ | APK from the release (test key) | UDP + Bonjour | yes | Can make its own hotspot (Connect > No Wi-Fi router?). Android 9 and older save to the app's own folder (audit #6). Keep the app open while transferring. |
+| Android 8+ | APK from the release (test key) | UDP + Bonjour | yes | Use the phone's normal hotspot when there is no router (Connect > No Wi-Fi router?). Android 9 and older save to the app's own folder (audit #6). Keep the app open while transferring. |
 | iPhone / iPad | UNSIGNED .ipa, sideloaded with **your own** Apple ID (AltStore/Sideloadly). Free Apple ID = 7-day expiry, 3 devices. NOT TESTED | Bonjour only | yes (Bonjour) | Must allow Local Network. **Foreground only**: transfers stop in the background. Windows/Linux PCs don't appear: scan their QR code or type their address. No folder picking. |
 | Windows 10/11 | Build from Actions (unsigned) | UDP + Bonjour (browse) | UDP only | SmartScreen warns (More info > Run anyway). Allow it in the firewall prompt. iPhones can't find it automatically. |
 | macOS | Build from Actions (unsigned) | UDP + Bonjour | yes | Gatekeeper blocks the first start: right-click > Open, or System Settings > Privacy & Security > Open Anyway. Local Network permission on macOS 15+. NOT TESTED on a Mac. |
@@ -91,7 +91,7 @@ keeps your data, because every test build is signed with the same key.
 | "App not installed" | An older copy signed differently is installed. Uninstall Isekai Drop, then install again. |
 | "Install blocked" | Allow "Install unknown apps" for Chrome (Settings → Apps → Chrome → Install unknown apps). |
 | Play Protect warning | Tap **More details → Install anyway**. It is warning because the app is not from the Play Store. |
-| Devices do not find each other | Some Wi-Fi networks (guest/office/"AP isolation") block devices from seeing each other. Use a phone hotspot instead, or type the address. On Windows allow Isekai Drop in the firewall prompt. |
+| Devices do not find each other | Some Wi-Fi networks (guest/office/"AP isolation") block devices from seeing each other. Tap Connect > Search this network, use a phone hotspot instead, or type the address. On Windows allow Isekai Drop in the firewall prompt. |
 | No APK in Assets | The latest build may still be running or failed. Check the **Actions** tab. |
 
 ## Other platforms

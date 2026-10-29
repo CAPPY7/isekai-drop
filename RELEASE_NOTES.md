@@ -1,6 +1,24 @@
-# Isekai Drop 0.8.1 (DRAFT release notes, test build)
+# Isekai Drop 0.9.0 (DRAFT release notes, test build)
 
-**Test build, signed with the throwaway dev key. Not a public release.** Nothing here has been benchmarked against LocalSend yet. Device testing is limited (docs/ACCEPTANCE.md).
+**Test build. Not a public release.** Nothing here has been benchmarked against LocalSend yet. Real phones and a real Windows PC have NOT been tested by me (see "Not tested" below).
+
+## New in 0.9.0 (make the core flow work, docs/AUDIT.md #25-#29)
+Report on 0.8.1: "This doesn't work and has many problems". The app now concentrates on one flow: **find the other device -> pair -> send a file**, on home Wi-Fi or a normal phone/Windows hotspot.
+- **Search this network** (#25): new button on Connect. It asks every address on your Wi-Fi/hotspot directly (encrypted, one short question per address) instead of relying only on discovery broadcasts, which many routers, hotspots and Windows PCs block. It also runs by itself once if nothing was found 4 seconds after Connect opens. Found devices appear while it runs. A hidden device ("visible to others" off) does not answer.
+- **Discovery answers back** (#26): when a device hears another one, it replies directly to it (at most every 10 s), so one-way blocked broadcasts still let both sides see each other.
+- **Sending back after pairing** (#27): the device that accepted pairing now saves the other device's port, so it can send back without waiting for discovery.
+- **Errors stay on screen** (#28): pairing/connection problems open a dialog with the reason (refused, timed out, no route...) and what to check (same network, app open, Windows firewall), instead of a short message at the bottom.
+- **Removed: "Make a hotspot with Isekai Drop"** (#29). It needed location/nearby-devices permissions, often failed or stopped on its own, could not be joined by iPhones, and gave no internet. Use the phone's normal hotspot (Settings) or Windows Mobile Hotspot instead (guides in Connect > No Wi-Fi router?). The app no longer asks for location or nearby-devices permissions.
+- Fixed a test-only flake (Windows/Android CI: "Directory not empty" when a test cleaned up): the engine now waits for its background saves when it stops.
+
+### Install note
+If you installed the local test build **versionCode 1001** (0.8.1), **uninstall it first**: Android refuses to install a lower version number over it.
+
+### Not tested (honest list)
+- Real Android phones (pairing, sending, Search this network, Wi-Fi without internet).
+- Real Windows PC (firewall, discovery, Search this network).
+- The Android emulator: KVM on the build box crashed when the emulator started (kernel fault in vCPU creation), so the planned emulator test could not run.
+- What WAS tested: two real engines on two separate Linux network stacks (network namespace, veth, real TCP/TLS, 10.77.0.0/24): Search found the other device, pairing, a 3 MiB file each way (sha256 identical), both directions. Plus the full unit/loopback test suite.
 
 ## New in 0.8.1 (real-device connection fixes, docs/AUDIT.md #20-#24)
 Reported on 0.7.1: devices did not find each other, pairing failed and sending failed (Android-Android and Android-PC, home Wi-Fi and the app hotspot). Fixes:

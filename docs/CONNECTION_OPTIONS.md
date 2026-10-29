@@ -6,7 +6,7 @@ Real numbers come only from tests in Phase 6.
 | # | Method | Works between | Speed class (expected, NOT measured) | What you do |
 |---|---|---|---|---|
 | 1 | **Phone hotspot** (one device makes a Wi-Fi network, others join) | Everything | High (Wi-Fi 5/6 class) | Turn on hotspot on device A, join it on device B, open Isekai Drop on both |
-| 2 | **Android local-only hotspot** made by the app | Android ↔ anything | High | Tap "Create hotspot" in the app; scan the QR on the other device to join |
+| 2 | ~~Android local-only hotspot made by the app~~ | REMOVED in 0.9.0 (AUDIT #29) | - | Use option 1 |
 | 3 | **Wi-Fi Direct** (devices link directly) | Android ↔ Android (maybe Windows) | High | Tap the other device, accept the prompt |
 | 4 | **Windows Mobile Hotspot** | Windows ↔ anything | Medium-high (hardware dependent) | Settings → Network → Mobile hotspot → On, then join it |
 | 5 | **Apple peer-to-peer** (AWDL) | Apple ↔ Apple only | High | Both Apple devices nearby with Wi-Fi on |
@@ -15,7 +15,7 @@ Real numbers come only from tests in Phase 6.
 | 8 | Same Wi-Fi router (not required, but supported) | Everything | High | Both on the same Wi-Fi |
 
 What each system really allows:
-- **Android**: apps can create a local-only hotspot (no internet) and use Wi-Fi
+- **Android**: apps can create a local-only hotspot (no internet; Isekai Drop no longer does, 0.9.0) and use Wi-Fi
   Direct; asks "Nearby devices" permission on Android 13+.
 - **iPhone/iPad**: apps cannot create a hotspot or use Wi-Fi Direct. Use the
   iPhone's Personal Hotspot (Settings) or join another device's hotspot.
@@ -33,7 +33,7 @@ No internet relay is ever used by default.
 - **A. Phone hotspot, computer joins** - in-app guide. No extra permissions.
 - **B. Windows Mobile Hotspot, phone joins** - in-app guide. Windows only
   (Macs have no equivalent).
-- **C. App-made Android local-only hotspot** - one tap in Connect > "Make a
+- **C. App-made Android local-only hotspot** - **REMOVED in 0.9.0** (owner asked to make the app work; too fragile and permission-heavy, docs/AUDIT.md #29). Historical notes: one tap in Connect > "Make a
   hotspot with Isekai Drop". Verified against the Android WifiManager
   reference (2026-10-16): `startLocalOnlyHotspot` needs CHANGE_WIFI_STATE +
   NEARBY_WIFI_DEVICES for apps targeting Android 13+, and CHANGE_WIFI_STATE +

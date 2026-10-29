@@ -105,6 +105,16 @@ Owner report on 0.7.1: devices do not find each other, pairing fails, sending fa
 - [x] Local release arm64 APK, versionCode 1001 (dev key)
 - [ ] Owner tests on phones + PC; send the Diagnostics "Copy report" if it still fails (NOT TESTED)
 
+## Phase 7e - Make the core flow work (0.9.0)
+Owner: "This doesn't work... decide what's best, remove or add things and make this app work".
+- [x] Search this network (direct TLS probe of the local /24) + auto-search on Connect (AUDIT #25)
+- [x] Unicast reply to discovery (#26); responder saves the peer port (#27)
+- [x] Error dialogs with reason + firewall hint (#28)
+- [x] Removed the app-made hotspot and its location/nearby permissions (#29)
+- [x] Real two-network-stack e2e (netns) on the box; env-gated tests test/e2e_peer_test.dart + e2e_client_test.dart
+- [ ] Android emulator e2e (blocked: box KVM fault) - NOT TESTED
+- [ ] Owner tests on phones + Windows PC (NOT TESTED)
+
 ## Phase 8 - Fix security, compatibility, performance, usability
 - [ ] Security tests for all acceptance tests
 - [ ] Real release key (never committed)

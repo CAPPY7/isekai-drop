@@ -175,3 +175,23 @@ file before every phase. Stop after each phase and wait for "next".
 - Android: MainActivity binds the process to the only Wi-Fi when the default network is not Wi-Fi (Wi-Fi without internet) and unbinds otherwise (NetworkCallback). Status shows in Diagnostics ("Network:"). NOT TESTED on devices.
 - Windows firewall: engine/win_firewall.dart parses English `netsh advfirewall firewall show rule name=all dir=in verbose`; non-English output = unknown (never "allowed"). Read-only: the app never changes firewall rules.
 - Local APK builds (box): use `--build-number=1001` or higher (above GitHub run numbers, which are below 1000 for a long time; android-release.yml uses run_number*1000 but is release-key signed, a different key anyway). A phone with 1001 refuses lower GitHub builds until uninstalled. Name: releases/isekai-drop-android-arm64-<versionCode>-local.apk.
+
+## Phase 7e notes (2026-10-30, 0.9.0)
+- Core flow first: discover -> pair -> send. Removed the app-made local-only hotspot (MainActivity hotspot channel methods, platform_engine HotspotPermission/startAppHotspot, hotspot_screen.dart, guideAppHotspot, NEARBY_WIFI_DEVICES / ACCESS_*_LOCATION / CHANGE_WIFI_STATE permissions). Reason: fragile, permission-heavy, no internet, not joinable by iPhone. Do not bring it back without real-device tests. `networkInfo.hotspotByApp` is always false (kept for the Diagnostics map shape).
+- "Search this network": engine.scanNetwork() -> probe(host, port) for each address of the first 3 ranked local nets (net_info.dart `scanTargets`: private IPv4 only, /24 max, no network/broadcast/own IP), 64 in parallel, 1.5 s connect timeout. The probe is TLS WITHOUT a client cert and sends `{'t':'info'}` as the first message; the server answers device_id/name/platform/port only when `visible()` and closes. Found devices are kept 5 min (`_keepUntil`) against pruning. Engines built with `enableDiscovery: false` (tests) never scan (widget tests would otherwise probe the real network and never settle).
+- discovery.dart: `_replyTo` sends one unicast announcement back to a sender (max once per 10 s per address).
+- pair_req carries the client's listening `port`; the server stores it (`addTrusted(port:)`), so the responder can send back (test phase9 "the device that ACCEPTED pairing can send back").
+- Errors: pairing_flow.dart `showPairingProblem` dialog; message = classifyError/explainErrorClass + checklist. Never go back to a snack bar for connection errors.
+- engine.stop(): waits for sessions (2 s) and for background saves (`_bg`, `_keep()`); use `_keep(future)` instead of `unawaited` for trust/history writes.
+- Real e2e on the box (no emulator: /dev/kvm faults in vmx_vcpu_create on this box, see dmesg; the ACL `setfacl -m u:box:rw /dev/kvm` also resets):
+  ```
+  sudo ip netns add isekai-e2e; sudo ip link add ie2e-h type veth peer name ie2e-p
+  sudo ip link set ie2e-p netns isekai-e2e; sudo ip addr add 10.77.0.1/24 dev ie2e-h; sudo ip link set ie2e-h up
+  sudo ip netns exec isekai-e2e ip addr add 10.77.0.2/24 dev ie2e-p; sudo ip netns exec isekai-e2e ip link set ie2e-p up
+  sudo ip netns exec isekai-e2e ip link set lo up
+  sudo ip netns exec isekai-e2e sudo -u box env HOME=/home/box PATH=$PATH E2E_PEER=1 E2E_DIR=/tmp/e2e E2E_EXPECT=to-peer.bin \
+    E2E_SEND_HOST=10.77.0.1 E2E_SEND_PORT=47830 E2E_SEND_FILE=/tmp/e2e-files/to-client.bin flutter test --no-pub test/e2e_peer_test.dart &
+  E2E_CLIENT=1 E2E_DIR=/tmp/e2e-client E2E_PORT=47830 E2E_SEND_FILE=/tmp/e2e-files/to-peer.bin flutter test --no-pub test/e2e_client_test.dart
+  sudo ip netns del isekai-e2e
+  ```
+  Use `--no-pub` inside the namespace (no DNS there). The peer test can also serve an emulator (10.0.2.2:47820, `adb forward`).
