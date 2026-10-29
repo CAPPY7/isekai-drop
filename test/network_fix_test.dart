@@ -383,15 +383,19 @@ void main() {
   group('C: discovery on every local network', () {
     test('Android method channel: every method name handled once, and '
         'the names Dart calls exist', () {
-      final kt = File('android/app/src/main/kotlin/com/isujaykumar/'
-              'isekaidrop/MainActivity.kt')
-          .readAsStringSync();
-      final names = RegExp(r'^ +"([A-Za-z]+)" ->', multiLine: true)
-          .allMatches(kt)
-          .map((m) => m.group(1)!)
-          .toList();
-      expect(names.length, names.toSet().length,
-          reason: 'a duplicate branch is never reached (0.8.1 build bug)');
+      final kt = File(
+        'android/app/src/main/kotlin/com/isujaykumar/'
+        'isekaidrop/MainActivity.kt',
+      ).readAsStringSync();
+      final names = RegExp(
+        r'^ +"([A-Za-z]+)" ->',
+        multiLine: true,
+      ).allMatches(kt).map((m) => m.group(1)!).toList();
+      expect(
+        names.length,
+        names.toSet().length,
+        reason: 'a duplicate branch is never reached (0.8.1 build bug)',
+      );
       expect(names, containsAll(<String>['localNets', 'networkInfo']));
     });
 

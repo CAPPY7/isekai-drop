@@ -466,9 +466,7 @@ Future<ConnectionInfo> readConnectionInfo() async {
     final hosting = has(
       (i, _) => RegExp(r'^(ap|swlan|softap|wlan1)').hasMatch(i.name),
     );
-    final method = m['hotspotByApp'] == true
-        ? 'This phone\'s app-made hotspot (no internet)'
-        : hosting
+    final method = hosting
         ? 'This phone is sharing a hotspot (likely)'
         : switch (m['transport']) {
             'wifi' => 'Wi-Fi network (a router or another device\'s hotspot)',
@@ -480,7 +478,7 @@ Future<ConnectionInfo> readConnectionInfo() async {
       method: method,
       linkMbps: (m['linkMbps'] as num?)?.toInt(),
       frequencyMhz: (m['frequencyMhz'] as num?)?.toInt(),
-      note: hosting || m['hotspotByApp'] == true
+      note: hosting
           ? 'Link speed is not reported while this phone hosts the hotspot.'
           : null,
     );
@@ -510,75 +508,6 @@ Future<ConnectionInfo> readConnectionInfo() async {
     method: ifs.isEmpty ? 'No network' : 'Wi-Fi or cable network',
     note: 'Link speed is not available on this platform yet.',
   );
-}
-
-// --------------------------------------------------- app-made hotspot (C)
-
-enum HotspotPermission { granted, needed, locationOff, unsupported }
-
-HotspotPermission _perm(String? s) => switch (s) {
-  'granted' => HotspotPermission.granted,
-  'location_off' => HotspotPermission.locationOff,
-  'needed' => HotspotPermission.needed,
-  _ => HotspotPermission.unsupported,
-};
-
-Future<HotspotPermission> hotspotPermission() async {
-  if (!Platform.isAndroid) return HotspotPermission.unsupported;
-  return _perm(await _android.invokeMethod<String>('hotspotPermission'));
-}
-
-Future<HotspotPermission> requestHotspotPermission() async {
-  if (!Platform.isAndroid) return HotspotPermission.unsupported;
-  return _perm(await _android.invokeMethod<String>('requestHotspotPermission'));
-}
-
-class HotspotDetails {
-  HotspotDetails(this.ssid, this.password);
-  final String ssid;
-  final String password;
-
-  /// Standard Wi-Fi QR text that phone cameras understand.
-  String get wifiQr {
-    String esc(String v) =>
-        v.replaceAllMapped(RegExp(r'([\\;,:"])'), (m) => '\\${m[1]}');
-    return 'WIFI:T:WPA;S:${esc(ssid)};P:${esc(password)};;';
-  }
-}
-
-class HotspotException implements Exception {
-  HotspotException(this.message);
-  final String message;
-  @override
-  String toString() => message;
-}
-
-Future<HotspotDetails> startAppHotspot() async {
-  try {
-    final m = await _android.invokeMapMethod<String, dynamic>('startHotspot');
-    final ssid = m?['ssid'] as String?;
-    final pass = m?['password'] as String?;
-    if (ssid == null || pass == null) {
-      throw HotspotException('The hotspot started but its details are hidden.');
-    }
-    return HotspotDetails(ssid, pass);
-  } on PlatformException catch (e) {
-    throw HotspotException(switch (e.code) {
-      'incompatible_mode' => 'Turn off your normal hotspot (and Wi-Fi Direct) first, then try again.',
-      'no_channel' => 'No free Wi-Fi channel right now. Try again in a moment.',
-      'tethering_disallowed' =>
-        'This phone (or its admin) does not allow hotspots.',
-      'permission' => 'Permission is missing. Allow it and try again.',
-      _ => 'The hotspot could not start on this phone.',
-    });
-  }
-}
-
-Future<void> stopAppHotspot() async {
-  if (!Platform.isAndroid) return;
-  try {
-    await _android.invokeMethod('stopHotspot');
-  } catch (_) {}
 }
 
 /// Where desktop receives go: Downloads, else Documents, else ~/Downloads,

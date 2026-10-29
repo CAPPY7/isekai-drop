@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -6,7 +7,6 @@ import '../../engine/core/engine.dart' show kDefaultPort;
 import '../app_scope.dart';
 import '../guides/guides.dart';
 import '../qr_pairing.dart';
-import 'hotspot_screen.dart';
 import '../pairing_flow.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
@@ -23,9 +23,25 @@ class _ConnectScreenState extends State<ConnectScreen> {
   final _ip = TextEditingController();
   final _port = TextEditingController(text: '$kDefaultPort');
   String? _error;
+  Timer? _autoSearch;
+
+  @override
+  void initState() {
+    super.initState();
+    // Nothing found by discovery after a few seconds: search the network
+    // address by address once (routers/hotspots that block discovery).
+    _autoSearch = Timer(const Duration(seconds: 4), () {
+      if (!mounted) return;
+      final engine = AppScope.of(context).engine;
+      if (engine.nearby.isEmpty && !engine.scanning) {
+        unawaited(engine.scanNetwork());
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _autoSearch?.cancel();
     _ip.dispose();
     _port.dispose();
     super.dispose();
@@ -70,25 +86,51 @@ class _ConnectScreenState extends State<ConnectScreen> {
             ),
           SectionCard(
             title: 'Found automatically',
-            child: engine.nearby.isEmpty
-                ? StateMessage(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (engine.nearby.isEmpty)
+                  StateMessage(
                     icon: Icons.wifi_find,
-                    title: 'No devices found yet',
-                    message:
-                        engine.discoveryError ??
-                        'Both devices must be on the same Wi-Fi or hotspot with Isekai Drop open. '
-                            'Some networks block discovery: then type the address below.',
+                    title: engine.scanning
+                        ? 'Searching this network...'
+                        : 'No devices found yet',
+                    message: [
+                      if (engine.discoveryError != null) engine.discoveryError!,
+                      if (!engine.scanning && engine.lastScanFound == 0)
+                        'The search found no Isekai Drop on this network. '
+                            'Check that the other device is on the SAME Wi-Fi or hotspot '
+                            'and has Isekai Drop open. A Windows PC must also allow Isekai Drop '
+                            'in its firewall (see Help).',
+                      'Or scan the QR code, or type the address below.',
+                    ].join(' '),
                   )
-                : Column(
-                    children: [
-                      for (final d in engine.nearby)
-                        NearbyTile(
-                          device: d,
-                          onTap: () =>
-                              startPairingFlow(context, d.host, d.port),
-                        ),
-                    ],
+                else
+                  for (final d in engine.nearby)
+                    NearbyTile(
+                      device: d,
+                      onTap: () => startPairingFlow(context, d.host, d.port),
+                    ),
+                const SizedBox(height: IdSpacing.sm),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(IdLayout.minTouchTarget),
                   ),
+                  onPressed: engine.scanning
+                      ? null
+                      : () => unawaited(engine.scanNetwork()),
+                  icon: engine.scanning
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.radar),
+                  label: Text(
+                    engine.scanning ? 'Searching...' : 'Search this network',
+                  ),
+                ),
+              ],
+            ),
           ),
           SectionCard(
             title: 'Pair by typing the address',
@@ -176,31 +218,19 @@ class _ConnectScreenState extends State<ConnectScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (Platform.isAndroid)
-                  FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(
-                        IdLayout.minTouchTarget,
-                      ),
-                    ),
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const HotspotScreen(),
-                      ),
-                    ),
-                    icon: const Icon(Icons.wifi_tethering),
-                    label: const Text('Make a hotspot with Isekai Drop'),
-                  ),
+                const Text(
+                  'Turn on the normal hotspot of one phone (or Windows Mobile '
+                  'Hotspot) and join it with the other device. Mobile data is not used.',
+                ),
                 for (final g in guidesForThisPlatform())
-                  if (g.id != 'app_hotspot' || Platform.isAndroid)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      minTileHeight: IdLayout.minTouchTarget,
-                      leading: Icon(g.icon),
-                      title: Text(g.title),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => openGuide(context, g),
-                    ),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    minTileHeight: IdLayout.minTouchTarget,
+                    leading: Icon(g.icon),
+                    title: Text(g.title),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => openGuide(context, g),
+                  ),
               ],
             ),
           ),

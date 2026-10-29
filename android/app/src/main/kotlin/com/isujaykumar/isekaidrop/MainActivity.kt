@@ -3,7 +3,6 @@ package com.isujaykumar.isekaidrop
 import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
-import android.location.LocationManager
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
@@ -13,7 +12,6 @@ import android.net.nsd.NsdServiceInfo
 import java.net.Inet4Address
 import android.net.wifi.WifiInfo
 import android.provider.DocumentsContract
-import android.provider.Settings
 import android.view.WindowManager
 import android.content.ContentValues
 import android.content.Intent
@@ -38,16 +36,13 @@ import java.util.concurrent.Executors
  *  - saving verified received files into Downloads/Isekai Drop,
  *  - a Wi-Fi multicast lock so device discovery packets are received,
  *  - folder picking (structure kept), connection info for Diagnostics,
- *  - an app-made local-only hotspot (no internet) for router-free transfers,
  *  - keeping the screen on while a transfer runs.
  */
 class MainActivity : FlutterActivity() {
     private val channelName = "isekai_drop/android"
     private val pickRequest = 4711
     private val folderRequest = 4712
-    private val permRequest = 4713
     private var pendingFolder: MethodChannel.Result? = null
-    private var pendingPerm: MethodChannel.Result? = null
 
     // Audit #6: Android 9 and older have no MediaStore.Downloads, so writing
     // to the public Downloads folder needs WRITE_EXTERNAL_STORAGE (declared
@@ -72,7 +67,6 @@ class MainActivity : FlutterActivity() {
     private fun legacyBase(): File =
         if (legacyGranted()) File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Isekai Drop")
         else File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "Isekai Drop")
-    private var hotspot: WifiManager.LocalOnlyHotspotReservation? = null
     private var channel: MethodChannel? = null
     private var nsdReg: NsdManager.RegistrationListener? = null
     private var nsdDisc: NsdManager.DiscoveryListener? = null
@@ -127,14 +121,6 @@ class MainActivity : FlutterActivity() {
                     }
                     "folderExists" -> folderExists(call.argument<String>("name")!!, result)
                     "networkInfo" -> result.success(networkInfo())
-                    "hotspotPermission" -> result.success(hotspotPermissionState())
-                    "requestHotspotPermission" -> requestHotspotPermission(result)
-                    "startHotspot" -> startHotspot(result)
-                    "stopHotspot" -> {
-                        stopHotspot()
-        nsdStop()
-                        result.success(null)
-                    }
                     "keepScreenOn" -> {
                         if (call.argument<Boolean>("on") == true) {
                             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -286,7 +272,6 @@ class MainActivity : FlutterActivity() {
             }
         } catch (_: Exception) {
         }
-        stopHotspot()
         super.onDestroy()
     }
 
@@ -495,7 +480,7 @@ class MainActivity : FlutterActivity() {
 
     /** Connection type and Wi-Fi link speed. No network name, no addresses. */
     private fun networkInfo(): Map<String, Any?> {
-        val out = mutableMapOf<String, Any?>("transport" to "none", "hotspotByApp" to (hotspot != null))
+        val out = mutableMapOf<String, Any?>("transport" to "none", "hotspotByApp" to false)
         try {
             val cm = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
             val caps = cm.getNetworkCapabilities(cm.activeNetwork)
@@ -522,129 +507,13 @@ class MainActivity : FlutterActivity() {
         return out
     }
 
-    // ---------------------------------------------------- local-only hotspot
-
-    private fun hotspotPermissions(): Array<String> =
-        if (Build.VERSION.SDK_INT >= 33) {
-            arrayOf(Manifest.permission.NEARBY_WIFI_DEVICES)
-        } else {
-            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
-        }
-
-    private fun locationOn(): Boolean {
-        val lm = getSystemService(LOCATION_SERVICE) as LocationManager
-        return if (Build.VERSION.SDK_INT >= 28) {
-            lm.isLocationEnabled
-        } else {
-            @Suppress("DEPRECATION")
-            Settings.Secure.getInt(contentResolver, Settings.Secure.LOCATION_MODE, 0) != 0
-        }
-    }
-
-    /** "granted", "needed", "location_off" (Android 12 and older only). */
-    private fun hotspotPermissionState(): String {
-        val ok = hotspotPermissions().take(1).all {
-            checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED
-        }
-        if (!ok) return "needed"
-        if (Build.VERSION.SDK_INT < 33 && !locationOn()) return "location_off"
-        return "granted"
-    }
-
-    private fun requestHotspotPermission(result: MethodChannel.Result) {
-        if (pendingPerm != null) {
-            result.error("busy", "Already asking", null)
-            return
-        }
-        pendingPerm = result
-        requestPermissions(hotspotPermissions(), permRequest)
-    }
-
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == legacyRequest) {
             val r = pendingLegacy ?: return
             pendingLegacy = null
             r.success(legacyGranted())
-            return
         }
-        if (requestCode != permRequest) return
-        val r = pendingPerm ?: return
-        pendingPerm = null
-        r.success(hotspotPermissionState())
-    }
-
-    private fun startHotspot(result: MethodChannel.Result) {
-        if (hotspot != null) {
-            result.success(hotspotDetails(hotspot!!))
-            return
-        }
-        try {
-            val wifi = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
-            var answered = false
-            wifi.startLocalOnlyHotspot(object : WifiManager.LocalOnlyHotspotCallback() {
-                override fun onStarted(reservation: WifiManager.LocalOnlyHotspotReservation) {
-                    hotspot = reservation
-                    if (!answered) {
-                        answered = true
-                        result.success(hotspotDetails(reservation))
-                    }
-                }
-
-                override fun onStopped() {
-                    hotspot = null
-                }
-
-                override fun onFailed(reason: Int) {
-                    hotspot = null
-                    if (!answered) {
-                        answered = true
-                        val code = when (reason) {
-                            ERROR_NO_CHANNEL -> "no_channel"
-                            ERROR_INCOMPATIBLE_MODE -> "incompatible_mode"
-                            ERROR_TETHERING_DISALLOWED -> "tethering_disallowed"
-                            else -> "generic"
-                        }
-                        result.error(code, "Hotspot could not start", null)
-                    }
-                }
-            }, null)
-        } catch (e: SecurityException) {
-            result.error("permission", "Permission missing", null)
-        } catch (e: Exception) {
-            result.error("generic", "Hotspot could not start", null)
-        }
-    }
-
-    private fun hotspotDetails(r: WifiManager.LocalOnlyHotspotReservation): Map<String, Any?> {
-        var ssid: String? = null
-        var pass: String? = null
-        if (Build.VERSION.SDK_INT >= 30) {
-            val c = r.softApConfiguration
-            ssid = if (Build.VERSION.SDK_INT >= 33) {
-                c.wifiSsid?.toString()
-            } else {
-                @Suppress("DEPRECATION")
-                c.ssid
-            }
-            pass = c.passphrase
-        } else {
-            @Suppress("DEPRECATION")
-            val c = r.wifiConfiguration
-            @Suppress("DEPRECATION")
-            ssid = c?.SSID
-            @Suppress("DEPRECATION")
-            pass = c?.preSharedKey
-        }
-        return mapOf("ssid" to ssid?.removeSurrounding("\""), "password" to pass?.removeSurrounding("\""))
-    }
-
-    private fun stopHotspot() {
-        try {
-            hotspot?.close()
-        } catch (_: Exception) {
-        }
-        hotspot = null
     }
 
     // ------------------------------------------- Bonjour (NSD) for iPhones

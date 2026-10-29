@@ -54,14 +54,17 @@ Future<void> startPairingFlow(
     session = found;
   } catch (e) {
     nav.pop();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          e is PairingException
-              ? e.message
-              : 'Could not connect to $host:$port. Check the address and that Isekai Drop is open there.',
-        ),
-      ),
+    if (!context.mounted) return;
+    await showPairingProblem(
+      context,
+      'Could not connect',
+      e is PairingException
+          ? e.message
+          : 'Could not connect to $host:$port. ${explainErrorClass(classifyError(e))}\n\n'
+                'Check: both devices on the same Wi-Fi or hotspot, Isekai Drop open '
+                'on the other device, and the address and port exactly as shown '
+                'there. A Windows PC must allow Isekai Drop in its firewall '
+                '(Private networks).',
     );
     return;
   }
@@ -151,13 +154,34 @@ Future<void> startPairingFlow(
     );
   } catch (e) {
     nav.pop();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(e is PairingException ? e.message : 'Pairing failed.'),
-      ),
+    if (!context.mounted) return;
+    await showPairingProblem(
+      context,
+      'Pairing did not finish',
+      e is PairingException
+          ? e.message
+          : 'Pairing failed: ${explainErrorClass(classifyError(e))}',
     );
   }
 }
+
+/// Errors stay on screen until the user closes them (a snack bar is too
+/// easy to miss).
+Future<void> showPairingProblem(
+  BuildContext context,
+  String title,
+  String message,
+) => showDialog<void>(
+  context: context,
+  builder: (c) => AlertDialog(
+    icon: const Icon(Icons.error_outline, color: IdColors.danger),
+    title: Text(title),
+    content: SingleChildScrollView(child: Text(message)),
+    actions: [
+      FilledButton(onPressed: () => Navigator.pop(c), child: const Text('OK')),
+    ],
+  ),
+);
 
 class SocketExceptionLike implements Exception {
   const SocketExceptionLike();

@@ -93,31 +93,6 @@ const guideWindowsHotspot = Guide(
   ],
 );
 
-const guideAppHotspot = Guide(
-  id: 'app_hotspot',
-  title: 'No router: let Isekai Drop make a hotspot (Android)',
-  summary:
-      'One tap on the phone makes a private Wi-Fi network with no internet.',
-  icon: Icons.router_outlined,
-  platforms: ['android'],
-  sections: [
-    GuideSection('On the Android phone', [
-      'Open Connect > "Make a hotspot with Isekai Drop".',
-      'Read the explanation and allow the permission Android asks for (Nearby devices on Android 13+, Location on Android 12 and older - the app never reads your location).',
-      'The app shows a network name and password. Keep this screen open.',
-    ]),
-    GuideSection('On the Windows PC or Mac', [
-      'Join that Wi-Fi network by name and type the password.',
-      'Open Isekai Drop > Connect. The phone should appear; or type the address shown on the phone.',
-    ]),
-  ],
-  notes: [
-    'The name and password change every time. The network has no internet.',
-    'Turn off your normal hotspot first: many phones cannot run both.',
-    'On some phones your normal Wi-Fi turns off while this hotspot is on.',
-  ],
-);
-
 const guideLocalNetwork = Guide(
   id: 'local_network',
   title: 'Allow local network access',
@@ -171,6 +146,7 @@ const guideNotFound = Guide(
     GuideSection('Try in this order', [
       'Make sure both devices are on the same Wi-Fi or hotspot.',
       'Open Connect on both devices and wait 5 seconds.',
+      'Tap "Search this network": it asks every address on your Wi-Fi or hotspot directly. This works even where the router blocks discovery.',
       'Scan the other device\'s QR code (Connect > Show my QR code on the other device).',
       'Or type the address and port shown on the other device.',
       'Guest or office Wi-Fi often blocks devices from seeing each other. Use a hotspot instead.',
@@ -187,7 +163,7 @@ const guideIphone = Guide(
   icon: Icons.phone_iphone,
   sections: [
     GuideSection('Connecting', [
-      'Put the iPhone and the other device on the same Wi-Fi, or join the other device\'s hotspot (iPhones cannot be joined by an app-made hotspot from Isekai Drop, but they can JOIN one).',
+      'Put the iPhone and the other device on the same Wi-Fi, or join the other device\'s hotspot.',
       'The first time, iOS asks to find devices on your local network. Tap Allow.',
       'Android phones and Macs appear automatically (Bonjour). Windows and Linux PCs do NOT appear on iPhone: on the iPhone tap Scan QR code and scan the PC\'s QR code, or type its address.',
       'Compare the 16-digit codes and approve, like on any device.',
@@ -227,7 +203,6 @@ const allGuides = [
   guideLinux,
   guidePhoneHotspot,
   guideWindowsHotspot,
-  guideAppHotspot,
   guideLocalNetwork,
   guideKeepOpen,
   guideNotFound,
