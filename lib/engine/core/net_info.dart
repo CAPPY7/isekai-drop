@@ -161,3 +161,27 @@ Future<List<LocalNet>> dartLocalNets() async {
   final b = raw['binding'];
   return (nets: out, binding: b is String ? b : null);
 }
+
+/// Addresses "Search this network" tries on [n]: every host of its subnet,
+/// but at most the /24 around this device (254 addresses), and only on
+/// private networks (home Wi-Fi, phone hotspots, Windows Mobile Hotspot).
+List<String> scanTargets(LocalNet n) {
+  final o = _octets(n.ip);
+  if (o == null || !isPrivateIPv4(n.ip)) return const [];
+  var prefix = n.prefix ?? 24;
+  if (prefix < 24) prefix = 24;
+  if (prefix > 30) return const [];
+  final v = (o[0] << 24) | (o[1] << 16) | (o[2] << 8) | o[3];
+  final mask = (0xFFFFFFFF << (32 - prefix)) & 0xFFFFFFFF;
+  final base = v & mask;
+  final count = 1 << (32 - prefix);
+  final out = <String>[];
+  for (var i = 1; i < count - 1; i++) {
+    final a = base + i;
+    if (a == v) continue;
+    out.add(
+      '${(a >> 24) & 255}.${(a >> 16) & 255}.${(a >> 8) & 255}.${a & 255}',
+    );
+  }
+  return out;
+}

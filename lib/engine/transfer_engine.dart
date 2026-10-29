@@ -47,6 +47,12 @@ abstract class TransferEngine implements Listenable {
   Future<List<LocalNet>> localNets();
 
   List<NearbyDevice> get nearby;
+
+  /// "Search this network": tries every address on this device's local
+  /// networks. For routers/hotspots that block discovery packets.
+  bool get scanning;
+  int? get lastScanFound;
+  Future<int> scanNetwork();
   List<TrustedDevice> get trustedDevices;
 
   /// Audit #5: non-null when damaged trusted-device data was skipped.

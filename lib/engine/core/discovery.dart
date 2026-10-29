@@ -117,6 +117,7 @@ class Discovery {
               seenAt: DateTime.now(),
             ),
           );
+          _replyTo(d.address);
         } catch (_) {
           // Ignore malformed packets.
         }
@@ -130,6 +131,27 @@ class Discovery {
       counters.udpBound = false;
       error = 'Discovery unavailable on this network';
     }
+  }
+
+  final Map<String, DateTime> _replied = {};
+
+  /// Answers an announcement directly (unicast, max once per 10 s per
+  /// address). Then a device whose own broadcasts are lost (some phone
+  /// hotspots, some routers) still learns about us. Phase 9.
+  void _replyTo(InternetAddress to) {
+    final s = _socket;
+    final p = _payload;
+    if (s == null || p == null) return;
+    if (shouldAnnounce != null && !shouldAnnounce!()) return;
+    final now = DateTime.now();
+    final last = _replied[to.address];
+    if (last != null && now.difference(last).inSeconds < 10) return;
+    if (_replied.length > 256) _replied.clear();
+    _replied[to.address] = now;
+    final bytes = utf8.encode(
+      jsonEncode({'app': 'isekai-drop', 'v': 1, ...p()}),
+    );
+    _sendAll(s, [to], bytes);
   }
 
   void announce() {
