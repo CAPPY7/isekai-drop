@@ -137,7 +137,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     if (dev == null || job.sources.isEmpty) return;
     final id = transferIdFor(dev.fingerprint, job.sources);
     if (job.state != JobState.failed || job.refusedByPeer) {
-      unawaited(store.remove(id));
+      _keep(store.remove(id));
       return;
     }
     final enc = <Map<String, dynamic>>[];
@@ -146,7 +146,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       if (m == null) return;
       enc.add(m);
     }
-    unawaited(
+    _keep(
       store.put(
         PendingSend(
           id: id,
@@ -262,7 +262,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     final h = history;
     if (h != null) {
       final now = DateTime.now().toUtc();
-      unawaited(
+      _keep(
         h.add(
           HistoryEntry(
             id: job.id,
@@ -432,12 +432,25 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     }
     _pruneTimer ??= Timer.periodic(const Duration(seconds: 5), (_) {
       final before = _nearby.length;
+      final now = DateTime.now();
       _nearby.removeWhere(
-        (_, d) => DateTime.now().difference(d.seenAt).inSeconds > 30,
+        (k, d) =>
+            now.difference(d.seenAt).inSeconds > 30 &&
+            !(_keepUntil[k]?.isAfter(now) ?? false),
       );
       if (_nearby.length != before) notifyListeners();
     });
     notifyListeners();
+  }
+
+  /// Saves started in the background (history, addresses, pending sends).
+  /// [stop] waits for them, so nothing writes into a folder after stop.
+  final Set<Future<void>> _bg = {};
+
+  void _keep(Future<void> f) {
+    final g = f.catchError((Object _) {});
+    _bg.add(g);
+    g.whenComplete(() => _bg.remove(g));
   }
 
   @override
@@ -447,6 +460,123 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     _discovery?.stop();
     await _server?.close();
     _server = null;
+    // Let sessions that are just ending finish their own saves (max 2 s).
+    final until = DateTime.now().add(const Duration(seconds: 2));
+    while (_sessions > 0 && DateTime.now().isBefore(until)) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+    while (_bg.isNotEmpty) {
+      await Future.wait(_bg.toList())
+          .timeout(const Duration(seconds: 5), onTimeout: () => const []);
+      if (DateTime.now().isAfter(until.add(const Duration(seconds: 5)))) break;
+    }
+  }
+
+  // ------------------------------------------------------- network search
+
+  bool _scanning = false;
+  int? _lastScanFound;
+  final Map<String, DateTime> _keepUntil = {};
+
+  @override
+  bool get scanning => _scanning;
+  @override
+  int? get lastScanFound => _lastScanFound;
+
+  /// Asks one address "are you Isekai Drop?" (TLS, no client key). Returns
+  /// what it says about itself, or null. Untrusted, like an announcement:
+  /// the fingerprint comes from the TLS certificate, not from the answer.
+  Future<Announcement?> probe(
+    String host,
+    int port, {
+    Duration timeout = const Duration(milliseconds: 1500),
+  }) async {
+    SecureSocket? s;
+    FrameReader? r;
+    try {
+      return await () async {
+        s = await SecureSocket.connect(
+          host,
+          port,
+          context: _ownContext(withCert: false),
+          onBadCertificate: (_) => true,
+          timeout: timeout,
+        );
+        final sock = s!;
+        final cert = sock.peerCertificate;
+        if (cert == null) return null;
+        final fp = fingerprintOfDer(cert.der);
+        if (fp == identity.fingerprint) return null;
+        unawaited(sock.done.then((_) {}, onError: (_) {}));
+        sock.add(jsonFrame({'t': 'info', 'v': kProtocolVersion}));
+        r = FrameReader(sock);
+        final m = await r!.nextJson(timeout);
+        final id = m['device_id'];
+        if (m['t'] != 'info' || id is! String || id.isEmpty) return null;
+        return Announcement(
+          deviceId: id,
+          name: _cleanName(m['name']),
+          platform: _cleanName(m['platform']),
+          port: m['port'] is int ? m['port'] as int : port,
+          fingerprint: fp,
+          host: host,
+          seenAt: DateTime.now(),
+        );
+      }().timeout(timeout * 2);
+    } catch (_) {
+      return null;
+    } finally {
+      s?.destroy();
+      try {
+        await r?.cancel();
+      } catch (_) {}
+    }
+  }
+
+  /// Searches this device's Wi-Fi/hotspot/cable networks address by
+  /// address (max 254 per network). Works where the router or hotspot
+  /// blocks discovery packets. Returns how many devices answered.
+  @override
+  Future<int> scanNetwork({int? port, int parallel = 64}) async {
+    // Part of discovery: engines built without it (tests, embedded use)
+    // never touch the real network.
+    if (_scanning || !enableDiscovery) return 0;
+    _scanning = true;
+    notifyListeners();
+    var found = 0;
+    try {
+      final nets = await localNets();
+      final own = {for (final n in nets) n.ip};
+      final targets = <String>{};
+      for (final n in nets.take(3)) {
+        targets.addAll(scanTargets(n));
+      }
+      targets.removeAll(own);
+      final list = targets.toList();
+      var next = 0;
+      Future<void> worker() async {
+        while (next < list.length && _server != null) {
+          final h = list[next++];
+          final a = await probe(h, port ?? kDefaultPort);
+          if (a != null && a.deviceId != identity.deviceId) {
+            found++;
+            _keepUntil[a.deviceId] = DateTime.now().add(
+              const Duration(minutes: 5),
+            );
+            _onFound(a);
+          }
+        }
+      }
+
+      await Future.wait([for (var k = 0; k < parallel; k++) worker()]);
+    } catch (e) {
+      recordException('network_search', e);
+    } finally {
+      _scanning = false;
+      _lastScanFound = found;
+      notifyListeners();
+    }
+    return found;
   }
 
   void _onFound(Announcement a) {
@@ -590,6 +720,23 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       endHandshake();
       stage = 'incoming_session';
       final peerCert = s.peerCertificate;
+      // "Are you Isekai Drop?" from Search this network. Says only what
+      // UDP announcements say anyway, and nothing when not visible.
+      if (first['t'] == 'info') {
+        if (visible()) {
+          s.add(
+            jsonFrame({
+              't': 'info',
+              'v': kProtocolVersion,
+              'device_id': identity.deviceId,
+              'name': deviceName(),
+              'platform': platformName,
+              'port': _server?.port,
+            }),
+          );
+        }
+        return;
+      }
       // Pairing: the client says hello at once, then its user compares the
       // code (can take a while). Only one such slow wait at a time.
       if (peerCert == null && first['t'] == 'pair_hello') {
@@ -681,7 +828,16 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     }
     _pairingOpen = true;
     try {
-      await _serverPairingAsk(s, peerId, name, platform, certPem, peerFp);
+      final pp = m['port'];
+      await _serverPairingAsk(
+        s,
+        peerId,
+        name,
+        platform,
+        certPem,
+        peerFp,
+        peerPort: pp is int && pp > 0 && pp < 65536 ? pp : null,
+      );
     } finally {
       _pairingOpen = false;
     }
@@ -696,8 +852,9 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     String name,
     String platform,
     String certPem,
-    String peerFp,
-  ) async {
+    String peerFp, {
+    int? peerPort,
+  }) async {
     final known = trust.byDeviceId(peerId);
     final req = PendingRequest(
       id: randomHex(8),
@@ -718,6 +875,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       platform: platform,
       certPem: certPem,
       host: s.remoteAddress.address,
+      port: peerPort,
     );
     s.add(
       jsonFrame({
@@ -1095,6 +1253,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           'name': deviceName(),
           'platform': platformName,
           'cert': identity.certPem,
+          'port': _server?.port,
         }),
       );
       await s.flush();
@@ -1247,11 +1406,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       s = await _connectTrusted(dev, host, port ?? kDefaultPort);
       final sock = s;
       // Authenticated by TLS (key matched): now it is safe to remember.
-      unawaited(
-        trust
-            .rememberAddress(dev.id, host, port ?? kDefaultPort)
-            .catchError((_) {}),
-      );
+      _keep(trust.rememberAddress(dev.id, host, port ?? kDefaultPort));
       reader = FrameReader(sock);
       job.onCancel = () {
         try {

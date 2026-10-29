@@ -51,7 +51,16 @@ class Node {
 
   Future<void> dispose() async {
     await engine.stop();
-    await root.delete(recursive: true);
+    // Windows/CI: a file handle can close a moment after stop().
+    for (var i = 0; ; i++) {
+      try {
+        await root.delete(recursive: true);
+        return;
+      } on FileSystemException {
+        if (i >= 20) rethrow;
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      }
+    }
   }
 
   List<String> inboxNames() => inbox.existsSync()

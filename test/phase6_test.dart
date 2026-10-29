@@ -85,7 +85,7 @@ class N {
     await engine.stop();
     // stop() does not wait for saves already in flight (history, trust,
     // resume state); under full-suite load one can still be writing here.
-    for (var i = 0;; i++) {
+    for (var i = 0; ; i++) {
       try {
         await root.delete(recursive: true);
         return;
