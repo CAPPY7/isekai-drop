@@ -19,7 +19,6 @@ import android.net.Uri
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Environment
-import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
 import android.provider.OpenableColumns
 import io.flutter.embedding.android.FlutterActivity
@@ -75,6 +74,10 @@ class MainActivity : FlutterActivity() {
     private var pendingPick: MethodChannel.Result? = null
     private var multicastLock: WifiManager.MulticastLock? = null
     private val io = Executors.newSingleThreadExecutor()
+    // Separate from [io] so sending never waits behind a Downloads export.
+    private val readIo = Executors.newSingleThreadExecutor()
+    private val readers = java.util.concurrent.ConcurrentHashMap<Int, java.io.InputStream>()
+    private val nextReader = java.util.concurrent.atomic.AtomicInteger(1)
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -82,10 +85,15 @@ class MainActivity : FlutterActivity() {
         channel!!.setMethodCallHandler { call, result ->
                 when (call.method) {
                     "pickFiles" -> pickFiles(result)
-                    "openFd" -> openFd(call.argument<String>("uri")!!, result)
-                    "closeFd" -> {
+                    // 0.9.1: picked files are read through a Java stream
+                    // (ContentResolver). Re-opening "/proc/self/fd/N" from
+                    // Dart fails on Android 11+ scoped storage (EACCES),
+                    // which made every send fail at 0%.
+                    "openRead" -> openRead(call.argument<String>("uri")!!, result)
+                    "readChunk" -> readChunk(call.argument<Int>("id")!!, call.argument<Int>("max")!!, result)
+                    "closeRead" -> {
                         try {
-                            ParcelFileDescriptor.adoptFd(call.argument<Int>("fd")!!).close()
+                            readers.remove(call.argument<Int>("id")!!)?.close()
                         } catch (_: Exception) {
                         }
                         result.success(null)
@@ -325,16 +333,45 @@ class MainActivity : FlutterActivity() {
         result.success(out)
     }
 
-    private fun openFd(uri: String, result: MethodChannel.Result) {
-        try {
-            val pfd = contentResolver.openFileDescriptor(Uri.parse(uri), "r")
-            if (pfd == null) {
-                result.error("open_failed", "Could not open file", null)
-                return
+    private fun openRead(uri: String, result: MethodChannel.Result) {
+        readIo.execute {
+            try {
+                val ins = contentResolver.openInputStream(Uri.parse(uri))
+                    ?: throw java.io.IOException("no stream")
+                val id = nextReader.getAndIncrement()
+                readers[id] = ins
+                runOnUiThread { result.success(id) }
+            } catch (e: SecurityException) {
+                runOnUiThread { result.error("no_permission", "No permission to read the file", null) }
+            } catch (e: java.io.FileNotFoundException) {
+                runOnUiThread { result.error("not_found", "File not found", null) }
+            } catch (e: Exception) {
+                runOnUiThread { result.error("open_failed", e.javaClass.simpleName, null) }
             }
-            result.success(pfd.detachFd())
-        } catch (e: Exception) {
-            result.error("open_failed", "Could not open file", null)
+        }
+    }
+
+    /** Reads up to [max] bytes (fewer only at the end). Empty = end of file. */
+    private fun readChunk(id: Int, max: Int, result: MethodChannel.Result) {
+        readIo.execute {
+            val ins = readers[id]
+            if (ins == null) {
+                runOnUiThread { result.error("closed", "Reader closed", null) }
+                return@execute
+            }
+            try {
+                val buf = ByteArray(max.coerceIn(4096, 4 * 1024 * 1024))
+                var n = 0
+                while (n < buf.size) {
+                    val r = ins.read(buf, n, buf.size - n)
+                    if (r < 0) break
+                    n += r
+                }
+                val out = if (n == buf.size) buf else buf.copyOf(n)
+                runOnUiThread { result.success(out) }
+            } catch (e: Exception) {
+                runOnUiThread { result.error("read_failed", e.javaClass.simpleName, null) }
+            }
         }
     }
 

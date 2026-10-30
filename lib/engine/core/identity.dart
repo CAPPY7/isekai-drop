@@ -39,8 +39,12 @@ class Identity {
     createdAt: DateTime.parse(j['created_at'] as String),
   );
 
-  /// Creates a brand-new identity. Certificate valid for 10 years.
-  static Identity generate({String? deviceId}) {
+  /// Creates a brand-new identity. Certificate valid for about 10 years.
+  ///
+  /// 0.9.1: "valid from" is set 2 days in the past. With "now", a phone
+  /// whose clock was a little behind refused the certificate of a freshly
+  /// installed peer (not yet valid) - pairing worked, sending did not.
+  static Identity generate({String? deviceId, DateTime? notBefore}) {
     final pair = CryptoUtils.generateEcKeyPair(curve: 'prime256v1');
     final priv = pair.privateKey as ECPrivateKey;
     final pub = pair.publicKey as ECPublicKey;
@@ -49,7 +53,13 @@ class Identity {
       priv,
       pub,
     );
-    final cert = X509Utils.generateSelfSignedCertificate(priv, csr, 3650);
+    final cert = X509Utils.generateSelfSignedCertificate(
+      priv,
+      csr,
+      3652,
+      notBefore:
+          notBefore ?? DateTime.now().toUtc().subtract(const Duration(days: 2)),
+    );
     return Identity(
       deviceId: deviceId ?? randomHex(16),
       certPem: cert,

@@ -337,20 +337,32 @@ class AndroidUriSource extends SendSource {
   final String name;
   @override
   final int size;
-  int? _fd;
+  int? _rid;
 
+  /// 0.9.1 root-cause fix: the file is read in Kotlin through
+  /// ContentResolver.openInputStream and passed over in 512 KiB chunks.
+  /// Before, Dart re-opened "/proc/self/fd/N", which Android 11+ refuses
+  /// for picked files (scoped storage), so every send failed at 0%.
   @override
-  Stream<List<int>> open() async* {
-    final fd = await _android.invokeMethod<int>('openFd', {'uri': uri});
-    _fd = fd;
-    yield* File('/proc/self/fd/$fd').openRead();
-  }
+  Stream<List<int>> open() => chunkedPlatformRead(
+    openId: () async =>
+        (await _android.invokeMethod<int>('openRead', {'uri': uri}))!,
+    read: (id) => _android.invokeMethod<Uint8List>('readChunk', {
+      'id': id,
+      'max': 512 * 1024,
+    }),
+    onOpened: (id) => _rid = id,
+  );
 
   @override
   Future<void> close() async {
-    final fd = _fd;
-    _fd = null;
-    if (fd != null) await _android.invokeMethod('closeFd', {'fd': fd});
+    final id = _rid;
+    _rid = null;
+    if (id != null) {
+      try {
+        await _android.invokeMethod('closeRead', {'id': id});
+      } catch (_) {}
+    }
   }
 }
 

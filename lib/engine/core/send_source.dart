@@ -73,3 +73,59 @@ Future<List<SendSource>> folderSources(Directory dir) async {
   out.sort((a, b) => a.relativePath.compareTo(b.relativePath));
   return out;
 }
+
+/// Reading the file on THIS device failed (not a network problem).
+class SourceReadException implements Exception {
+  const SourceReadException(this.reason);
+
+  /// Short class only ("no_permission", "not_found", ...). No paths.
+  final String reason;
+  @override
+  String toString() => 'SourceReadException($reason)';
+}
+
+/// Streams a file from a platform reader in chunks: [openId] opens it,
+/// [read] returns the next chunk (empty = end). One read is always in
+/// flight ahead, so the network is not idle while the next chunk loads.
+/// Every failure is reported as [SourceReadException].
+Stream<List<int>> chunkedPlatformRead({
+  required Future<int> Function() openId,
+  required Future<List<int>?> Function(int id) read,
+  required void Function(int id) onOpened,
+}) async* {
+  int id;
+  try {
+    id = await openId();
+  } on SourceReadException {
+    rethrow;
+  } catch (e) {
+    throw SourceReadException(_reasonOf(e));
+  }
+  onOpened(id);
+  Future<List<int>?> next() => read(id)..ignore();
+  var pending = next();
+  while (true) {
+    List<int>? chunk;
+    try {
+      chunk = await pending;
+    } catch (e) {
+      throw SourceReadException(_reasonOf(e));
+    }
+    if (chunk == null || chunk.isEmpty) return;
+    pending = next();
+    yield chunk;
+  }
+}
+
+String _reasonOf(Object e) {
+  final s = e.toString();
+  for (final r in const [
+    'no_permission',
+    'not_found',
+    'read_failed',
+    'closed',
+  ]) {
+    if (s.contains(r)) return r;
+  }
+  return 'open_failed';
+}
