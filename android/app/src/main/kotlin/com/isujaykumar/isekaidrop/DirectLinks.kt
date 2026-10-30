@@ -80,6 +80,19 @@ class DirectLinks(
      *  normal "Wi-Fi without internet" binding must not change it. */
     val ownsBinding: Boolean get() = boundNetwork != null
 
+    /** Link speeds of a joined Wi-Fi network (Android 12+; tx/rx need the same). */
+    private fun linkOf(n: Network): Map<String, Int?> {
+        if (Build.VERSION.SDK_INT < 31) return emptyMap()
+        val wi = try { cm.getNetworkCapabilities(n)?.transportInfo as? WifiInfo } catch (_: Exception) { null }
+            ?: return emptyMap()
+        return mapOf(
+            "mbps" to wi.linkSpeed.takeIf { it > 0 },
+            "mhz" to wi.frequency.takeIf { it > 0 },
+            "txMbps" to wi.txLinkSpeedMbps.takeIf { it > 0 },
+            "rxMbps" to wi.rxLinkSpeedMbps.takeIf { it > 0 },
+        )
+    }
+
     private fun hasP2p(): Boolean =
         p2p != null && activity.packageManager.hasSystemFeature(PackageManager.FEATURE_WIFI_DIRECT)
 
@@ -104,6 +117,8 @@ class DirectLinks(
                 "stopHost" -> { stopHost(); result.success(true) }
                 "join" -> join(call, Once(result))
                 "leave" -> { leave(); result.success(true) }
+                // 0.10.1 Speed test: current speeds of the joined link (no names).
+                "linkNow" -> result.success(boundNetwork?.let { linkOf(it) } ?: emptyMap<String, Int?>())
                 else -> result.notImplemented()
             }
         } catch (e: SecurityException) {
@@ -504,13 +519,9 @@ class DirectLinks(
                     boundNetwork = n
                     val lp = try { cm.getLinkProperties(n) } catch (_: Exception) { null }
                     val ip = lp?.linkAddresses?.map { it.address }?.filterIsInstance<Inet4Address>()?.firstOrNull()?.hostAddress
-                    var mbps: Int? = null
-                    var freq: Int? = null
-                    if (Build.VERSION.SDK_INT >= 31) {
-                        val wi = try { cm.getNetworkCapabilities(n)?.transportInfo as? WifiInfo } catch (_: Exception) { null }
-                        if (wi != null) { mbps = wi.linkSpeed.takeIf { it > 0 }; freq = wi.frequency.takeIf { it > 0 } }
-                    }
-                    out.ok(mapOf("localIp" to ip, "mbps" to mbps, "mhz" to freq, "iface" to lp?.interfaceName))
+                    val li = linkOf(n)
+                    out.ok(mapOf("localIp" to ip, "mbps" to li["mbps"], "mhz" to li["mhz"],
+                        "txMbps" to li["txMbps"], "rxMbps" to li["rxMbps"], "iface" to lp?.interfaceName))
                 }
             }
             override fun onUnavailable() {

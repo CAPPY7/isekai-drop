@@ -323,10 +323,21 @@ String explainDirectError(String code) => switch (code) {
 
 /// Result of joining a direct link.
 class DirectJoin {
-  const DirectJoin({this.localIp, this.frequencyMhz, this.linkMbps});
+  const DirectJoin({
+    this.localIp,
+    this.frequencyMhz,
+    this.linkMbps,
+    this.txMbps,
+    this.rxMbps,
+  });
   final String? localIp;
   final int? frequencyMhz;
   final int? linkMbps;
+
+  /// 0.10.1: send/receive link speed of the joined link (Android 10+), if
+  /// the system reports it.
+  final int? txMbps;
+  final int? rxMbps;
 }
 
 abstract class DirectLinkPlatform {

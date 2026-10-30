@@ -124,6 +124,8 @@ class AndroidDirectLinks implements DirectLinkPlatform {
       localIp: m['localIp'] as String?,
       frequencyMhz: pos(m['mhz']) ?? link.frequencyMhz,
       linkMbps: pos(m['mbps']),
+      txMbps: pos(m['txMbps']),
+      rxMbps: pos(m['rxMbps']),
     );
   }
 

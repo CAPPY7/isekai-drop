@@ -156,6 +156,12 @@ class MainActivity : FlutterActivity() {
                     }
                     "folderExists" -> folderExists(call.argument<String>("name")!!, result)
                     "networkInfo" -> result.success(networkInfo())
+                    // 0.10.1 Speed test: write zeros into Downloads, then delete.
+                    "speedWriteDownloads" -> speedWriteDownloads(
+                        (call.argument<Number>("bytes") ?: 0).toLong(),
+                        (call.argument<Number>("limitMs") ?: 15000).toLong(),
+                        result,
+                    )
                     "keepScreenOn" -> {
                         val on = call.argument<Boolean>("on") == true
                         if (on) {
@@ -533,6 +539,53 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    /** 0.10.1 Speed test: how fast a file can be written where received files
+     *  are saved (MediaStore Downloads), with the same 1 MiB pieces the save
+     *  copy uses. Writes zeros only and deletes the test file at once. */
+    private fun speedWriteDownloads(bytes: Long, limitMs: Long, result: MethodChannel.Result) {
+        io.execute {
+            var uri: android.net.Uri? = null
+            var legacy: File? = null
+            try {
+                val buf = ByteArray(1 shl 20)
+                val out: java.io.OutputStream
+                if (Build.VERSION.SDK_INT >= 29) {
+                    val values = ContentValues().apply {
+                        put(MediaStore.Downloads.DISPLAY_NAME, "isekai-speed-test.tmp")
+                        put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/Isekai Drop")
+                        put(MediaStore.Downloads.IS_PENDING, 1)
+                    }
+                    uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                        ?: throw IllegalStateException("insert failed")
+                    out = contentResolver.openOutputStream(uri)!!
+                } else {
+                    val f = File(legacyBase(), ".isekai-speed-test.tmp")
+                    f.parentFile?.mkdirs()
+                    legacy = f
+                    out = f.outputStream()
+                }
+                val t0 = System.nanoTime()
+                val deadline = t0 + limitMs * 1_000_000L
+                var n = 0L
+                out.use {
+                    while (n < bytes && System.nanoTime() < deadline) {
+                        val k = minOf(buf.size.toLong(), bytes - n).toInt()
+                        it.write(buf, 0, k)
+                        n += k
+                    }
+                    it.flush()
+                }
+                val micros = (System.nanoTime() - t0) / 1000
+                runOnUiThread { result.success(mapOf("bytes" to n, "micros" to micros)) }
+            } catch (e: Exception) {
+                runOnUiThread { result.error("speed_write_failed", e.javaClass.simpleName, null) }
+            } finally {
+                try { uri?.let { contentResolver.delete(it, null, null) } } catch (_: Exception) {}
+                try { legacy?.delete() } catch (_: Exception) {}
+            }
+        }
+    }
+
     // ------------------------------------------------------------ folders
 
     private fun pickFolder(result: MethodChannel.Result) {
@@ -645,6 +698,11 @@ class MainActivity : FlutterActivity() {
             if (info != null && info.linkSpeed > 0) {
                 out["linkMbps"] = info.linkSpeed
                 out["frequencyMhz"] = info.frequency
+                // 0.10.1: send/receive link speeds (Android 10+).
+                if (Build.VERSION.SDK_INT >= 29) {
+                    if (info.txLinkSpeedMbps > 0) out["txMbps"] = info.txLinkSpeedMbps
+                    if (info.rxLinkSpeedMbps > 0) out["rxMbps"] = info.rxLinkSpeedMbps
+                }
             }
         } catch (_: Exception) {
         }
