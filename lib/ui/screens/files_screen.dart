@@ -12,9 +12,17 @@ import '../widgets/discovery_hint.dart';
 import 'transfer_screen.dart';
 
 class FilesScreen extends StatefulWidget {
-  const FilesScreen({super.key, required this.isDesktop});
+  const FilesScreen({
+    super.key,
+    required this.isDesktop,
+    this.initialFiles = const [],
+  });
 
   final bool isDesktop;
+
+  /// Files already in step 1 (tests; the pickers need a real platform).
+  @visibleForTesting
+  final List<SendSource> initialFiles;
 
   @override
   State<FilesScreen> createState() => _FilesScreenState();
@@ -28,6 +36,12 @@ class _FilesScreenState extends State<FilesScreen> {
   String? _targetId;
 
   int get _total => _files.fold(0, (a, f) => a + f.size);
+
+  @override
+  void initState() {
+    super.initState();
+    _files.addAll(widget.initialFiles);
+  }
 
   Future<void> _pick() async {
     setState(() {

@@ -29,6 +29,7 @@ class SettingsController extends ChangeNotifier {
   static const _kName = 'device_name';
   static const _kNameByUser = 'device_name_by_user';
   static const _kRoute = 'route_mode';
+  static const _kOnboarding = 'onboarding_done';
 
   /// Route choices (0.11.0).
   static const routeAuto = 'auto';
@@ -93,6 +94,14 @@ class SettingsController extends ChangeNotifier {
   String get routeMode {
     final v = _prefs.getString(_kRoute);
     return routeModes.contains(v) ? v! : routeAuto;
+  }
+
+  /// 0.11.0 (spec A8): the 3-slide intro was seen or skipped.
+  bool get onboardingDone => _prefs.getBool(_kOnboarding) ?? false;
+
+  Future<void> markOnboardingDone() async {
+    await _prefs.setBool(_kOnboarding, true);
+    notifyListeners();
   }
 
   Future<void> setRouteMode(String v) async {

@@ -7,6 +7,8 @@ import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
 import '../widgets/device_widgets.dart';
 import '../widgets/discovery_hint.dart';
+import '../widgets/wifi_band.dart';
+import '../../engine/platform_engine.dart' show ConnectionInfo;
 import 'transfer_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -15,7 +17,11 @@ class HomeScreen extends StatelessWidget {
     required this.onSend,
     required this.onConnect,
     required this.onTrusted,
+    this.networkLoad,
   });
+
+  /// For tests (see [NetworkStatusLine]).
+  final Future<ConnectionInfo> Function()? networkLoad;
 
   final VoidCallback onSend;
   final VoidCallback onConnect;
@@ -30,6 +36,8 @@ class HomeScreen extends StatelessWidget {
         final ready = engine.startError == null && engine.listeningPort != null;
         return PageBody(
           children: [
+            // 0.11.0 (spec B10): network status first.
+            NetworkStatusLine(load: networkLoad),
             Container(
               padding: const EdgeInsets.all(IdSpacing.lg),
               decoration: BoxDecoration(

@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import 'engine/transfer_engine.dart';
 import 'settings/settings_controller.dart';
 import 'ui/app_scope.dart';
+import 'ui/screens/onboarding_screen.dart';
 import 'ui/shell.dart';
 import 'ui/theme/app_theme.dart';
 
@@ -11,10 +14,15 @@ class IsekaiDropApp extends StatelessWidget {
     super.key,
     required this.engine,
     required this.settings,
+    this.showOnboarding,
   });
 
   final TransferEngine engine;
   final SettingsController settings;
+
+  /// Show the first-run intro (spec A8) until it was seen once. Off in
+  /// widget tests unless a test asks for it.
+  final bool? showOnboarding;
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +37,12 @@ class IsekaiDropApp extends StatelessWidget {
           theme: AppTheme.light(),
           darkTheme: AppTheme.dark(),
           themeMode: settings.themeMode,
-          home: const AppShell(),
+          home:
+              (showOnboarding ??
+                      !Platform.environment.containsKey('FLUTTER_TEST')) &&
+                  !settings.onboardingDone
+              ? OnboardingScreen(onDone: settings.markOnboardingDone)
+              : const AppShell(),
         ),
       ),
     );

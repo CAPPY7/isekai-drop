@@ -448,10 +448,10 @@ class BenchmarkScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: IdSpacing.md),
                     if (runs.isEmpty)
-                      const StateMessage(
+                      const EmptyLine(
                         icon: Icons.speed,
-                        title: 'No runs yet',
-                        message:
+                        text: 'No runs yet',
+                        info:
                             'After a completed transfer, tap "Save as benchmark run". '
                             'For LocalSend, use "Add run timed by hand".',
                       ),

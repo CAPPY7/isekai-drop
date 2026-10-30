@@ -202,10 +202,13 @@ class TrustedDevicesScreen extends StatelessWidget {
                 ),
               ),
             if (engine.trustedDevices.isEmpty)
-              const StateMessage(
+              // 0.11.0 (spec A1): one line, not a whole card.
+              const EmptyLine(
                 icon: Icons.shield_outlined,
-                title: 'No trusted devices',
-                message: 'Devices you pair and approve will appear here.',
+                text: 'No trusted devices yet',
+                info:
+                    'Devices you pair and approve will appear here. '
+                    'Pair one in the Connect tab.',
               ),
             for (final d in engine.trustedDevices)
               Card(

@@ -200,7 +200,11 @@ class _AppShellState extends State<AppShell> {
                     ]
                   : [
                       Text(
-                        '${r.fileNames.length} file(s), ${formatBytes(r.totalBytes)} from trusted device "${r.peerName}".',
+                        '${r.fileNames.length} file(s) · ${formatBytes(r.totalBytes)}',
+                        style: Theme.of(c).textTheme.titleMedium,
+                      ),
+                      Text(
+                        'From trusted ${platformLabel(r.peerPlatform)} device "${r.peerName}".',
                       ),
                       const SizedBox(height: IdSpacing.sm),
                       if (r.resumeBytes > 0)
@@ -214,14 +218,40 @@ class _AppShellState extends State<AppShell> {
                     ],
             ),
           ),
+          // 0.11.0 (spec C12): big, well separated Accept / Decline.
+          actionsPadding: const EdgeInsets.fromLTRB(
+            IdSpacing.lg,
+            0,
+            IdSpacing.lg,
+            IdSpacing.lg,
+          ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(c, false),
-              child: const Text('Decline'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(c, true),
-              child: const Text('Accept'),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    key: const ValueKey('request-decline'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 56),
+                    ),
+                    onPressed: () => Navigator.pop(c, false),
+                    icon: const Icon(Icons.close),
+                    label: const Text('Decline'),
+                  ),
+                ),
+                const SizedBox(width: IdSpacing.md),
+                Expanded(
+                  child: FilledButton.icon(
+                    key: const ValueKey('request-accept'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(0, 56),
+                    ),
+                    onPressed: () => Navigator.pop(c, true),
+                    icon: const Icon(Icons.check),
+                    label: const Text('Accept'),
+                  ),
+                ),
+              ],
             ),
           ],
         );

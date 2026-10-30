@@ -63,10 +63,11 @@ class HistoryScreen extends StatelessWidget {
             ),
             const SizedBox(height: IdSpacing.md),
             if (list.isEmpty)
-              const StateMessage(
+              // 0.11.0 (spec A1): one line, not a whole card.
+              const EmptyLine(
                 icon: Icons.history,
-                title: 'No transfers yet',
-                message: 'Finished transfers will be listed here.',
+                text: 'No transfers yet',
+                info: 'Finished transfers will be listed here.',
               ),
             for (final t in list)
               Card(

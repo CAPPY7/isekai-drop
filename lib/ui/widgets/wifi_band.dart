@@ -77,3 +77,101 @@ class _WifiBandLineState extends State<WifiBandLine> {
     );
   }
 }
+
+/// 0.11.0 (spec B10): short network status for the top of Home, e.g.
+/// "Wi-Fi · 5 GHz", "Ethernet", or a warning with what to do.
+/// Returns (text, isProblem, icon).
+(String, bool, IconData) networkStatus(ConnectionInfo i) {
+  final m = i.method;
+  if (m.startsWith('No network')) {
+    return (
+      'No network - connect to the same Wi-Fi as the other device',
+      true,
+      Icons.wifi_off,
+    );
+  }
+  if (m.startsWith('Mobile data')) {
+    return (
+      'Mobile data only - connect to Wi-Fi to send',
+      true,
+      Icons.signal_cellular_alt,
+    );
+  }
+  if (i.ethernet) return ('Ethernet', false, Icons.settings_ethernet);
+  if (m.contains('hotspot')) {
+    return ('Sharing a hotspot', false, Icons.wifi_tethering);
+  }
+  final band = wifiBandLabel(i.frequencyMhz);
+  if (band != null) {
+    return isSlowWifiBand(i.frequencyMhz)
+        ? (
+            'Wi-Fi · 2.4 GHz - slower; use 5 GHz if you can',
+            true,
+            Icons.wifi_2_bar,
+          )
+        : ('Wi-Fi · $band', false, Icons.wifi);
+  }
+  if (m.startsWith('Wi-Fi network')) return ('Wi-Fi', false, Icons.wifi);
+  return ('Connected to a network', false, Icons.lan_outlined);
+}
+
+class NetworkStatusLine extends StatefulWidget {
+  const NetworkStatusLine({super.key, this.load});
+
+  /// For tests. Null: the platform (not read under `flutter test`).
+  final Future<ConnectionInfo> Function()? load;
+
+  @override
+  State<NetworkStatusLine> createState() => _NetworkStatusLineState();
+}
+
+class _NetworkStatusLineState extends State<NetworkStatusLine> {
+  ConnectionInfo? _info;
+
+  @override
+  void initState() {
+    super.initState();
+    final load =
+        widget.load ??
+        (Platform.environment.containsKey('FLUTTER_TEST')
+            ? null
+            : readConnectionInfo);
+    load?.call().then((i) {
+      if (mounted) setState(() => _info = i);
+    }, onError: (_) {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final i = _info;
+    if (i == null) return const SizedBox.shrink();
+    final (text, problem, icon) = networkStatus(i);
+    final color = problem
+        ? idStatus(context).warning
+        : Theme.of(context).colorScheme.onSurfaceVariant;
+    return Semantics(
+      container: true,
+      label: 'Network: $text',
+      excludeSemantics: true,
+      child: Padding(
+        key: const ValueKey('network-status'),
+        padding: const EdgeInsets.only(bottom: IdSpacing.sm),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: IdSpacing.sm),
+            Expanded(
+              child: Text(
+                text,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: color,
+                  fontWeight: problem ? FontWeight.w600 : null,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
