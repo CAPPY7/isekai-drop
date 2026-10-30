@@ -124,6 +124,16 @@ Owner on 0.9.0: "Matching the device is still buggy and not user friendly it sho
 - [x] Tests: test/one_tap_test.dart (11), netns e2e one-tap + both directions, 12-14.5 MB
 - [ ] Real phones (NOT TESTED)
 
+## Phase 7g - Speed (0.9.2)
+Owner on 0.9.1: "Speed is only 6-10 MB/s mostly 6 I said I wanted 60-70" (OnePlus 8 + OnePlus 9, Wi-Fi 6 router with 2.4 + 5 GHz).
+- [x] Stage bench + two-process e2e on the box (docs/BENCHMARK_SPEED_0.9.2.md)
+- [x] Android reads 4 MiB on a background TaskQueue, 2 in flight; native SHA-256 on both sides (integrity kept)
+- [x] 256 KiB data frames, sparser progress samples, Wi-Fi high-perf lock (API < 34)
+- [x] Wi-Fi band + link speed in Transfer/Diagnostics, "Use 5 GHz" hint on 2.4 GHz
+- [x] Rejected by measurement: overlapped receive writer (slower)
+- [ ] Measure on the real phones (5 GHz vs 2.4 GHz) (NOT TESTED)
+- [ ] Direct link for >36 MB/s: Wi-Fi Direct or local-only hotspot (one air hop instead of two) - idea, not started
+
 ## Phase 8 - Fix security, compatibility, performance, usability
 - [ ] Security tests for all acceptance tests
 - [ ] Real release key (never committed)

@@ -8,7 +8,7 @@ Report on 0.9.1: OnePlus 8 -> OnePlus 9 on the same Wi-Fi gets 6-10 MB/s.
 - **Native SHA-256 on Android**: the integrity check stays, but it now uses the phone's built-in SHA-256 instead of a slow Dart version (Dart SHA-256 was the slowest stage on the build box: ~117 MB/s vs ~1.9 GB/s native).
 - **Bigger network frames** (256 KiB) and less progress bookkeeping.
 - **Wi-Fi high-performance lock** during transfers (Android 13 and older; not used on Android 14+, see notes).
-- **Wi-Fi band shown** on the Transfer and Diagnostics screens (e.g. "5 GHz, 1201 Mbps"). On 2.4 GHz it says **"Use 5 GHz for best speed"**.
+- **Wi-Fi band shown** on the Transfer and Diagnostics screens (e.g. "Wi-Fi: 5 GHz, link 1201 Mbps"). On 2.4 GHz it says **"Use 5 GHz for best speed"**.
 - Box measurement (not phones): 512 MiB between two processes over real TLS, 57-59 MB/s (0.9.1) -> 63-64 MB/s (0.9.2 with native hashing).
 
 ### Honest speed note

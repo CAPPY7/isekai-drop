@@ -203,3 +203,10 @@ file before every phase. Stop after each phase and wait for "next".
 - Pairing is TOFU: pairing gives TRUSTED on both sides; VERIFIED only via QR or code check. Never downgrade a Verified device on re-pair (done at the call sites, not in TrustStore.addTrusted). Auto-receive stays Verified-only.
 - `pair_req.offer` + `_preApproved` (one-time, fingerprint + tid, `preApprovalTtl` 3 min) = one question for "pair and send". engine.sendToNearby / quickPair; UI pairing_flow.dart sendToNearbyFlow / startPairingFlow(peerName:), shell.dart "Accept NAME?" dialog.
 - e2e: default client mode is one-tap (`sendToNearby` to the unpaired peer); `E2E_MODE=classic` for the old path; `E2E_SEND_FILE2` (client) + `E2E_EXPECT2` (peer) add a send after pairing.
+
+## Phase 7g notes (2026-10-30, 0.9.2)
+- Speed: Dart package:crypto SHA-256 (~117 MB/s on x86 box) is the slowest stage. Android uses native hashing: MainActivity "isekai_drop/android_read" (openRead/readChunk returns bytes + running digest at EOF/readDigest/closeRead) and "isekai_drop/android_hash" (hashFile), both on background TaskQueues. Sources with `hashesItself` use _NoHasher; engine `fileDigest` hook makes the receiver hash the closed temp file natively. Never drop the integrity check.
+- kAndroidReadChunk 4 MiB, chunkedPlatformRead ahead=2 (keep reads serial on the Kotlin side). kDataFrameBytes 256 KiB < maxFrameLength 2 MiB.
+- Receive writes stay direct (`await out.writeFrom`): an overlapped writer was measured slower; do not re-add without a new measurement.
+- WifiLock HIGH_PERF only on SDK < 34 (API 34+ maps it to LOW_LATENCY, which may reduce throughput), held while keepScreenOn is on.
+- Bench: tool/bench_stages.dart, tool/bench/netns_run.sh (REPO=, E2E_NATIVE_HASH=1, delay arg), tool/bench/delay_proxy.py. The box is shared: interleave A/B runs.
