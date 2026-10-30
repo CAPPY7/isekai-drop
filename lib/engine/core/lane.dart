@@ -26,6 +26,17 @@ const int kLaneWriteBlock = 4 * 1024 * 1024;
 /// Bytes the sending side may have queued for its lane isolate.
 const int kLaneMaxInFlight = 16 * 1024 * 1024;
 
+/// 0.10.2: a lane can use several TCP connections ("streams"). The byte
+/// stream is cut into stripes of this size, sent round-robin: stripe k goes
+/// over connection k % streams, so the receiver can put them back in order
+/// without any extra header.
+const int kLaneStripeBytes = 1024 * 1024;
+
+/// Streams a 0.10.2 sender asks for (the receiver may answer fewer; older
+/// apps do not answer, which means 1).
+const int kLaneStreams = 4;
+const int kLaneMaxStreams = 8;
+
 /// Time to wait for the sender's lane connection.
 const Duration kLaneAcceptTimeout = Duration(seconds: 15);
 
@@ -101,8 +112,11 @@ String tuneSocketBuffers(Socket s, {int bytes = 4 * 1024 * 1024}) {
 
 /// Result of one file (or one speed-test stream) on a receiving lane.
 class LaneResult {
-  const LaneResult(this.bytes, this.micros, this.sha256);
+  const LaneResult(this.bytes, this.micros, this.sha256, [this.note]);
   final int bytes;
+
+  /// Socket facts of the receiving side (buffer sizes, streams).
+  final String? note;
 
   /// From the first to the last byte (speed tests).
   final int micros;
@@ -129,9 +143,14 @@ class LaneServer {
     LaneKeys? keys,
     Object? bindAddress,
     bool raw = false,
+    int streams = 1,
+    int stripe = kLaneStripeBytes,
     Duration acceptTimeout = kLaneAcceptTimeout,
   }) async {
     if (!raw && keys == null) throw ArgumentError('keys');
+    if (streams < 1 || streams > kLaneMaxStreams) {
+      throw ArgumentError('streams');
+    }
     final token = newLaneToken();
     final rp = ReceivePort();
     final ready = Completer<(SendPort, int)>();
@@ -150,6 +169,8 @@ class LaneServer {
             : (bindAddress as String?),
         raw,
         acceptTimeout.inMilliseconds,
+        streams,
+        stripe,
       ),
       onError: rp.sendPort,
       onExit: rp.sendPort,
@@ -180,7 +201,14 @@ class LaneServer {
         case 'done':
           final c = _pending;
           _pending = null;
-          c?.complete(LaneResult(m[1] as int, m[2] as int, m[3] as String?));
+          c?.complete(
+            LaneResult(
+              m[1] as int,
+              m[2] as int,
+              m[3] as String?,
+              m.length > 4 ? m[4] as String? : null,
+            ),
+          );
           return;
         case 'err':
           _fail(LaneException(m[1] as String));
@@ -259,6 +287,8 @@ typedef _ServerArgs = (
   String?,
   bool,
   int,
+  int,
+  int,
 );
 
 Future<void> _serverMain(_ServerArgs a) async {
@@ -272,6 +302,8 @@ Future<void> _serverMain(_ServerArgs a) async {
     bind,
     raw,
     acceptMs,
+    streams,
+    stripe,
   ) = a;
   final acceptTimeout = Duration(milliseconds: acceptMs);
   final inbox = ReceivePort();
@@ -328,8 +360,15 @@ Future<void> _serverMain(_ServerArgs a) async {
   }
   back.send(['port', inbox.sendPort, port]);
 
-  // Accept exactly one authenticated connection.
-  final accepted = Completer<(Socket, StreamIterator<Uint8List>, Uint8List)>();
+  // Accept exactly [streams] authenticated connections. With more than one
+  // stream every connection sends its index (one byte) after the token.
+  final slots = List<(Socket, StreamIterator<Uint8List>, Uint8List)?>.filled(
+    streams,
+    null,
+  );
+  var filled = 0;
+  String? tuneNote;
+  final accepted = Completer<void>();
   late StreamSubscription<Socket> lsub;
   lsub = listener.listen((sock) async {
     try {
@@ -342,8 +381,9 @@ Future<void> _serverMain(_ServerArgs a) async {
       }
       final it = StreamIterator<Uint8List>(sock);
       final want = utf8.encode(token);
+      final need = want.length + (streams > 1 ? 1 : 0);
       final got = BytesBuilder(copy: false);
-      while (got.length < want.length) {
+      while (got.length < need) {
         if (!await it.moveNext().timeout(const Duration(seconds: 5))) {
           throw const LaneException('lane_auth');
         }
@@ -355,11 +395,18 @@ Future<void> _serverMain(_ServerArgs a) async {
         same &= all[i] == want[i];
       }
       if (!same) throw const LaneException('lane_auth');
-      if (accepted.isCompleted) throw const LaneException('lane_auth');
-      tuneSocketBuffers(sock);
-      accepted.complete((sock, it, Uint8List.sublistView(all, want.length)));
-      await lsub.cancel();
-      await closeListener();
+      final idx = streams > 1 ? all[want.length] : 0;
+      if (accepted.isCompleted || idx >= streams || slots[idx] != null) {
+        throw const LaneException('lane_auth');
+      }
+      tuneNote ??= tuneSocketBuffers(sock);
+      slots[idx] = (sock, it, Uint8List.sublistView(all, need));
+      filled++;
+      if (filled == streams) {
+        accepted.complete();
+        await lsub.cancel();
+        await closeListener();
+      }
     } catch (_) {
       sock.destroy();
     }
@@ -370,36 +417,63 @@ Future<void> _serverMain(_ServerArgs a) async {
     }
   });
 
-  Socket? sock;
-  StreamIterator<Uint8List>? it;
-  var carry = Uint8List(0);
+  var socks = <Socket>[];
+  var its = <StreamIterator<Uint8List>>[];
+  var carries = <Uint8List>[];
+  // Bytes handed back by a reader that took too much (read first).
+  var back0 = Uint8List(0);
+  // Bytes taken from the connections so far (decides the stripe).
+  var pos = 0;
   var paused = false;
   Completer<void>? unpause;
   var busy = false;
   int? sinkExpect;
-  Completer<void>? sinkWake;
+  void Function()? sinkCheck;
+
+  String note() =>
+      '${tuneNote ?? 'os-auto'}${streams > 1 ? ', $streams streams' : ''}';
 
   Future<void> connected() async {
-    if (sock != null) return;
-    final r = await accepted.future.timeout(acceptTimeout);
-    timeout.cancel();
-    sock = r.$1;
-    it = r.$2;
-    carry = r.$3;
+    if (socks.isNotEmpty) return;
+    try {
+      await accepted.future.timeout(acceptTimeout);
+    } finally {
+      timeout.cancel();
+    }
+    socks = [for (final x in slots) x!.$1];
+    its = [for (final x in slots) x!.$2];
+    carries = [for (final x in slots) x!.$3];
   }
 
-  /// Next piece from the lane (carry first); null at the end.
+  /// Next piece of the (striped) byte stream; null at the end.
   Future<Uint8List?> next() async {
     while (paused) {
       await (unpause ??= Completer<void>()).future;
     }
-    if (carry.isNotEmpty) {
-      final c = carry;
-      carry = Uint8List(0);
+    if (back0.isNotEmpty) {
+      final c = back0;
+      back0 = Uint8List(0);
       return c;
     }
-    if (!await it!.moveNext()) return null;
-    return it!.current;
+    final n = socks.length;
+    final i = n == 1 ? 0 : (pos ~/ stripe) % n;
+    Uint8List c;
+    if (carries[i].isNotEmpty) {
+      c = carries[i];
+      carries[i] = Uint8List(0);
+    } else {
+      if (!await its[i].moveNext()) return null;
+      c = its[i].current;
+    }
+    if (n > 1) {
+      final left = stripe - pos % stripe;
+      if (c.length > left) {
+        carries[i] = Uint8List.sublistView(c, left);
+        c = Uint8List.sublistView(c, 0, left);
+      }
+    }
+    pos += c.length;
+    return c;
   }
 
   Future<void> doFile(
@@ -483,7 +557,7 @@ Future<void> _serverMain(_ServerArgs a) async {
         var piece = c;
         if (got + piece.length > count) {
           final need = count - got;
-          carry = Uint8List.sublistView(piece, need);
+          back0 = Uint8List.sublistView(piece, need);
           piece = Uint8List.sublistView(piece, 0, need);
         }
         pend.add(piece);
@@ -507,7 +581,7 @@ Future<void> _serverMain(_ServerArgs a) async {
         digest = await hasher.close();
         hasher = null;
       }
-      back.send(['done', got, sw.elapsedMicroseconds, digest]);
+      back.send(['done', got, sw.elapsedMicroseconds, digest, note()]);
     } finally {
       hasher?.dispose();
       try {
@@ -516,26 +590,47 @@ Future<void> _serverMain(_ServerArgs a) async {
     }
   }
 
+  /// Speed test: counts everything from all streams until the sender's
+  /// count (sinkEnd) arrived or every stream ended.
   Future<void> doSink() async {
     await connected();
-    var n = carry.length;
-    carry = Uint8List(0);
+    var n = back0.length;
+    back0 = Uint8List(0);
+    for (var i = 0; i < carries.length; i++) {
+      n += carries[i].length;
+      carries[i] = Uint8List(0);
+    }
     final sw = Stopwatch();
     if (n > 0) sw.start();
     var lastAt = 0;
-    Future<bool>? move;
-    while (sinkExpect == null || n < sinkExpect!) {
-      move ??= it!.moveNext();
-      final wake = (sinkWake = Completer<void>()).future;
-      final r = await Future.any<Object>([move, wake.then((_) => 'wake')]);
-      if (r == 'wake') continue;
-      move = null;
-      if (r == false) break;
-      if (!sw.isRunning) sw.start();
-      n += it!.current.length;
-      lastAt = sw.elapsedMicroseconds;
+    var open = its.length;
+    final done = Completer<void>();
+    void check() {
+      if (done.isCompleted) return;
+      if ((sinkExpect != null && n >= sinkExpect!) || open == 0) {
+        done.complete();
+      }
     }
-    back.send(['done', n, lastAt, null]);
+
+    sinkCheck = check;
+    for (final it in its) {
+      unawaited(() async {
+        try {
+          while (!done.isCompleted && await it.moveNext()) {
+            if (!sw.isRunning) sw.start();
+            n += it.current.length;
+            lastAt = sw.elapsedMicroseconds;
+            check();
+          }
+        } catch (_) {}
+        open--;
+        check();
+      }());
+    }
+    check();
+    await done.future;
+    sinkCheck = null;
+    back.send(['done', n, lastAt, null, note()]);
   }
 
   inbox.listen((m) async {
@@ -549,13 +644,16 @@ Future<void> _serverMain(_ServerArgs a) async {
         }
       case 'sink_end':
         sinkExpect = msg[1] as int;
-        final w = sinkWake;
-        sinkWake = null;
-        if (w != null && !w.isCompleted) w.complete();
+        sinkCheck?.call();
       case 'close':
         timeout.cancel();
         inbox.close();
-        sock?.destroy();
+        for (final x in socks) {
+          x.destroy();
+        }
+        for (final x in slots) {
+          x?.$1.destroy();
+        }
         try {
           await lsub.cancel();
           await closeListener();
@@ -605,6 +703,9 @@ class LaneClient {
   Object? _failure;
   bool _closed = false;
 
+  /// Socket facts of this side (buffer sizes).
+  String? note;
+
   /// Connects to [host]:[port] and proves itself with [token].
   /// [keys] null = raw TCP (Speed test only).
   static Future<LaneClient> connect({
@@ -612,10 +713,16 @@ class LaneClient {
     required int port,
     required String token,
     LaneKeys? keys,
+    int streams = 1,
+    int stripe = kLaneStripeBytes,
     Duration timeout = const Duration(seconds: 5),
   }) async {
+    if (streams < 1 || streams > kLaneMaxStreams) {
+      throw ArgumentError('streams');
+    }
     final rp = ReceivePort();
     final ready = Completer<SendPort>();
+    String? tune;
     late LaneClient c;
     final iso = await Isolate.spawn(
       _clientMain,
@@ -628,6 +735,8 @@ class LaneClient {
         keys?.keyPem,
         keys?.peerFingerprint,
         timeout.inMilliseconds,
+        streams,
+        stripe,
       ),
       onError: rp.sendPort,
       onExit: rp.sendPort,
@@ -635,7 +744,8 @@ class LaneClient {
     );
     rp.listen((m) {
       if (!ready.isCompleted) {
-        if (m is List && m.length == 2 && m[0] == 'ok') {
+        if (m is List && m.length >= 2 && m[0] == 'ok') {
+          tune = m.length > 2 ? m[2] as String? : null;
           ready.complete(m[1] as SendPort);
         } else {
           ready.completeError(
@@ -652,7 +762,9 @@ class LaneClient {
     });
     try {
       final to = await ready.future;
-      c = LaneClient._(iso, rp).._to = to;
+      c = LaneClient._(iso, rp)
+        .._to = to
+        ..note = tune;
       return c;
     } catch (_) {
       rp.close();
@@ -766,13 +878,27 @@ typedef _ClientArgs = (
   String?,
   String?,
   int,
+  int,
+  int,
 );
 
 Future<void> _clientMain(_ClientArgs a) async {
-  final (back, host, port, token, certPem, keyPem, peerFp, timeoutMs) = a;
+  final (
+    back,
+    host,
+    port,
+    token,
+    certPem,
+    keyPem,
+    peerFp,
+    timeoutMs,
+    streams,
+    stripe,
+  ) = a;
   final timeout = Duration(milliseconds: timeoutMs);
-  Socket sock;
-  try {
+  String? tune;
+  Future<Socket> open(int index) async {
+    Socket sock;
     if (certPem == null) {
       sock = await Socket.connect(host, port, timeout: timeout);
     } else {
@@ -787,31 +913,83 @@ Future<void> _clientMain(_ClientArgs a) async {
         timeout: timeout,
       );
     }
-    tuneSocketBuffers(sock);
-    sock.add(utf8.encode(token));
+    tune ??= tuneSocketBuffers(sock);
+    sock.add([...utf8.encode(token), if (streams > 1) index]);
     await sock.flush();
-  } catch (_) {
-    back.send(['err', 'connect_failed']);
-    return;
+    return sock;
   }
-  unawaited(sock.done.then((_) {}, onError: (_) {}));
-  // Notice when the other side goes away while we are idle.
-  sock.listen((_) {}, onError: (_) {}, onDone: () {}, cancelOnError: true);
+
+  final List<Socket> socks;
+  {
+    final tries = [for (var i = 0; i < streams; i++) open(i)];
+    final got = <Socket>[];
+    var bad = false;
+    for (final t in tries) {
+      try {
+        got.add(await t);
+      } catch (_) {
+        bad = true;
+      }
+    }
+    if (bad) {
+      for (final x in got) {
+        x.destroy();
+      }
+      back.send(['err', 'connect_failed']);
+      return;
+    }
+    socks = got;
+  }
+  for (final sock in socks) {
+    unawaited(sock.done.then((_) {}, onError: (_) {}));
+    // Notice when the other side goes away while we are idle.
+    sock.listen((_) {}, onError: (_) {}, onDone: () {}, cancelOnError: true);
+  }
   final inbox = ReceivePort();
-  back.send(['ok', inbox.sendPort]);
+  back.send(['ok', inbox.sendPort, tune]);
   final queue = <Uint8List>[];
   var running = false;
   var failed = false;
+  // Position in the striped byte stream, and one flush in flight per stream
+  // (so every stream keeps data queued while the others are written).
+  var pos = 0;
+  final flushes = List<Future<void>?>.filled(streams, null);
+
+  Future<void> sendQueued() async {
+    while (queue.isNotEmpty && !failed) {
+      final b = queue.removeAt(0);
+      var off = 0;
+      while (off < b.length) {
+        final i = streams == 1 ? 0 : (pos ~/ stripe) % streams;
+        final left = streams == 1 ? b.length : stripe - pos % stripe;
+        final k = left < b.length - off ? left : b.length - off;
+        final piece = off == 0 && k == b.length
+            ? b
+            : Uint8List.sublistView(b, off, off + k);
+        final f = flushes[i];
+        if (f != null) await f;
+        socks[i].add(piece);
+        final nf = flushes[i] = socks[i].flush();
+        nf.ignore();
+        off += k;
+        pos += k;
+      }
+      back.send(['ack', b.length]);
+    }
+  }
 
   Future<void> pump() async {
     if (running) return;
     running = true;
     try {
       while (queue.isNotEmpty && !failed) {
-        final b = queue.removeAt(0);
-        sock.add(b);
-        await sock.flush();
-        back.send(['ack', b.length]);
+        await sendQueued();
+        // Blocks queued while the last flushes ran are sent in the next round.
+        for (var i = 0; i < streams; i++) {
+          final f = flushes[i];
+          flushes[i] = null;
+          if (f != null) await f;
+        }
       }
     } catch (_) {
       failed = true;
@@ -825,15 +1003,20 @@ Future<void> _clientMain(_ClientArgs a) async {
     final buf = Uint8List(1024 * 1024);
     final sw = Stopwatch()..start();
     var n = 0;
-    try {
+    Future<void> one(Socket sock) async {
       while (n < bytes && sw.elapsedMilliseconds < limitMs) {
         final k = bytes - n < buf.length ? bytes - n : buf.length;
+        n += k;
         sock.add(k == buf.length ? buf : Uint8List.sublistView(buf, 0, k));
         await sock.flush();
-        n += k;
       }
-      await sock.close();
-      back.send(['gen', n, sw.elapsedMicroseconds]);
+    }
+
+    try {
+      await Future.wait([for (final x in socks) one(x)]);
+      final took = sw.elapsedMicroseconds;
+      await Future.wait([for (final x in socks) x.close()]);
+      back.send(['gen', n, took]);
     } catch (_) {
       back.send(['err', 'lane_closed']);
     }
@@ -855,10 +1038,12 @@ Future<void> _clientMain(_ClientArgs a) async {
         while (running) {
           await Future<void>.delayed(const Duration(milliseconds: 5));
         }
-        try {
-          await sock.close().timeout(const Duration(seconds: 2));
-        } catch (_) {}
-        sock.destroy();
+        for (final sock in socks) {
+          try {
+            await sock.close().timeout(const Duration(seconds: 2));
+          } catch (_) {}
+          sock.destroy();
+        }
         Isolate.exit();
     }
   });
