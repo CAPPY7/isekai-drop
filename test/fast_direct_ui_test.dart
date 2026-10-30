@@ -115,13 +115,18 @@ void main() {
     final fake = FakeDirect()..perm = 'denied';
     final e = (await t.runAsync(() => _engine(fake)))!;
     final s = await _pump(t, e, const FastDirectSetting());
-    expect(find.text('Fast direct when possible'), findsOneWidget);
+    expect(find.text('Fast direct'), findsOneWidget);
+    expect(s.routeMode, SettingsController.routeAuto);
+    expect(find.text('Auto (fastest)'), findsOneWidget);
     expect(s.fastDirect, isTrue);
     await t.tap(find.text('Allow'));
     await t.pumpAndSettle();
     expect(find.textContaining('Still not allowed'), findsOneWidget);
-    await t.tap(find.byType(Switch));
+    await t.tap(find.byKey(const ValueKey('route-mode')));
     await t.pumpAndSettle();
+    await t.tap(find.text('Router only').last);
+    await t.pumpAndSettle();
+    expect(s.routeMode, SettingsController.routeRouter);
     expect(s.fastDirect, isFalse);
     expect(find.text('Allow'), findsNothing);
   });
@@ -131,7 +136,7 @@ void main() {
   ) async {
     final e = (await t.runAsync(() => _engine(null)))!;
     await _pump(t, e, const FastDirectSetting());
-    expect(find.text('Fast direct when possible'), findsNothing);
+    expect(find.text('Fast direct'), findsNothing);
   });
 
   testWidgets(

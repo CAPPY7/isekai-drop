@@ -71,7 +71,7 @@ class _WifiBandLineState extends State<WifiBandLine> {
           Text(
             kUse5GhzHint,
             style: Theme.of(context).textTheme.bodySmall
-                ?.copyWith(color: IdColors.warning),
+                ?.copyWith(color: idStatus(context).warning),
           ),
       ],
     );

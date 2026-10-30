@@ -8,6 +8,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../engine/core/engine.dart' show kDefaultPort;
 import '../../engine/direct/wifi_join.dart';
 import '../../engine/transfer_engine.dart';
+import '../../settings/settings_controller.dart';
 import '../app_scope.dart';
 import '../pairing_flow.dart';
 import '../theme/design_tokens.dart';
@@ -344,7 +345,7 @@ class _FastDirectScreenState extends State<FastDirectScreen> {
               padding: const EdgeInsets.only(top: IdSpacing.sm),
               child: Text(
                 _error!,
-                style: const TextStyle(color: IdColors.danger),
+                style: TextStyle(color: idStatus(context).danger),
               ),
             ),
         ],
@@ -399,7 +400,7 @@ class _FastDirectScreenState extends State<FastDirectScreen> {
             padding: const EdgeInsets.only(top: IdSpacing.sm),
             child: Text(
               explainWindowsHotspotError(_win!.error),
-              style: const TextStyle(color: IdColors.danger),
+              style: TextStyle(color: idStatus(context).danger),
             ),
           ),
         if (_win != null && _win!.ok) ...[
@@ -486,7 +487,9 @@ class _FastDirectScreenState extends State<FastDirectScreen> {
             child: Text(
               _joinMsg!,
               style: TextStyle(
-                color: _joinOk ? IdColors.success : IdColors.danger,
+                color: _joinOk
+                    ? idStatus(context).success
+                    : idStatus(context).danger,
               ),
             ),
           ),
@@ -541,6 +544,12 @@ class _FastDirectSettingState extends State<FastDirectSetting> {
     }
   }
 
+  static const _labels = {
+    SettingsController.routeAuto: 'Auto (fastest)',
+    SettingsController.routeRouter: 'Router only',
+    SettingsController.routeDirect: 'Fast direct always',
+  };
+
   @override
   Widget build(BuildContext context) {
     final scope = AppScope.of(context);
@@ -549,56 +558,71 @@ class _FastDirectSettingState extends State<FastDirectSetting> {
     final perm = _perm;
     return ListenableBuilder(
       listenable: settings,
-      builder: (context, _) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            value: settings.fastDirect,
-            onChanged: (v) async {
-              await settings.setFastDirect(v);
-              if (v && perm == 'denied') await _allow();
-            },
-            title: const Text('Fast direct when possible'),
-            subtitle: const Text(
-              'Big files to another Android phone go over a direct Wi-Fi link '
-              '(5 GHz when the phones allow it) instead of through the router. '
-              'If the link cannot be made, the router is used as before.',
-            ),
-          ),
-          if (settings.fastDirect && perm != null && perm != 'granted')
-            Padding(
-              padding: const EdgeInsets.only(bottom: IdSpacing.sm),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    perm == 'denied'
-                        ? directPermissionExplanation()
-                        : explainDirectError(perm),
-                  ),
-                  if (perm == 'denied') ...[
-                    if (_asked)
-                      const Text(
-                        'Still not allowed. If Android shows no prompt, allow '
-                        'it in Android Settings > Apps > Isekai Drop > '
-                        'Permissions.',
+      builder: (context, _) {
+        final needsPerm =
+            settings.fastDirect && perm != null && perm != 'granted';
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 0.11.0 (spec A5/A6): one line + info icon; the route choice
+            // with the "Allow" button right next to it.
+            SettingRow(
+              title: 'Fast direct',
+              summary: needsPerm && perm == 'denied'
+                  ? 'Needs a permission to work'
+                  : 'Route for big files to Android phones',
+              info:
+                  'Auto (fastest): a direct phone-to-phone Wi-Fi link is used only '
+                  'when it is expected to be faster than your router (for example '
+                  'when the router link is 2.4 GHz or was slow last time). '
+                  'Otherwise the router is used.\n\n'
+                  'Router only: never make a direct link.\n\n'
+                  'Fast direct always: try a direct link for every big transfer '
+                  'to another Android phone (the 0.10 behaviour). If it cannot '
+                  'be made, the router is used.\n\n'
+                  'The transfer screen shows which route was used.\n\n'
+                  '${directPermissionExplanation()}',
+              extra: needsPerm && perm == 'denied'
+                  ? FilledButton.tonal(
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, IdLayout.minTouchTarget),
                       ),
-                    const SizedBox(height: IdSpacing.xs),
-                    FilledButton.tonal(
                       onPressed: _allow,
                       child: const Text('Allow'),
-                    ),
-                  ] else
-                    TextButton(
-                      onPressed: _refresh,
-                      child: const Text('Check again'),
-                    ),
+                    )
+                  : null,
+              wideControl: true,
+              control: DropdownButton<String>(
+                key: const ValueKey('route-mode'),
+                value: settings.routeMode,
+                items: [
+                  for (final m in SettingsController.routeModes)
+                    DropdownMenuItem(value: m, child: Text(_labels[m]!)),
                 ],
+                onChanged: (v) async {
+                  if (v == null) return;
+                  await settings.setRouteMode(v);
+                  if (v != SettingsController.routeRouter && perm == 'denied') {
+                    await _allow();
+                  }
+                },
               ),
             ),
-        ],
-      ),
+            if (needsPerm && perm == 'denied' && _asked)
+              Text(
+                'Still not allowed. Allow it in Android Settings > Apps > '
+                'Isekai Drop > Permissions.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            if (needsPerm && perm != 'denied')
+              EmptyLine(
+                icon: Icons.warning_amber_rounded,
+                text: explainDirectError(perm),
+                info: directPermissionExplanation(),
+              ),
+          ],
+        );
+      },
     );
   }
 }

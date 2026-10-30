@@ -55,16 +55,16 @@ class _ThisDeviceCardState extends State<ThisDeviceCard> {
               if (engine.startError != null)
                 Text(
                   engine.startError!,
-                  style: const TextStyle(color: IdColors.danger),
+                  style: TextStyle(color: idStatus(context).danger),
                 )
               else if (port == null)
                 const Text('Starting...')
               else if (snap.connectionState != ConnectionState.done)
                 const Text('Finding this device\'s address...')
               else if (addrs.isEmpty)
-                const Text(
+                Text(
                   'No network found. Connect to Wi-Fi or a hotspot.',
-                  style: TextStyle(color: IdColors.warning),
+                  style: TextStyle(color: idStatus(context).warning),
                 )
               else ...[
                 const Text('Address the other device can type:'),

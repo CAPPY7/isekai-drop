@@ -93,7 +93,10 @@ class SettingsScreen extends StatelessWidget {
             child: const Text('Keep old names'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: IdColors.danger),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
             onPressed: () => Navigator.pop(c, 'delete'),
             child: const Text('Delete old names'),
           ),
@@ -120,26 +123,29 @@ class SettingsScreen extends StatelessWidget {
               children: [
                 const Text('Theme'),
                 const SizedBox(height: IdSpacing.sm),
-                SegmentedButton<ThemeMode>(
-                  segments: const [
-                    ButtonSegment(
-                      value: ThemeMode.dark,
-                      icon: Icon(Icons.dark_mode),
-                      label: Text('Dark'),
-                    ),
-                    ButtonSegment(
-                      value: ThemeMode.light,
-                      icon: Icon(Icons.light_mode),
-                      label: Text('Light'),
-                    ),
-                    ButtonSegment(
-                      value: ThemeMode.system,
-                      icon: Icon(Icons.settings_suggest),
-                      label: Text('System'),
-                    ),
-                  ],
-                  selected: {settings.themeMode},
-                  onSelectionChanged: (s) => settings.setThemeMode(s.first),
+                // 0.11.0 (spec D17): no wrapped "Syste / m" at big font
+                // sizes: segments keep their width and scroll if needed.
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: SegmentedButton<ThemeMode>(
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment(
+                        value: ThemeMode.system,
+                        label: Text('System', softWrap: false),
+                      ),
+                      ButtonSegment(
+                        value: ThemeMode.dark,
+                        label: Text('Dark', softWrap: false),
+                      ),
+                      ButtonSegment(
+                        value: ThemeMode.light,
+                        label: Text('Light', softWrap: false),
+                      ),
+                    ],
+                    selected: {settings.themeMode},
+                    onSelectionChanged: (s) => settings.setThemeMode(s.first),
+                  ),
                 ),
               ],
             ),
@@ -152,7 +158,10 @@ class SettingsScreen extends StatelessWidget {
               leading: const Icon(Icons.badge_outlined),
               title: const Text('Device name'),
               subtitle: Text(settings.deviceName),
-              trailing: const Icon(Icons.edit_outlined),
+              trailing: const Icon(
+                Icons.edit_outlined,
+                semanticLabel: 'Rename',
+              ),
               onTap: () => _editName(context),
             ),
           ),
@@ -160,55 +169,46 @@ class SettingsScreen extends StatelessWidget {
             title: 'Receiving',
             child: Column(
               children: [
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
+                SettingSwitch(
                   value: settings.acceptFiles,
                   onChanged: (v) => settings.setAcceptFiles(v),
-                  title: const Text('Receive files from trusted devices'),
-                  subtitle: const Text(
-                    'When off, every offer is declined. Unknown devices can never send; they must pair first.',
-                  ),
+                  title: 'Receive files from trusted devices',
+                  summary: 'Off: every offer is declined',
+                  info: 'When off, every offer is declined. Unknown devices can never send; they must pair first.',
                 ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
+                SettingSwitch(
                   value: settings.autoReceiveVerified,
                   onChanged: settings.acceptFiles
                       ? (v) => _setAuto(context, v)
                       : null,
-                  title: const Text('Auto-receive from verified devices'),
-                  subtitle: const Text(
-                    'Off: you are asked every time (recommended). On: only devices marked '
-                    '"Verified" can send without asking. "Trusted" and blocked devices are always asked or refused.',
-                  ),
+                  title: 'Auto-receive from verified devices',
+                  summary: 'Off: you are asked every time (recommended)',
+                  info:
+                      'Off: you are asked every time (recommended). On: only devices marked '
+                      '"Verified" can send without asking. "Trusted" and blocked devices are always asked or refused.',
+                ),
+                SettingSwitch(
+                  value: settings.historyFileNames,
+                  onChanged: (v) => _setNames(context, v),
+                  title: 'Save file names in History',
+                  summary: 'Kept on this device only',
+                  info: 'Names are kept on this device only and never written to logs. File contents are never saved.',
                 ),
               ],
-            ),
-          ),
-          SectionCard(
-            title: 'History',
-            child: SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              value: settings.historyFileNames,
-              onChanged: (v) => _setNames(context, v),
-              title: const Text('Save file names in History'),
-              subtitle: const Text(
-                'Names are kept on this device only and never written to logs. File contents are never saved.',
-              ),
             ),
           ),
           SectionCard(
             title: 'Connection',
             child: Column(
               children: [
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
+                SettingSwitch(
                   value: settings.visibleOnNetwork,
                   onChanged: (v) => settings.setVisibleOnNetwork(v),
-                  title: const Text('Visible to nearby devices'),
-                  subtitle: const Text(
-                    'Off: this device stops announcing itself (and stops Bonjour). '
-                    'Paired devices and QR/typed-address connections still work.',
-                  ),
+                  title: 'Visible to nearby devices',
+                  summary: 'Others on your Wi-Fi can find this device',
+                  info:
+                      'Off: this device stops announcing itself (and stops Bonjour). '
+                      'Paired devices and QR/typed-address connections still work.',
                 ),
                 const FastDirectSetting(),
               ],
@@ -221,15 +221,13 @@ class SettingsScreen extends StatelessWidget {
               minTileHeight: IdLayout.minTouchTarget,
               leading: const Icon(Icons.verified_user_outlined),
               title: const Text('Trusted devices'),
-              subtitle: const Text(
-                'Check codes, rename, revoke or remove devices',
-              ),
+              subtitle: const Text('Check codes, rename, revoke or remove'),
               trailing: const Icon(Icons.chevron_right),
               onTap: onTrusted,
             ),
           ),
           SectionCard(
-            title: 'Help',
+            title: 'Advanced',
             child: Column(
               children: [
                 ListTile(
@@ -248,15 +246,16 @@ class SettingsScreen extends StatelessWidget {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   minTileHeight: IdLayout.minTouchTarget,
-                  leading: const Icon(Icons.gavel_outlined),
-                  title: const Text('Open-source licences'),
+                  leading: const Icon(Icons.monitor_heart_outlined),
+                  title: const Text('Diagnostics'),
                   subtitle: const Text(
-                    'Full licence texts of included software',
+                    'Connection, link speed, speed test, last error',
                   ),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () => showLicensePage(
-                    context: context,
-                    applicationName: 'Isekai Drop',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const DiagnosticsScreen(),
+                    ),
                   ),
                 ),
                 ListTile(
@@ -277,23 +276,22 @@ class SettingsScreen extends StatelessWidget {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   minTileHeight: IdLayout.minTouchTarget,
-                  leading: const Icon(Icons.monitor_heart_outlined),
-                  title: const Text('Diagnostics'),
+                  leading: const Icon(Icons.gavel_outlined),
+                  title: const Text('Open-source licences'),
                   subtitle: const Text(
-                    'Connection method, link speed, last error',
+                    'Full licence texts of included software',
                   ),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const DiagnosticsScreen(),
-                    ),
+                  onTap: () => showLicensePage(
+                    context: context,
+                    applicationName: 'Isekai Drop',
                   ),
                 ),
               ],
             ),
           ),
           SectionCard(
-            title: 'Diagnostics',
+            title: 'About this device',
             child: ListenableBuilder(
               listenable: scope.engine,
               builder: (context, _) {
@@ -308,7 +306,9 @@ class SettingsScreen extends StatelessWidget {
                     if (e.startError != null)
                       Text(
                         e.startError!,
-                        style: const TextStyle(color: IdColors.danger),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
                       ),
                     Text('Discovery: ${e.discoveryError ?? 'on'}'),
                     Text('Nearby devices seen: ${e.nearby.length}'),

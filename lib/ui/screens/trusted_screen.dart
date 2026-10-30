@@ -66,7 +66,10 @@ class TrustedDevicesScreen extends StatelessWidget {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: IdColors.danger),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
             onPressed: () => Navigator.pop(c, true),
             child: Text(action),
           ),
@@ -157,7 +160,9 @@ class TrustedDevicesScreen extends StatelessWidget {
             child: const Text('Cancel'),
           ),
           TextButton(
-            style: TextButton.styleFrom(foregroundColor: IdColors.danger),
+            style: TextButton.styleFrom(
+              foregroundColor: idStatus(context).danger,
+            ),
             onPressed: () => Navigator.pop(c, 'no'),
             child: const Text('Codes differ'),
           ),
@@ -244,22 +249,22 @@ class TrustedDevicesScreen extends StatelessWidget {
                           ),
                         ),
                       if (d.status == TrustStatus.identityChanged)
-                        const Padding(
+                        Padding(
                           padding: EdgeInsets.only(top: IdSpacing.xs),
                           child: Text(
                             'This device answered with a different key than the one saved. '
                             'It is blocked: it cannot send to you and you cannot send to it. '
                             'If you reinstalled the other app, pair again and compare the code. '
                             'If not, someone may be pretending to be it.',
-                            style: TextStyle(color: IdColors.danger),
+                            style: TextStyle(color: idStatus(context).danger),
                           ),
                         ),
                       if (d.status == TrustStatus.revoked)
-                        const Padding(
+                        Padding(
                           padding: EdgeInsets.only(top: IdSpacing.xs),
                           child: Text(
                             'You revoked trust. It is blocked until you pair again.',
-                            style: TextStyle(color: IdColors.danger),
+                            style: TextStyle(color: idStatus(context).danger),
                           ),
                         ),
                       const SizedBox(height: IdSpacing.sm),
@@ -298,7 +303,7 @@ class TrustedDevicesScreen extends StatelessWidget {
                           if (d.isTrusted)
                             TextButton.icon(
                               style: TextButton.styleFrom(
-                                foregroundColor: IdColors.danger,
+                                foregroundColor: idStatus(context).danger,
                                 minimumSize: const Size(
                                   0,
                                   IdLayout.minTouchTarget,
@@ -313,7 +318,7 @@ class TrustedDevicesScreen extends StatelessWidget {
                             ),
                           TextButton.icon(
                             style: TextButton.styleFrom(
-                              foregroundColor: IdColors.danger,
+                              foregroundColor: idStatus(context).danger,
                               minimumSize: const Size(
                                 0,
                                 IdLayout.minTouchTarget,

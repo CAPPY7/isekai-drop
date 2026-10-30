@@ -47,13 +47,23 @@ class AppTheme {
           surface: surface,
           onSurface: onSurface,
           onSurfaceVariant: muted,
-          error: IdColors.danger,
+          error: brightness == Brightness.dark
+              ? IdColors.danger
+              : IdColors.lightDanger,
+          onError: brightness == Brightness.dark
+              ? IdColors.darkBackground
+              : Colors.white,
         );
     return ThemeData(
       useMaterial3: true,
       brightness: brightness,
       colorScheme: scheme,
       scaffoldBackgroundColor: background,
+      extensions: [
+        brightness == Brightness.dark
+            ? IdStatusColors.dark
+            : IdStatusColors.light,
+      ],
       cardTheme: CardThemeData(
         color: surface,
         elevation: 0,

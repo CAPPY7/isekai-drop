@@ -115,7 +115,7 @@ class _SpeedTestCardState extends State<SpeedTestCard> {
           Text(
             v == null ? (s.note ?? '-') : '${v.toStringAsFixed(1)} MB/s',
             style: v == null
-                ? const TextStyle(color: IdColors.warning)
+                ? TextStyle(color: idStatus(context).warning)
                 : const TextStyle(fontWeight: FontWeight.w600),
           ),
         ],
@@ -199,7 +199,7 @@ class _SpeedTestCardState extends State<SpeedTestCard> {
           ],
           if (_error != null) ...[
             const SizedBox(height: IdSpacing.sm),
-            Text(_error!, style: const TextStyle(color: IdColors.danger)),
+            Text(_error!, style: TextStyle(color: idStatus(context).danger)),
           ],
           if (r != null) ...[
             const SizedBox(height: IdSpacing.md),

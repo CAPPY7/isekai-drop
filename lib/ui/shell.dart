@@ -160,12 +160,12 @@ class _AppShellState extends State<AppShell> {
                       ),
                       if (r.keyChanged) ...[
                         const SizedBox(height: IdSpacing.sm),
-                        const Text(
+                        Text(
                           'WARNING: a device with this id was paired before with a DIFFERENT key. '
                           'Accept only if you reinstalled or reset Isekai Drop on it. '
                           'Accepting replaces the old key.',
                           style: TextStyle(
-                            color: IdColors.danger,
+                            color: idStatus(context).danger,
                             fontWeight: FontWeight.w700,
                           ),
                         ),

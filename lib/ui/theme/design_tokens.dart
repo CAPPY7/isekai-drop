@@ -25,6 +25,12 @@ class IdColors {
   static const Color lightOnSurface = Color(0xFF141726);
   static const Color lightOnSurfaceMuted = Color(0xFF5B6178);
 
+  // 0.11.0: status colours for the light theme (text on white >= 4.5:1;
+  // the bright dark-theme ones were 1.9-3.9:1 on white).
+  static const Color lightSuccess = Color(0xFF166B3E);
+  static const Color lightWarning = Color(0xFF8A5A00);
+  static const Color lightDanger = Color(0xFFC62828);
+
   // Status colours.
   static const Color success = Color(0xFF2FBF71);
   static const Color warning = Color(0xFFF5A524);
@@ -73,6 +79,10 @@ class IdLayout {
 
   /// Minimum size of anything the user taps (accessibility).
   static const double minTouchTarget = 48;
+
+  /// 0.11.0 (spec D21): pages are at most this wide, centred (tablets,
+  /// landscape, desktop).
+  static const double maxContentWidth = 600;
 }
 
 class IdMotion {
@@ -81,3 +91,45 @@ class IdMotion {
   static const Duration normal = Duration(milliseconds: 280);
   static const Curve curve = Curves.easeOutCubic;
 }
+
+/// 0.11.0: status colours of the current theme (dark or light), so success /
+/// warning / error text keeps WCAG AA contrast in both themes.
+@immutable
+class IdStatusColors extends ThemeExtension<IdStatusColors> {
+  const IdStatusColors({
+    required this.success,
+    required this.warning,
+    required this.danger,
+  });
+
+  final Color success;
+  final Color warning;
+  final Color danger;
+
+  static const dark = IdStatusColors(
+    success: IdColors.success,
+    warning: IdColors.warning,
+    danger: IdColors.danger,
+  );
+  static const light = IdStatusColors(
+    success: IdColors.lightSuccess,
+    warning: IdColors.lightWarning,
+    danger: IdColors.lightDanger,
+  );
+
+  @override
+  IdStatusColors copyWith({Color? success, Color? warning, Color? danger}) =>
+      IdStatusColors(
+        success: success ?? this.success,
+        warning: warning ?? this.warning,
+        danger: danger ?? this.danger,
+      );
+
+  @override
+  IdStatusColors lerp(IdStatusColors? other, double t) =>
+      other == null || t < 0.5 ? this : other;
+}
+
+/// Status colours for [context] (dark set when the theme has none).
+IdStatusColors idStatus(BuildContext context) =>
+    Theme.of(context).extension<IdStatusColors>() ?? IdStatusColors.dark;

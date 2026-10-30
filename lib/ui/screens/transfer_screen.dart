@@ -67,22 +67,25 @@ class TransferScreen extends StatelessWidget {
                   : 'Starting...',
               IdColors.accentGlow,
             ),
-            JobState.running when job.paused => ('Paused', IdColors.warning),
+            JobState.running when job.paused => (
+              'Paused',
+              idStatus(context).warning,
+            ),
             JobState.running when job.pausedByPeer => (
               'Paused by the other device',
-              IdColors.warning,
+              idStatus(context).warning,
             ),
             JobState.running when job.stalled => (
               'Waiting - no data for a few seconds (the other device may have paused)',
-              IdColors.warning,
+              idStatus(context).warning,
             ),
             JobState.running => (
               sending ? 'Sending...' : 'Receiving...',
               IdColors.accentGlow,
             ),
-            JobState.completed => ('Done', IdColors.success),
-            JobState.failed => ('Failed', IdColors.danger),
-            JobState.cancelled => ('Cancelled', IdColors.warning),
+            JobState.completed => ('Done', idStatus(context).success),
+            JobState.failed => ('Failed', idStatus(context).danger),
+            JobState.cancelled => ('Cancelled', idStatus(context).warning),
           };
           return PageBody(
             children: [
@@ -197,7 +200,7 @@ class TransferScreen extends StatelessWidget {
                                 140,
                                 IdLayout.minTouchTarget,
                               ),
-                              foregroundColor: IdColors.danger,
+                              foregroundColor: idStatus(context).danger,
                             ),
                             onPressed: job.isActive
                                 ? () => _cancel(context)

@@ -29,6 +29,10 @@ import UIKit
           txt: args["txt"] as? [String: String] ?? [:],
           advertise: args["advertise"] as? Bool ?? true)
         result(nil)
+      case "deviceName":
+        // 0.11.0: default device name (iOS 16+ returns a generic "iPhone"
+        // without a special entitlement; that is fine).
+        result(UIDevice.current.name)
       case "freeSpace":
         // Audit #16: free bytes before accepting a transfer.
         let path = args["path"] as? String ?? NSHomeDirectory()

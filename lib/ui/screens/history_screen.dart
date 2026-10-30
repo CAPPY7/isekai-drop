@@ -21,7 +21,10 @@ class HistoryScreen extends StatelessWidget {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: IdColors.danger),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
             onPressed: () => Navigator.pop(c, true),
             child: const Text('Delete'),
           ),
@@ -108,7 +111,7 @@ class HistoryScreen extends StatelessWidget {
                       alignment: Alignment.centerRight,
                       child: TextButton.icon(
                         style: TextButton.styleFrom(
-                          foregroundColor: IdColors.danger,
+                          foregroundColor: idStatus(context).danger,
                         ),
                         onPressed: () async {
                           if (await _ask(
@@ -130,7 +133,7 @@ class HistoryScreen extends StatelessWidget {
               const SizedBox(height: IdSpacing.sm),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: IdColors.danger,
+                  foregroundColor: idStatus(context).danger,
                   minimumSize: const Size.fromHeight(IdLayout.minTouchTarget),
                 ),
                 onPressed: () async {

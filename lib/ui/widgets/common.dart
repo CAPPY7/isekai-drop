@@ -167,14 +167,20 @@ class TrustBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (color, icon) = switch (trust) {
-      DisplayTrust.verified => (IdColors.success, Icons.verified_user),
-      DisplayTrust.trusted => (IdColors.success, Icons.shield_outlined),
+      DisplayTrust.verified => (idStatus(context).success, Icons.verified_user),
+      DisplayTrust.trusted => (
+        idStatus(context).success,
+        Icons.shield_outlined,
+      ),
       DisplayTrust.revoked => (
-        IdColors.danger,
+        idStatus(context).danger,
         Icons.remove_moderator_outlined,
       ),
       DisplayTrust.unknown => (IdColors.darkOnSurfaceMuted, Icons.help_outline),
-      DisplayTrust.identityChanged => (IdColors.danger, Icons.gpp_bad_outlined),
+      DisplayTrust.identityChanged => (
+        idStatus(context).danger,
+        Icons.gpp_bad_outlined,
+      ),
     };
     return Semantics(
       label: 'Trust: ${trust.label}',
@@ -215,7 +221,8 @@ class PageBody extends StatelessWidget {
     return Align(
       alignment: Alignment.topCenter,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 900),
+        // 0.11.0 (spec D21): content at most 600dp wide, centred.
+        constraints: const BoxConstraints(maxWidth: IdLayout.maxContentWidth),
         child: ListView(
           padding: const EdgeInsets.all(IdSpacing.md),
           children: children,
@@ -308,7 +315,7 @@ class EmptyLine extends StatelessWidget {
   }
 }
 
-/// 0.11.0: small info icon; tap shows the full explanation.
+/// 0.11.0: small info icon; tap opens a bottom sheet with the full text.
 class InfoTip extends StatelessWidget {
   const InfoTip({super.key, required this.title, required this.text});
 
@@ -319,61 +326,163 @@ class InfoTip extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton(
       tooltip: 'More about: $title',
+      constraints: const BoxConstraints(
+        minWidth: IdLayout.minTouchTarget,
+        minHeight: IdLayout.minTouchTarget,
+      ),
       icon: const Icon(Icons.info_outline, size: 20),
-      onPressed: () => showDialog<void>(
+      onPressed: () => showModalBottomSheet<void>(
         context: context,
-        builder: (c) => AlertDialog(
-          title: Text(title),
-          content: SingleChildScrollView(child: Text(text)),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(c),
-              child: const Text('OK'),
+        showDragHandle: true,
+        isScrollControlled: true,
+        builder: (c) => SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(
+              IdSpacing.lg,
+              0,
+              IdSpacing.lg,
+              IdSpacing.lg,
             ),
-          ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(title, style: Theme.of(c).textTheme.titleMedium),
+                const SizedBox(height: IdSpacing.sm),
+                Text(text, style: Theme.of(c).textTheme.bodyMedium),
+                const SizedBox(height: IdSpacing.md),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(IdLayout.minTouchTarget),
+                  ),
+                  onPressed: () => Navigator.pop(c),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
-/// 0.11.0: a switch setting in one line plus an info icon for the long
-/// text. [extra] sits on the same line (e.g. an "Allow" button).
-class CompactSwitch extends StatelessWidget {
-  const CompactSwitch({
+/// 0.11.0: a setting with a title, ONE short line, an info icon for the
+/// long text, and [control] (a Switch, a dropdown...). [extra] sits right
+/// before the control (e.g. an "Allow" button).
+class SettingRow extends StatelessWidget {
+  const SettingRow({
     super.key,
     required this.title,
+    required this.summary,
+    required this.info,
+    required this.control,
+    this.extra,
+    this.onTap,
+    this.wideControl = false,
+  });
+
+  final String title;
+  final String summary;
+  final String info;
+  final Widget control;
+  final Widget? extra;
+
+  /// Tapping the text toggles the setting (switch rows).
+  final VoidCallback? onTap;
+
+  /// A wide control (dropdown): moves under the text when space is short
+  /// (narrow phones, big font sizes) instead of squeezing the title.
+  final bool wideControl;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final text = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: theme.textTheme.bodyLarge),
+        Text(summary, style: theme.textTheme.bodySmall),
+      ],
+    );
+    return LayoutBuilder(
+      builder: (context, box) {
+        final scale = MediaQuery.textScalerOf(context).scale(10) / 10;
+        final stack = wideControl && (box.maxWidth < 420 || scale > 1.3);
+        final head = Row(
+          children: [
+            Expanded(
+              child: InkWell(
+                onTap: onTap,
+                borderRadius: BorderRadius.circular(IdRadii.sm),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minHeight: IdLayout.minTouchTarget,
+                  ),
+                  child: Align(alignment: Alignment.centerLeft, child: text),
+                ),
+              ),
+            ),
+            InfoTip(title: title, text: info),
+            if (!stack) ...[
+              if (extra != null) ...[
+                extra!,
+                const SizedBox(width: IdSpacing.sm),
+              ],
+              control,
+            ],
+          ],
+        );
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: IdSpacing.xs),
+          child: stack
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    head,
+                    Wrap(
+                      spacing: IdSpacing.sm,
+                      runSpacing: IdSpacing.sm,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [control, ?extra],
+                    ),
+                  ],
+                )
+              : head,
+        );
+      },
+    );
+  }
+}
+
+/// A [SettingRow] with a switch (labelled for TalkBack).
+class SettingSwitch extends StatelessWidget {
+  const SettingSwitch({
+    super.key,
+    required this.title,
+    required this.summary,
+    required this.info,
     required this.value,
     required this.onChanged,
-    required this.info,
     this.extra,
   });
 
   final String title;
+  final String summary;
+  final String info;
   final bool value;
   final ValueChanged<bool>? onChanged;
-  final String info;
   final Widget? extra;
 
   @override
-  Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: IdLayout.minTouchTarget),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-          ),
-          InfoTip(title: title, text: info),
-          ?extra,
-          Switch(value: value, onChanged: onChanged),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => SettingRow(
+    title: title,
+    summary: summary,
+    info: info,
+    extra: extra,
+    onTap: onChanged == null ? null : () => onChanged!(!value),
+    control: Semantics(
+      label: title,
+      child: Switch(value: value, onChanged: onChanged),
+    ),
+  );
 }

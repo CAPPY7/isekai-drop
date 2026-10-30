@@ -116,9 +116,9 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                     if (wifiBandLabel(i?.frequencyMhz) != null)
                       Text('Wi-Fi band: ${wifiBandLabel(i?.frequencyMhz)}'),
                     if (isSlowWifiBand(i?.frequencyMhz))
-                      const Text(
+                      Text(
                         kUse5GhzHint,
-                        style: TextStyle(color: IdColors.warning),
+                        style: TextStyle(color: idStatus(context).warning),
                       ),
                     if (i?.note != null) Text(i!.note!),
                     if (e.hostedDirectLink != null)
@@ -134,7 +134,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                     if (e.lastDirectProblem != null)
                       Text(
                         'Last Fast direct problem: ${e.lastDirectProblem}',
-                        style: const TextStyle(color: IdColors.warning),
+                        style: TextStyle(color: idStatus(context).warning),
                       ),
                     Text(
                       'Receiving on port: ${e.listeningPort ?? 'not running'}',
@@ -172,7 +172,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                         style:
                             _firewall != null &&
                                 _firewall!.verdict != FirewallVerdict.allowed
-                            ? const TextStyle(color: IdColors.danger)
+                            ? TextStyle(color: idStatus(context).danger)
                             : null,
                       ),
                       if (_firewall != null && _firewall!.otherCopies > 0)
@@ -228,7 +228,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                       : '${_time(e.lastErrorAt!)}  ${e.lastError}',
                   style: e.lastError == null
                       ? null
-                      : const TextStyle(color: IdColors.danger),
+                      : TextStyle(color: idStatus(context).danger),
                 ),
               ),
               SectionCard(
@@ -270,7 +270,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                     if (e.startError != null)
                       Text(
                         e.startError!,
-                        style: const TextStyle(color: IdColors.danger),
+                        style: TextStyle(color: idStatus(context).danger),
                       ),
                   ],
                 ),

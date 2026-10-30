@@ -268,7 +268,10 @@ class BenchmarkScreen extends StatelessWidget {
                 ),
                 _ConditionsFields(c: c),
                 if (error != null)
-                  Text(error!, style: const TextStyle(color: IdColors.danger)),
+                  Text(
+                    error!,
+                    style: TextStyle(color: idStatus(context).danger),
+                  ),
               ],
             ),
           ),
@@ -342,7 +345,10 @@ class BenchmarkScreen extends StatelessWidget {
               child: const Text('Cancel'),
             ),
             FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: IdColors.danger),
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+                foregroundColor: Theme.of(context).colorScheme.onError,
+              ),
               onPressed: () => Navigator.pop(d, true),
               child: const Text('Delete'),
             ),
@@ -506,7 +512,7 @@ class BenchmarkScreen extends StatelessWidget {
                     if (runs.isNotEmpty)
                       TextButton.icon(
                         style: TextButton.styleFrom(
-                          foregroundColor: IdColors.danger,
+                          foregroundColor: idStatus(context).danger,
                         ),
                         onPressed: () async {
                           if (await _confirm(context, 'Delete all runs?')) {

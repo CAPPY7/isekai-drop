@@ -510,7 +510,10 @@ void main() {
         var prefs = await SharedPreferences.getInstance();
         await SettingsController.migrate(prefs);
         var c = SettingsController(prefs);
-        expect(prefs.getInt('settings_schema_version'), 2);
+        expect(
+          prefs.getInt('settings_schema_version'),
+          SettingsController.schemaVersion,
+        );
         expect(c.autoReceiveVerified, isFalse);
         expect(c.acceptFiles, isTrue);
         expect(c.visibleOnNetwork, isTrue);
@@ -526,7 +529,10 @@ void main() {
         expect(c.deviceName, 'Kazuto PC');
         expect(c.themeMode.name, 'light');
         expect(c.autoReceiveVerified, isFalse);
-        expect(prefs.getInt('settings_schema_version'), 2);
+        expect(
+          prefs.getInt('settings_schema_version'),
+          SettingsController.schemaVersion,
+        );
       },
     );
   });

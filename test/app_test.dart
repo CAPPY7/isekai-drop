@@ -112,7 +112,8 @@ void main() {
 
   testWidgets('theme switch changes theme and is saved', (tester) async {
     final settings = await _pump(tester);
-    expect(_mode(tester), ThemeMode.dark);
+    // 0.11.0 (spec E26): the default theme is System.
+    expect(_mode(tester), ThemeMode.system);
     await tester.tap(find.text('Settings').last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Light'));

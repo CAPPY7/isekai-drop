@@ -195,9 +195,13 @@ class _WaitingForAccept extends StatelessWidget {
           ),
           if (verifiedByQr) ...[
             const SizedBox(height: IdSpacing.md),
-            const Row(
+            Row(
               children: [
-                Icon(Icons.verified, color: IdColors.success, size: 18),
+                Icon(
+                  Icons.verified,
+                  color: idStatus(context).success,
+                  size: 18,
+                ),
                 SizedBox(width: IdSpacing.sm),
                 Expanded(child: Text('Key matches the scanned QR code.')),
               ],
@@ -230,7 +234,7 @@ Future<void> showPairingProblem(
 ) => showDialog<void>(
   context: context,
   builder: (c) => AlertDialog(
-    icon: const Icon(Icons.error_outline, color: IdColors.danger),
+    icon: Icon(Icons.error_outline, color: idStatus(context).danger),
     title: Text(title),
     content: SingleChildScrollView(child: Text(message)),
     actions: [

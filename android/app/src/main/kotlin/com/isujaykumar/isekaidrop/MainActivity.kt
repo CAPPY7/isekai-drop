@@ -160,6 +160,19 @@ class MainActivity : FlutterActivity() {
                     }
                     "folderExists" -> folderExists(call.argument<String>("name")!!, result)
                     "networkInfo" -> result.success(networkInfo())
+                    // 0.11.0: default device name. The name set in Android
+                    // Settings > About phone (e.g. "OnePlus 9"), else maker + model.
+                    "deviceName" -> result.success(
+                        mapOf(
+                            "deviceName" to try {
+                                android.provider.Settings.Global.getString(contentResolver, "device_name")
+                            } catch (_: Exception) {
+                                null
+                            },
+                            "manufacturer" to Build.MANUFACTURER,
+                            "model" to Build.MODEL,
+                        ),
+                    )
                     // 0.10.1 Speed test: write zeros into Downloads, then delete.
                     "speedWriteDownloads" -> speedWriteDownloads(
                         (call.argument<Number>("bytes") ?: 0).toLong(),
