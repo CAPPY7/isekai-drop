@@ -27,7 +27,7 @@ Each new build replaces the files below (no build number in the file names; the 
 
 - isekai-drop-android-arm64.apk: smaller file for most phones from about 2017 on.
 - isekai-drop-android-universal.apk: works on all Android phones.
-- isekai-drop-windows-x64.zip: unzip, run isekaidrop.exe (not code-signed; Windows SmartScreen may warn).
+- isekai-drop-windows-setup.exe: Windows 10/11 installer (one file, no admin needed). NOT code-signed: SmartScreen warns and Windows 11 Smart App Control blocks it. See README "Windows".
 - isekai-drop-ios-unsigned.ipa: UNSIGNED. Needs sideloading (AltStore/Sideloadly with your own free Apple ID) and expires after 7 days. See README.
 
 Builds:

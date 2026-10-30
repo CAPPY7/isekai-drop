@@ -103,6 +103,15 @@ actions/checkout, actions/setup-java, actions/upload-artifact,
 actions/download-artifact (MIT); subosito/flutter-action (MIT);
 softprops/action-gh-release (MIT).
 
+Inno Setup 6 (Jordan Russell and Martijn Laan, https://jrsoftware.org/):
+builds the Windows installer in CI (`windows/installer/isekai-drop.iss`).
+Licence: Inno Setup License (permissive, zlib-style: use for any purpose,
+keep copyright notices, do not misrepresent origin). The Setup program it
+produces contains Inno Setup's own runtime code under that licence. Since
+Aug 2025 the authors *request* (not require) a paid licence from commercial
+users (for-profit, revenue over USD 5000); this private hobby project is
+not a commercial user. Not part of the app itself.
+
 ### QR scanning on Apple platforms
 On iPhone/iPad and Mac, mobile_scanner uses Apple's built-in Vision and
 AVFoundation frameworks (part of the operating system). ML Kit is used only on Android.

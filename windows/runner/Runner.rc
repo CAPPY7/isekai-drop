@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.isujaykumar" "\0"
-            VALUE "FileDescription", "isekaidrop" "\0"
+            VALUE "CompanyName", "Isekai Drop" "\0"
+            VALUE "FileDescription", "Isekai Drop" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "isekaidrop" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.isujaykumar. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 Isekai Drop" "\0"
             VALUE "OriginalFilename", "isekaidrop.exe" "\0"
-            VALUE "ProductName", "isekaidrop" "\0"
+            VALUE "ProductName", "Isekai Drop" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

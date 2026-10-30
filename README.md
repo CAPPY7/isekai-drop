@@ -10,7 +10,7 @@ A free, private app for sending files **directly** between your own devices
 |---|---|---|---|---|
 | Android 8+ | APK from the release (test key) | UDP + Bonjour | yes | Use the phone's normal hotspot when there is no router (Connect > No Wi-Fi router?). Android 9 and older save to the app's own folder (audit #6). Keep the app open while transferring. |
 | iPhone / iPad | UNSIGNED .ipa, sideloaded with **your own** Apple ID (AltStore/Sideloadly). Free Apple ID = 7-day expiry, 3 devices. NOT TESTED | Bonjour only | yes (Bonjour) | Must allow Local Network. **Foreground only**: transfers stop in the background. Windows/Linux PCs don't appear: scan their QR code or type their address. No folder picking. |
-| Windows 10/11 | Build from Actions (unsigned) | UDP + Bonjour (browse) | UDP only | SmartScreen warns (More info > Run anyway). Allow it in the firewall prompt. iPhones can't find it automatically. |
+| Windows 10/11 | `isekai-drop-windows-setup.exe` on latest-build (unsigned) | UDP + Bonjour (browse) | UDP only | SmartScreen warns (More info > Run anyway); Smart App Control (if On) blocks it, see docs/WINDOWS_INSTALL.md. Allow it in the firewall prompt. iPhones can't find it automatically. |
 | macOS | Build from Actions (unsigned) | UDP + Bonjour | yes | Gatekeeper blocks the first start: right-click > Open, or System Settings > Privacy & Security > Open Anyway. Local Network permission on macOS 15+. NOT TESTED on a Mac. |
 | Linux x64 | tar.gz from Actions | UDP + Bonjour (browse) | UDP only | Needs GTK 3 and libsecret. Without an unlocked keyring the device key is stored in a private file (mode 600) instead. Open TCP 47820 and UDP 47821 in the firewall. Tested only headless on the build box. |
 
@@ -38,7 +38,7 @@ Earlier phases: Phase 3 had real, encrypted sending on the same Wi-Fi or hotspot
 ## How it works (no computer needed by you)
 1. Code changes are pushed to this private GitHub repo.
 2. GitHub Actions (GitHub's free build computers) automatically builds the apps.
-3. The Android app (APK, the Android install file), the Windows zip and the
+3. The Android app (APK, the Android install file), the Windows installer and the
    unsigned iPhone file are published to the release called **latest-build**.
 
 > **Important:** this repo is **private**. The Release page and the download
@@ -95,14 +95,25 @@ keeps your data, because every test build is signed with the same key.
 | No APK in Assets | The latest build may still be running or failed. Check the **Actions** tab. |
 
 ## Other platforms
-Windows, macOS and Linux builds are downloadable from the **Actions** tab (open the newest green run > Artifacts: `isekai-drop-windows`, `isekai-drop-macos`, `isekai-drop-linux`). You must be logged into GitHub.
-1. Windows: unzip, run `isekaidrop.exe`. On SmartScreen tap More info > Run anyway. Allow the firewall prompt (Private networks).
+1. **Windows 10/11:** download **`isekai-drop-windows-setup.exe`** from the
+   **latest-build** release (one file), run it, click Install. No admin
+   needed; it installs to `%LOCALAPPDATA%\Programs\Isekai Drop` with a Start
+   menu entry (desktop icon optional) and an uninstaller (Settings > Apps).
+   Allow the firewall prompt (Private networks).
+   - It is **NOT code-signed**. SmartScreen: More info > Run anyway.
+   - **Windows 11 Smart App Control** (if On) blocks unsigned apps, the
+     installer and the app, with no "Run anyway". The only ways are turning
+     Smart App Control off (your choice; see `docs/WINDOWS_INSTALL.md`) or
+     the developer paying for code signing. Details and options:
+     `docs/WINDOWS_INSTALL.md`.
+
+macOS and Linux builds are downloadable from the **Actions** tab (open the newest green run > Artifacts: `isekai-drop-macos`, `isekai-drop-linux`; the plain Windows folder is `isekai-drop-windows`). You must be logged into GitHub.
 2. macOS: unzip, right-click the app > Open > Open.
 3. Linux: `tar xzf isekai-drop-linux-x64.tar.gz`, then run `./isekaidrop` inside the folder.
 iPhone: see "Install on iPhone" above.
 
 ## Documents
 - `docs/SPECIFICATION.txt`: what the app must do
-- `docs/TECH_CHOICE.md`, `docs/ARCHITECTURE.md`, `docs/CONNECTION_OPTIONS.md`, `docs/BUILD_AND_INSTALL.md`
+- `docs/TECH_CHOICE.md`, `docs/ARCHITECTURE.md`, `docs/CONNECTION_OPTIONS.md`, `docs/BUILD_AND_INSTALL.md`, `docs/WINDOWS_INSTALL.md`
 - `ROADMAP.md`, `AGENTS.md`, `PRIVACY.md`, `THIRD_PARTY_NOTICES.md`, `RELEASE_NOTES.md`
 - `docs/AUDIT.md` (bug list), `docs/ACCEPTANCE.md`, `docs/BENCHMARK_PLAN.md`, `docs/BENCHMARK_STEPS.md`, `docs/BENCHMARK_RESULTS_TEMPLATE.md`, `docs/RELEASE_SIGNING.md`, `docs/IOS_NOTES.md`

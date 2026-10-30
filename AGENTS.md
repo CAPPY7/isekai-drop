@@ -34,7 +34,11 @@ file before every phase. Stop after each phase and wait for "next".
   them via `.github/scripts/latest_build.sh` (gh release upload --clobber, then
   deletes only that platform's other files): `isekai-drop-android-arm64.apk`,
   `isekai-drop-android-universal.apk`, `isekai-drop-ios-unsigned.ipa`,
-  `isekai-drop-windows-x64.zip`. Build numbers go into the release text, one
+  `isekai-drop-windows-setup.exe` (0.10.3+: Inno Setup installer from
+  `windows/installer/isekai-drop.iss`, built by ISCC on the Windows job;
+  the old `isekai-drop-windows-x64.zip` is removed by the stale pattern
+  `^isekai-drop-windows-.*$`; the plain folder is a CI artifact only). Unsigned:
+  Smart App Control blocks it; never add a SAC bypass (docs/WINDOWS_INSTALL.md). Build numbers go into the release text, one
   line per platform (`<!--android-->` etc. markers). Concurrency group per
   platform (`publish-latest-build-<platform>`); never one shared group (a
   newer pending job cancels an older pending one).

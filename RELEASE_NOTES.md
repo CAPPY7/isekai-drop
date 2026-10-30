@@ -1,3 +1,21 @@
+# Isekai Drop 0.10.3 (DRAFT release notes, test build)
+
+## What changed
+- **Windows: one installer file** instead of a zip with many files:
+  `isekai-drop-windows-setup.exe` on the latest-build release. Installs for
+  your user only (no admin) to `%LOCALAPPDATA%\Programs\Isekai Drop`, Start
+  menu entry, optional desktop icon, uninstaller in Settings > Apps.
+- The Windows app now shows "Isekai Drop" as product/company name and the
+  real version in its file properties (was "isekaidrop" / "com.isujaykumar").
+- No app logic changes; Android/iOS builds are the same code as 0.10.2.
+
+## Known limits
+- **Not code-signed.** Windows 11 **Smart App Control** (if On) blocks the
+  installer and the app; this build cannot fix that. Options (turn SAC off,
+  paid signing such as Azure Trusted Signing, SignPath free signing for
+  public open-source repos): `docs/WINDOWS_INSTALL.md`.
+- NOT TESTED on a real PC: install, shortcuts, uninstall, upgrade, SAC.
+
 # Isekai Drop 0.10.2 (DRAFT release notes, test build)
 
 Your Speed test (OnePlus 8 -> 9, Fast direct, 5240 MHz, link 432 Mbps) showed

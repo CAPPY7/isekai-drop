@@ -8,7 +8,7 @@ builds use the allowance fastest.
 | Platform | Built on | What you get | Installable? | Cost |
 |---|---|---|---|---|
 | Android | ubuntu runner | Signed `.apk` | **Yes**, after allowing "Install unknown apps" | Free |
-| Windows | windows runner | Zip of the app folder (`isekaidrop.exe` + files) | Yes, unsigned: Windows SmartScreen warns ("More info → Run anyway") | Free (code-signing certificate optional, paid) |
+| Windows | windows runner | Single installer `isekai-drop-windows-setup.exe` (Inno Setup, per-user, no admin); app folder as CI artifact | Yes, unsigned: SmartScreen warns ("More info → Run anyway"); Windows 11 Smart App Control blocks unsigned apps (see WINDOWS_INSTALL.md) | Free (code-signing certificate optional, paid) |
 | macOS | macOS runner | Zip of `Isekai Drop.app`, unsigned, not notarized | Yes with a workaround: right-click → Open, or System Settings → Privacy & Security → "Open Anyway" | Free; proper signing needs the $99/yr Apple program |
 | Linux | ubuntu runner | `.tar.gz` with the app bundle | Yes: unpack, run `isekaidrop` | Free |
 | iOS / iPadOS | macOS runner | **Unsigned** build | **No.** Proves the code compiles only | See below |
