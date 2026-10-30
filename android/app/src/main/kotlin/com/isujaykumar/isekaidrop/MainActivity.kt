@@ -23,7 +23,9 @@ import android.provider.MediaStore
 import android.provider.OpenableColumns
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import io.flutter.plugin.common.StandardMethodCodec
 import java.io.File
 import java.io.FileInputStream
 import java.util.concurrent.Executors
@@ -93,12 +95,12 @@ class MainActivity : FlutterActivity() {
         val messenger = flutterEngine.dartExecutor.binaryMessenger
         MethodChannel(
             messenger, "isekai_drop/android_read",
-            io.flutter.plugin.common.StandardMethodCodec.INSTANCE,
+            StandardMethodCodec.INSTANCE,
             messenger.makeBackgroundTaskQueue(),
         ).setMethodCallHandler { call, result -> onReadCall(call, result) }
         MethodChannel(
             messenger, "isekai_drop/android_hash",
-            io.flutter.plugin.common.StandardMethodCodec.INSTANCE,
+            StandardMethodCodec.INSTANCE,
             messenger.makeBackgroundTaskQueue(),
         ).setMethodCallHandler { call, result ->
             if (call.method == "hashFile") hashFile(call.argument<String>("path")!!, result)
@@ -352,7 +354,7 @@ class MainActivity : FlutterActivity() {
         result.success(out)
     }
 
-    private fun onReadCall(call: io.flutter.plugin.common.MethodCall, result: MethodChannel.Result) {
+    private fun onReadCall(call: MethodCall, result: MethodChannel.Result) {
         // Runs on a background task queue: blocking reads are fine here.
         when (call.method) {
             "openRead" -> openRead(call.argument<String>("uri")!!, result)
