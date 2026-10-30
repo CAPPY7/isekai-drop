@@ -964,6 +964,7 @@ Future<void> _clientMain(_ClientArgs a) async {
     while (queue.isNotEmpty && !failed) {
       final b = queue.removeAt(0);
       var off = 0;
+      final parts = <Future<void>>[];
       while (off < b.length) {
         final i = streams == 1 ? 0 : (pos ~/ stripe) % streams;
         final left = streams == 1 ? b.length : stripe - pos % stripe;
@@ -976,10 +977,14 @@ Future<void> _clientMain(_ClientArgs a) async {
         socks[i].add(piece);
         final nf = flushes[i] = socks[i].flush();
         nf.ignore();
+        parts.add(nf);
         off += k;
         pos += k;
       }
-      back.send(['ack', b.length]);
+      // Acked once handed to the network (drain() relies on that), without
+      // waiting here: the next block goes out meanwhile.
+      final len = b.length;
+      Future.wait(parts).then((_) => back.send(['ack', len]), onError: (_) {});
     }
   }
 
