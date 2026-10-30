@@ -74,13 +74,36 @@ class MainActivity : FlutterActivity() {
     private var pendingPick: MethodChannel.Result? = null
     private var multicastLock: WifiManager.MulticastLock? = null
     private val io = Executors.newSingleThreadExecutor()
-    // Separate from [io] so sending never waits behind a Downloads export.
-    private val readIo = Executors.newSingleThreadExecutor()
-    private val readers = java.util.concurrent.ConcurrentHashMap<Int, java.io.InputStream>()
+    // 0.9.2: open files being sent. Each keeps a SHA-256 of everything read
+    // so far (MessageDigest is hardware-accelerated on ARMv8; the Dart
+    // SHA-256 is pure Dart and much slower).
+    private class Reader(val ins: java.io.InputStream) {
+        val digest: java.security.MessageDigest = java.security.MessageDigest.getInstance("SHA-256")
+        var bytes = 0L
+    }
+    private val readers = java.util.concurrent.ConcurrentHashMap<Int, Reader>()
     private val nextReader = java.util.concurrent.atomic.AtomicInteger(1)
+    private var wifiLock: WifiManager.WifiLock? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        // 0.9.2 speed: file reading and hashing run on background task
+        // queues (not the Android UI thread), with their own channels.
+        // Before, every 512 KiB chunk hopped through the UI thread.
+        val messenger = flutterEngine.dartExecutor.binaryMessenger
+        MethodChannel(
+            messenger, "isekai_drop/android_read",
+            io.flutter.plugin.common.StandardMethodCodec.INSTANCE,
+            messenger.makeBackgroundTaskQueue(),
+        ).setMethodCallHandler { call, result -> onReadCall(call, result) }
+        MethodChannel(
+            messenger, "isekai_drop/android_hash",
+            io.flutter.plugin.common.StandardMethodCodec.INSTANCE,
+            messenger.makeBackgroundTaskQueue(),
+        ).setMethodCallHandler { call, result ->
+            if (call.method == "hashFile") hashFile(call.argument<String>("path")!!, result)
+            else result.notImplemented()
+        }
         channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
         channel!!.setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -89,15 +112,8 @@ class MainActivity : FlutterActivity() {
                     // (ContentResolver). Re-opening "/proc/self/fd/N" from
                     // Dart fails on Android 11+ scoped storage (EACCES),
                     // which made every send fail at 0%.
-                    "openRead" -> openRead(call.argument<String>("uri")!!, result)
-                    "readChunk" -> readChunk(call.argument<Int>("id")!!, call.argument<Int>("max")!!, result)
-                    "closeRead" -> {
-                        try {
-                            readers.remove(call.argument<Int>("id")!!)?.close()
-                        } catch (_: Exception) {
-                        }
-                        result.success(null)
-                    }
+                    // (0.9.2: openRead/readChunk/closeRead moved to the
+                    // "isekai_drop/android_read" background channel.)
                     "ensureLegacyStorage" -> ensureLegacyStorage(result)
                     // Audit #15: partial files live here (not cache: the
                     // system may clear it; not backed up to the cloud).
@@ -130,11 +146,13 @@ class MainActivity : FlutterActivity() {
                     "folderExists" -> folderExists(call.argument<String>("name")!!, result)
                     "networkInfo" -> result.success(networkInfo())
                     "keepScreenOn" -> {
-                        if (call.argument<Boolean>("on") == true) {
+                        val on = call.argument<Boolean>("on") == true
+                        if (on) {
                             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                         } else {
                             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                         }
+                        setWifiLock(on)
                         result.success(null)
                     }
                     "localNets" -> {
@@ -267,6 +285,7 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        setWifiLock(false)
         try {
             multicastLock?.release()
         } catch (_: Exception) {
@@ -333,45 +352,112 @@ class MainActivity : FlutterActivity() {
         result.success(out)
     }
 
-    private fun openRead(uri: String, result: MethodChannel.Result) {
-        readIo.execute {
-            try {
-                val ins = contentResolver.openInputStream(Uri.parse(uri))
-                    ?: throw java.io.IOException("no stream")
-                val id = nextReader.getAndIncrement()
-                readers[id] = ins
-                runOnUiThread { result.success(id) }
-            } catch (e: SecurityException) {
-                runOnUiThread { result.error("no_permission", "No permission to read the file", null) }
-            } catch (e: java.io.FileNotFoundException) {
-                runOnUiThread { result.error("not_found", "File not found", null) }
-            } catch (e: Exception) {
-                runOnUiThread { result.error("open_failed", e.javaClass.simpleName, null) }
+    private fun onReadCall(call: io.flutter.plugin.common.MethodCall, result: MethodChannel.Result) {
+        // Runs on a background task queue: blocking reads are fine here.
+        when (call.method) {
+            "openRead" -> openRead(call.argument<String>("uri")!!, result)
+            "readChunk" -> readChunk(call.argument<Int>("id")!!, call.argument<Int>("max")!!, result)
+            // SHA-256 (hex) and byte count of everything read so far.
+            "readDigest" -> {
+                val r = readers[call.argument<Int>("id")!!]
+                if (r == null) result.error("closed", "Reader closed", null)
+                else result.success(mapOf("sha256" to hex(r.digest.digest()), "bytes" to r.bytes))
             }
+            "closeRead" -> {
+                try {
+                    readers.remove(call.argument<Int>("id")!!)?.ins?.close()
+                } catch (_: Exception) {
+                }
+                result.success(null)
+            }
+            else -> result.notImplemented()
+        }
+    }
+
+    private fun hex(b: ByteArray): String {
+        val sb = StringBuilder(b.size * 2)
+        for (x in b) sb.append(String.format("%02x", x.toInt() and 0xff))
+        return sb.toString()
+    }
+
+    private fun openRead(uri: String, result: MethodChannel.Result) {
+        try {
+            val ins = contentResolver.openInputStream(Uri.parse(uri))
+                ?: throw java.io.IOException("no stream")
+            val id = nextReader.getAndIncrement()
+            readers[id] = Reader(ins)
+            result.success(id)
+        } catch (e: SecurityException) {
+            result.error("no_permission", "No permission to read the file", null)
+        } catch (e: java.io.FileNotFoundException) {
+            result.error("not_found", "File not found", null)
+        } catch (e: Exception) {
+            result.error("open_failed", e.javaClass.simpleName, null)
         }
     }
 
     /** Reads up to [max] bytes (fewer only at the end). Empty = end of file. */
     private fun readChunk(id: Int, max: Int, result: MethodChannel.Result) {
-        readIo.execute {
-            val ins = readers[id]
-            if (ins == null) {
-                runOnUiThread { result.error("closed", "Reader closed", null) }
-                return@execute
+        val r = readers[id]
+        if (r == null) {
+            result.error("closed", "Reader closed", null)
+            return
+        }
+        try {
+            val buf = ByteArray(max.coerceIn(4096, 8 * 1024 * 1024))
+            var n = 0
+            while (n < buf.size) {
+                val got = r.ins.read(buf, n, buf.size - n)
+                if (got < 0) break
+                n += got
             }
-            try {
-                val buf = ByteArray(max.coerceIn(4096, 4 * 1024 * 1024))
-                var n = 0
-                while (n < buf.size) {
-                    val r = ins.read(buf, n, buf.size - n)
-                    if (r < 0) break
-                    n += r
+            r.digest.update(buf, 0, n)
+            r.bytes += n
+            result.success(if (n == buf.size) buf else buf.copyOf(n))
+        } catch (e: Exception) {
+            result.error("read_failed", e.javaClass.simpleName, null)
+        }
+    }
+
+    /** 0.9.2: SHA-256 (hex) of a received temp file, natively. */
+    private fun hashFile(path: String, result: MethodChannel.Result) {
+        try {
+            val md = java.security.MessageDigest.getInstance("SHA-256")
+            val buf = ByteArray(1 shl 20)
+            FileInputStream(File(path)).use { ins ->
+                while (true) {
+                    val n = ins.read(buf)
+                    if (n < 0) break
+                    md.update(buf, 0, n)
                 }
-                val out = if (n == buf.size) buf else buf.copyOf(n)
-                runOnUiThread { result.success(out) }
-            } catch (e: Exception) {
-                runOnUiThread { result.error("read_failed", e.javaClass.simpleName, null) }
             }
+            result.success(hex(md.digest()))
+        } catch (e: Exception) {
+            result.error("hash_failed", e.javaClass.simpleName, null)
+        }
+    }
+
+    /**
+     * 0.9.2: keep Wi-Fi out of power save while a transfer runs.
+     * WIFI_MODE_FULL_HIGH_PERF only below Android 14: from API 34 the system
+     * turns it into a LOW_LATENCY lock, which its documentation says may
+     * reduce throughput, so there we take no lock.
+     */
+    @Suppress("DEPRECATION")
+    private fun setWifiLock(on: Boolean) {
+        try {
+            if (on) {
+                if (Build.VERSION.SDK_INT >= 34 || wifiLock?.isHeld == true) return
+                val wifi = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
+                wifiLock = wifi.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "isekai-drop-transfer").apply {
+                    setReferenceCounted(false)
+                    acquire()
+                }
+            } else {
+                wifiLock?.let { if (it.isHeld) it.release() }
+                wifiLock = null
+            }
+        } catch (_: Exception) {
         }
     }
 

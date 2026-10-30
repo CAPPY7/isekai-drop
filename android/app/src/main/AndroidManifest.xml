@@ -6,6 +6,8 @@
     <!-- Diagnostics: connection type and Wi-Fi link speed (no prompt). -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <!-- 0.9.2: Wi-Fi lock (no power save) while a transfer runs (no prompt). -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Scanning pairing QR codes only. Asked the first time you tap Scan. -->
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- Audit #6: only Android 9 and older (no MediaStore.Downloads there);

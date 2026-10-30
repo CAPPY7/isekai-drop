@@ -24,6 +24,9 @@ import 'core/send_source.dart';
 import 'core/trust_store.dart';
 
 const _android = MethodChannel('isekai_drop/android');
+// 0.9.2: background (non-UI-thread) channels for reading and hashing.
+const _androidRead = MethodChannel('isekai_drop/android_read');
+const _androidHash = MethodChannel('isekai_drop/android_hash');
 final _exporter = AndroidExporter(_android);
 const _apple = MethodChannel('isekai_drop/apple');
 BonjourBridge? _bonjour;
@@ -252,6 +255,8 @@ Future<IsekaiEngine> createPlatformEngine(
     platformName: Platform.operatingSystem,
     tempDir: tempDir,
     finalizer: finalizer,
+    // 0.9.2: Android checks received files with the native SHA-256.
+    fileDigest: Platform.isAndroid ? androidFileSha256 : null,
     secureStorageNote: note,
     receiveLocationNote: where,
     // iPhone/iPad: UDP multicast/broadcast needs Apple's multicast
@@ -340,19 +345,43 @@ class AndroidUriSource extends SendSource {
   int? _rid;
 
   /// 0.9.1 root-cause fix: the file is read in Kotlin through
-  /// ContentResolver.openInputStream and passed over in 512 KiB chunks.
-  /// Before, Dart re-opened "/proc/self/fd/N", which Android 11+ refuses
-  /// for picked files (scoped storage), so every send failed at 0%.
+  /// ContentResolver.openInputStream (Dart cannot re-open picked files on
+  /// Android 11+ scoped storage).
+  /// 0.9.2 speed: 4 MiB per call (was 512 KiB) with two calls in flight,
+  /// on a background channel (not the Android UI thread), and Kotlin
+  /// computes the SHA-256 while reading (hardware-accelerated
+  /// MessageDigest instead of pure-Dart SHA-256).
   @override
   Stream<List<int>> open() => chunkedPlatformRead(
     openId: () async =>
-        (await _android.invokeMethod<int>('openRead', {'uri': uri}))!,
-    read: (id) => _android.invokeMethod<Uint8List>('readChunk', {
+        (await _androidRead.invokeMethod<int>('openRead', {'uri': uri}))!,
+    read: (id) => _androidRead.invokeMethod<Uint8List>('readChunk', {
       'id': id,
-      'max': 512 * 1024,
+      'max': kAndroidReadChunk,
     }),
     onOpened: (id) => _rid = id,
   );
+
+  @override
+  bool get hashesItself => true;
+
+  @override
+  Future<({String sha256, int bytes})> readDigest() async {
+    final id = _rid;
+    if (id == null) throw const SourceReadException('closed');
+    try {
+      final m = (await _androidRead.invokeMapMethod<String, dynamic>(
+        'readDigest',
+        {'id': id},
+      ))!;
+      return (
+        sha256: m['sha256'] as String,
+        bytes: (m['bytes'] as num).toInt(),
+      );
+    } catch (e) {
+      throw const SourceReadException('read_failed');
+    }
+  }
 
   @override
   Future<void> close() async {
@@ -360,10 +389,23 @@ class AndroidUriSource extends SendSource {
     _rid = null;
     if (id != null) {
       try {
-        await _android.invokeMethod('closeRead', {'id': id});
+        await _androidRead.invokeMethod('closeRead', {'id': id});
       } catch (_) {}
     }
   }
+}
+
+/// 0.9.2: bytes per Android read call (the engine splits them into
+/// smaller DATA frames).
+const int kAndroidReadChunk = 4 * 1024 * 1024;
+
+/// SHA-256 of a received file, computed natively (Android).
+Future<String> androidFileSha256(File f) async {
+  final h = await _androidHash.invokeMethod<String>('hashFile', {
+    'path': f.path,
+  });
+  if (h == null) throw const FileSystemException('hash failed');
+  return h;
 }
 
 /// Opens the system file picker. Returns files ready to stream.
