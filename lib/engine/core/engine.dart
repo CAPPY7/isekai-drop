@@ -845,6 +845,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   }
 
   bool _pairingOpen = false;
+
   /// How long a one-tap "pair and send" acceptance covers the send.
   @visibleForTesting
   Duration preApprovalTtl = const Duration(minutes: 3);
