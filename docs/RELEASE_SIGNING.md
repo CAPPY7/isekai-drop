@@ -1,4 +1,29 @@
-# Real release key (prepared, NOT active)
+# Release key (ACTIVE since 0.11.1)
+
+Status (30 Oct 2026): the owner lost the backup of the earlier release key
+and approved a NEW one. It was generated on the build box (PKCS12, RSA 4096,
+10000 days, alias `isekai-drop`, CN=Isekai Drop). Certificate SHA-256:
+
+    81:31:62:3F:17:C7:11:DC:42:32:2F:2B:A9:B6:42:6E:DD:29:8D:E2:7F:78:3F:FD:BD:30:D0:4E:30:A9:04:9B
+    (8131623f17c711dc42322f2ba9b6426edd298de27f783ffdbd30d04e30a9049b)
+
+- The 4 secrets are set on CAPPY7/isekai-drop: `ISEKAI_RELEASE_KEYSTORE_B64`,
+  `ISEKAI_RELEASE_STORE_PASSWORD`, `ISEKAI_RELEASE_KEY_PASSWORD`,
+  `ISEKAI_RELEASE_KEY_ALIAS` (= `isekai-drop`).
+- `.github/workflows/android.yml` (every push to main, and the latest-build
+  files) signs with this key when all 4 secrets exist, checks the APK
+  fingerprint, and deletes the temp keystore. Without the secrets it falls back
+  to the dev key with a "DEV-signed build" warning.
+- The owner keeps the backup (key file + passwords). GitHub secrets cannot be
+  read back: **without the backup the key cannot be recovered**, and every
+  phone would need another uninstall/reinstall.
+- The dev key (`android/app/isekai-drop-dev.jks`, 5b36eeb0...b257c1) stays for
+  local and debug builds only.
+- Moving from the dev key: uninstall the old app once (see below).
+
+---
+Older text (before 0.11.1), kept for reference:
+
 
 Today every APK is signed with the throwaway **dev** key (fingerprint 5b36eeb0…57c1). Its passwords are in the repo on purpose: anyone with repo access could sign an "Isekai Drop" update. Fine for testing, not for friends and family.
 

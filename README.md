@@ -15,6 +15,7 @@ A free, private app for sending files **directly** between your own devices
 | Linux x64 | tar.gz from Actions | UDP + Bonjour (browse) | UDP only | Needs GTK 3 and libsecret. Without an unlocked keyring the device key is stored in a private file (mode 600) instead. Open TCP 47820 and UDP 47821 in the firewall. Tested only headless on the build box. |
 
 0.11.0: simpler screens (3-step Send, QR first on Connect, short Settings, a first-start intro) and an **Auto (fastest)** route choice; see RELEASE_NOTES.md.
+0.11.1: APKs are now signed with the owner's release key: **uninstall the old app once**, then install (see "Security note" below).
 
 Speed: no speed is promised. Shown speeds are measured live. Real results depend on your devices and Wi-Fi.
 
@@ -98,13 +99,17 @@ keeps your data, because every test build is signed with the same key.
 | Devices do not find each other | Some Wi-Fi networks (guest/office/"AP isolation") block devices from seeing each other. Tap Connect > Search this network, use a phone hotspot instead, or type the address. On Windows allow Isekai Drop in the firewall prompt. |
 | No APK in Assets | The latest build may still be running or failed. Check the **Actions** tab. |
 
-## Security note: test key is public
-Test APKs are signed with the dev key committed in this repo
-(`android/app/isekai-drop-dev.jks`). Since the repo is public, anyone can
-sign an APK with the same key, so a fake APK could install as an "update" of
-the test app. Only install APKs from the latest-build release link above.
-The fix is the real release key (docs/RELEASE_SIGNING.md) once its 4 GitHub
-secrets are added again.
+## Security note: signing key (new in 0.11.1)
+From 0.11.1 the APKs on the latest-build release are signed with the
+owner's private **release key**. Check: certificate SHA-256
+`8131623f17c711dc42322f2ba9b6426edd298de27f783ffdbd30d04e30a9049b`
+(`apksigner verify --print-certs app.apk`).
+**One-time reinstall:** if you have 0.11.0 or older (signed with the old,
+public dev key), uninstall Isekai Drop first, then install 0.11.1 and pair
+again. Received files stay; pairings and history are lost. Later updates
+install normally. The dev key in this repo (`android/app/isekai-drop-dev.jks`)
+is only for local test builds; CI uses it only if the release secrets are
+missing, and then says so in the run.
 
 ## Other platforms
 1. **Windows 10/11:** download **`isekai-drop-windows-setup.exe`** from the

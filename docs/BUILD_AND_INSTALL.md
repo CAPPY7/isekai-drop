@@ -14,12 +14,17 @@ monthly minutes allowance where macOS counts 10x and Windows 2x).
 | iOS / iPadOS | macOS runner | **Unsigned** build | **No.** Proves the code compiles only | See below |
 
 ## Android signing
-Every test APK is signed with one throwaway development key stored in the
-repo (`android/app/isekai-drop-dev.jks`; the repo is now PUBLIC, so this key
-is public too and anyone could sign a look-alike APK; move to the release
-key, docs/RELEASE_SIGNING.md), so updates install over the
-old version. The real release key comes only in the final phase and is never
-committed. The version number (versionCode) is the GitHub run number, so it
+From 0.11.1, APKs built by GitHub on `main` (and the latest-build files) are
+signed with the owner's **release key** (certificate SHA-256
+`8131623f17c711dc42322f2ba9b6426edd298de27f783ffdbd30d04e30a9049b`). The key is never committed: CI reads it
+from 4 repository secrets (docs/RELEASE_SIGNING.md). If those secrets are
+missing (e.g. a fork) CI falls back to the public dev key
+(`android/app/isekai-drop-dev.jks`, SHA-256 5b36eeb0...b257c1) and the run
+shows a "DEV-signed build" warning. Local and debug builds use the dev key.
+**One-time reinstall:** a phone with a dev-signed build (0.11.0 or older)
+must uninstall Isekai Drop once before installing 0.11.1 (different key);
+pairings and history are lost, received files stay. After that, updates
+install over the old version. The version number (versionCode) is the GitHub run number, so it
 goes up on every build. APKs built by hand on the build box use versionCode
 1001 or higher (file name ends in `-local.apk`) so they never clash with a
 GitHub build number; a phone with such a build installed needs an uninstall

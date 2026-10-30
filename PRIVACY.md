@@ -96,3 +96,7 @@ History is stored only on this device (history.json in the app's private folder)
 
 ## Interrupted transfers (Phase 6)
 To let a transfer continue, the receiver keeps the unfinished file in a hidden folder (.isekai-resume) next to received files, for up to 7 days. It is deleted when the transfer finishes, is cancelled, or fails its integrity check.
+
+App signing (0.11.1): Android APKs are signed with the owner's release key.
+The key only proves who built the app; it does not see or send any of your
+data.

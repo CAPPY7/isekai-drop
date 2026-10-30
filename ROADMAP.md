@@ -173,8 +173,15 @@ Owner on 0.10.1: plain TCP 6.9, TLS 7.1/8.8 MB/s; disk/hash 121-312 MB/s -> netw
 - [ ] Open / Show in folder on Android (native intent + FileProvider)
 - [ ] Owner Speed test Windows -> Android with the new link line (NOT TESTED)
 
+## Phase 7m - Release signing (0.11.1)
+- [x] New release key (owner approved; old backup lost), 4 repo secrets set
+- [x] android.yml: release key when secrets exist, dev key fallback with a warning, fingerprint check
+- [x] Docs: README, AUDIT #35, BUILD_AND_INSTALL, RELEASE_SIGNING, PRIVACY, RELEASE_NOTES
+- [ ] Owner saved the key backup (then the build-box copy is deleted)
+- [ ] One-time uninstall + reinstall on the owner's phones (NOT TESTED)
+
 ## Phase 8 - Fix security, compatibility, performance, usability
 - [ ] Security tests for all acceptance tests
-- [ ] Real release key (never committed). URGENT since the repo became PUBLIC (2026-10-30): the committed dev keystore `android/app/isekai-drop-dev.jks` is public, so dev-signed APKs can be imitated. Move CI to the release key once the owner re-adds the 4 signing secrets (docs/RELEASE_SIGNING.md).
+- [x] Real release key (never committed): new key in 0.11.1 (old backup lost), CI signs main builds when the 4 secrets exist (Phase 7m).
 
 Note: the owner's phase prompts set the numbering. Spec phases 2-7 moved one step later because the owner made Phase 2 the UI phase.

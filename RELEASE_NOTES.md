@@ -1,3 +1,19 @@
+# Isekai Drop 0.11.1 (DRAFT release notes, test build)
+
+## One-time reinstall needed (Android)
+- Android APKs are now signed with the owner's new **release key** instead of
+  the public test key. Certificate SHA-256:
+  `8131623f17c711dc42322f2ba9b6426edd298de27f783ffdbd30d04e30a9049b`.
+- **Uninstall Isekai Drop once**, then install 0.11.1. Android refuses to
+  install it over 0.11.0 or older ("App not installed") because the key is
+  different. Received files in Downloads stay; **pairings and history are
+  lost**, so pair your devices again. After this, updates install normally.
+- Why: the old test key is in the public repo, so anyone could make a fake
+  "update" (AUDIT #35). With the release key only the owner's builds can
+  update the app.
+- No app changes otherwise (same as 0.11.0). Windows/iOS: nothing to do
+  (Windows still unsigned, iOS still unsigned).
+
 # Isekai Drop 0.11.0 (DRAFT release notes, test build)
 
 ## What changed: easier screens (docs/UI_SPEC_0.11.md)

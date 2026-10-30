@@ -26,7 +26,7 @@ file before every phase. Stop after each phase and wait for "next".
   (alias `isekai-drop-dev`, non-secret password `isekai-drop-dev-only`),
   committed by owner's approval. DEV cert SHA-256:
   `5B:36:EE:B0:22:D1:1E:4C:4A:94:70:D4:D7:CA:E3:87:40:7B:A2:38:F4:BB:19:C0:B2:84:7C:EF:B1:B2:57:C1`.
-  Real release key: last phase only, never committed.
+  Release key (since 0.11.1): see "0.11.1 release key" notes below; never committed.
 - versionCode = `github.run_number` (via `--build-number`). The arm64 split APK uses
   `--android-project-arg=force-version-code-ignoring-abi=true` so it has the SAME
   versionCode (otherwise it would be 2000+n and block updates to the universal APK).
@@ -175,7 +175,7 @@ file before every phase. Stop after each phase and wait for "next".
 - Resume id is v2 (name + size + modification time).
 - Android incoming/partials: no-backup folder (androidIncomingDir). Free-space check: free_space.dart (null = unknown, no check), margin kFreeSpaceMargin 64 MiB.
 - Pause/queue tests use a throttled source: do not make them depend on machine speed.
-- Release key: owner holds it; secrets ISEKAI_RELEASE_* are set. Expected release cert SHA-256 55:35:13:AC:F3:A6:A9:F4:34:97:35:FF:A0:29:DD:58:1C:89:68:3A:B9:CD:45:3D:B5:E6:7A:7A:18:61:98:22. Test builds stay on the dev key (5b36eeb0...57c1). Release workflow makes DRAFT releases only; publishing is the owner's call.
+- (Superseded 2026-10-30: the earlier release key 55:35:13:AC... was LOST; replaced in 0.11.1, see below.)
 
 ## Phase 7d notes (2026-10-27, 0.8.1)
 - Root cause of "pairing fails" on 0.7.1: the client sends pair_req only after its user taps "Codes match", but the server dropped connections with no first message after 10 s (audit #4). Fix: client sends `{'t':'pair_hello'}` right after connect; server then waits `pairCompareTimeout` (2 min) for pair_req, only one such wait at a time (second gets pair_denied busy). Never remove pair_hello or make the first-message limit long for everyone. Tests: test/network_fix_test.dart group A.
@@ -265,3 +265,11 @@ file before every phase. Stop after each phase and wait for "next".
 - Route modes: settings.routeMode 'auto' | 'router' | 'direct'; engine `routeMode` null = 0.10 behaviour. RouteStats (lib/engine/direct/route_choice.dart, route_stats.json) stores only MB/s per device id and route; decision in autoRouteSkip(); reasons 'auto_*' in explainDirectError.
 - Windows link: lib/engine/windows_link.dart parses netsh wlan show interfaces (never SSID/BSSID) and powercfg; read-only, nothing is changed on the PC.
 - PendingRequest has no device id, so per-device "Always allow" needs an engine change (not done).
+
+## 0.11.1 release key (2026-10-30)
+- Owner lost the old release-key backup and approved a NEW key. Alias `isekai-drop`, PKCS12 RSA 4096, CN=Isekai Drop.
+- NEW release cert SHA-256: `81:31:62:3F:17:C7:11:DC:42:32:2F:2B:A9:B6:42:6E:DD:29:8D:E2:7F:78:3F:FD:BD:30:D0:4E:30:A9:04:9B` (`8131623f17c711dc42322f2ba9b6426edd298de27f783ffdbd30d04e30a9049b`). The old 55:35:13:AC... key is gone; never expect it.
+- Secrets on CAPPY7/isekai-drop: ISEKAI_RELEASE_KEYSTORE_B64, ISEKAI_RELEASE_STORE_PASSWORD, ISEKAI_RELEASE_KEY_PASSWORD, ISEKAI_RELEASE_KEY_ALIAS. Never print, log or commit their values; set them only from files/stdin.
+- android.yml signs main builds + latest-build with the release key when all 4 secrets exist (step "Check which key signed the APKs" fails on a mismatch), else falls back to the DEV key with a `::warning`. The latest-build Android line says "release key" / "dev key".
+- Dev key (5b36eeb0...b257c1) = local/debug and fallback only. Upgrading from a dev-signed build needs ONE uninstall.
+- AUDIT #35 is resolved for anyone who has installed a 0.11.1+ release-signed APK.
