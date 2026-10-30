@@ -80,35 +80,31 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    # One group per platform: each workflow only touches its own files.
     concurrency:
-      group: publish-latest-build
+      group: publish-latest-build-android
       cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
+      - uses: actions/checkout@v7.0.1
       - uses: actions/download-artifact@v8.0.2
         with:
           name: isekai-drop-android
       - uses: actions/download-artifact@v8.0.2
         with:
           name: isekai-drop-android-arm64
-      - run: |
+      - name: Stable file names (each build replaces the last)
+        run: |
+          mv isekai-drop-android-${{ github.run_number }}.apk isekai-drop-android-universal.apk
+          mv isekai-drop-android-arm64-${{ github.run_number }}.apk isekai-drop-android-arm64.apk
+          test -s isekai-drop-android-universal.apk
+          test -s isekai-drop-android-arm64.apk
           ls -l *.apk
-          test -s isekai-drop-android-${{ github.run_number }}.apk
-          test -s isekai-drop-android-arm64-${{ github.run_number }}.apk
-      - uses: softprops/action-gh-release@v3.0.3
-        with:
-          tag_name: latest-build
-          name: Latest test build (DEV-signed, not a real release)
-          prerelease: true
-          make_latest: false
-          overwrite_files: true
-          body: |
-            Automatic TEST build of Isekai Drop for Android.
-            Run number (versionCode): ${{ github.run_number }}
-            Commit: ${{ github.sha }}
-            Signed with the throwaway DEV key. Not for public distribution.
-            The newest APK has the highest number in its file name.
-            "arm64" = smaller file for most phones from about 2017 on. The other file works on all phones.
-            iPhone: isekai-drop-ios-unsigned-N.ipa is UNSIGNED. It needs sideloading (AltStore/Sideloadly with your own free Apple ID) and expires after 7 days. See README.
-          files: |
-            isekai-drop-android-${{ github.run_number }}.apk
-            isekai-drop-android-arm64-${{ github.run_number }}.apk
+      - name: Upload (replace) and remove old Android files
+        run: |
+          V=$(grep -m1 '^version:' pubspec.yaml | sed 's/version: *//; s/+.*//')
+          .github/scripts/latest_build.sh android \
+            '^isekai-drop-android-.*\.apk$' \
+            "Android ${V} build ${{ github.run_number }} (versionCode ${{ github.run_number }}), commit ${GITHUB_SHA::7}" \
+            isekai-drop-android-arm64.apk isekai-drop-android-universal.apk

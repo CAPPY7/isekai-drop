@@ -32,3 +32,36 @@ jobs:
           path: build/windows/x64/runner/Release/
           if-no-files-found: error
           retention-days: 30
+
+  publish:
+    name: Publish Windows zip to release "latest-build"
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    # One group per platform: each workflow only touches its own files.
+    concurrency:
+      group: publish-latest-build-windows
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: isekai-drop-windows
+          path: win
+      - name: Zip the Windows app (stable name)
+        run: |
+          test -s win/isekaidrop.exe
+          (cd win && zip -qr ../isekai-drop-windows-x64.zip .)
+          test -s isekai-drop-windows-x64.zip
+          ls -l isekai-drop-windows-x64.zip
+      - name: Upload (replace) and remove old Windows files
+        run: |
+          V=$(grep -m1 '^version:' pubspec.yaml | sed 's/version: *//; s/+.*//')
+          .github/scripts/latest_build.sh windows \
+            '^isekai-drop-windows-.*\.zip$' \
+            "Windows x64 ${V} build ${{ github.run_number }}, commit ${GITHUB_SHA::7}" \
+            isekai-drop-windows-x64.zip

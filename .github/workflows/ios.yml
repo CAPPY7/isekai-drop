@@ -47,21 +47,26 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    # One group per platform: each workflow only touches its own files.
     concurrency:
-      group: publish-latest-build
+      group: publish-latest-build-ios
       cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
+      - uses: actions/checkout@v7.0.1
       - uses: actions/download-artifact@v8.0.2
         with:
           name: isekai-drop-ios-unsigned
-      - run: |
+      - name: Stable file name (each build replaces the last)
+        run: |
+          mv isekai-drop-ios-unsigned-${{ github.run_number }}.ipa isekai-drop-ios-unsigned.ipa
+          test -s isekai-drop-ios-unsigned.ipa
           ls -l *.ipa
-          test -s isekai-drop-ios-unsigned-${{ github.run_number }}.ipa
-      # No name/body here: the Android workflow owns the release text.
-      - uses: softprops/action-gh-release@v3.0.3
-        with:
-          tag_name: latest-build
-          prerelease: true
-          make_latest: false
-          overwrite_files: true
-          files: isekai-drop-ios-unsigned-${{ github.run_number }}.ipa
+      - name: Upload (replace) and remove old iOS files
+        run: |
+          V=$(grep -m1 '^version:' pubspec.yaml | sed 's/version: *//; s/+.*//')
+          .github/scripts/latest_build.sh ios \
+            '^isekai-drop-ios-.*\.ipa$' \
+            "iOS (unsigned) ${V} build ${{ github.run_number }}, commit ${GITHUB_SHA::7}" \
+            isekai-drop-ios-unsigned.ipa
