@@ -1,3 +1,27 @@
+# Isekai Drop 0.9.2 (DRAFT release notes, test build)
+
+**Test build. Not a public release.** Real phones have NOT been tested by me (see "Not tested").
+
+## New in 0.9.2: faster transfers (docs/BENCHMARK_SPEED_0.9.2.md)
+Report on 0.9.1: OnePlus 8 -> OnePlus 9 on the same Wi-Fi gets 6-10 MB/s.
+- **Faster file reading on Android**: 4 MiB per read (was 512 KiB), off the UI thread, two reads at once.
+- **Native SHA-256 on Android**: the integrity check stays, but it now uses the phone's built-in SHA-256 instead of a slow Dart version (Dart SHA-256 was the slowest stage on the build box: ~117 MB/s vs ~1.9 GB/s native).
+- **Bigger network frames** (256 KiB) and less progress bookkeeping.
+- **Wi-Fi high-performance lock** during transfers (Android 13 and older; not used on Android 14+, see notes).
+- **Wi-Fi band shown** on the Transfer and Diagnostics screens (e.g. "5 GHz, 1201 Mbps"). On 2.4 GHz it says **"Use 5 GHz for best speed"**.
+- Box measurement (not phones): 512 MiB between two processes over real TLS, 57-59 MB/s (0.9.1) -> 63-64 MB/s (0.9.2 with native hashing).
+
+### Honest speed note
+Through a home router every byte crosses the air twice (phone -> router -> phone), and real Wi-Fi throughput is usually half or less of the link speed. Estimate: about 36 MB/s at best on Wi-Fi 6 5 GHz, and about 4-9 MB/s on 2.4 GHz - which matches 6-10 MB/s. **Put both phones on the 5 GHz network** and check the band line on the Transfer screen. 60-70 MB/s through a router is unlikely for any app; a direct phone-to-phone link is on the roadmap.
+
+### Install note
+Install over 0.9.1 (same test key, higher version number): **no uninstall needed**, pairings are kept. Update **both** phones.
+
+### Not tested (honest list)
+- Real phones: the speed gain, the Android file-reading and native-hashing code, the Wi-Fi lock, the band line.
+- Windows PC, the Android emulator (box KVM fault).
+- What WAS tested: 137 tests pass (incl. test/speed_paths_test.dart: 13 MiB with native-style digest, wrong digest -> integrity error, read-ahead order; test/wifi_band_test.dart), box e2e and stage bench above. Kotlin code is compile-checked by CI only.
+
 # Isekai Drop 0.9.1 (DRAFT release notes, test build)
 
 **Test build. Not a public release.** Real phones have NOT been tested by me (see "Not tested").
