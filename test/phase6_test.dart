@@ -132,6 +132,17 @@ String sha(File f) => sha256.convert(f.readAsBytesSync()).toString();
 Future<void> settle() =>
     Future<void>.delayed(const Duration(milliseconds: 150));
 
+/// After a dropped send: waits until the receiver noticed the drop and saved
+/// its partial data (it gives the data lane up to 5 s to finish; a slow CI
+/// machine can need more than [settle]).
+Future<void> receiverDone(N n) async {
+  final end = DateTime.now().add(const Duration(seconds: 15));
+  while (n.engine.jobs.any((j) => j.isActive) && DateTime.now().isBefore(end)) {
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+  }
+  await settle();
+}
+
 void main() {
   late N a;
   late N b;
@@ -564,7 +575,7 @@ void main() {
         );
         expect(first.state, JobState.failed);
         await a.pendingSends.idle;
-        await settle();
+        await receiverDone(b);
         // Sender app is closed and opened again: in-memory jobs are gone.
         await a.engine.stop();
         await a.boot();
@@ -618,7 +629,7 @@ void main() {
         ]),
       );
       expect(first.state, JobState.failed);
-      await settle();
+      await receiverDone(b);
       expect(b.received(), isEmpty, reason: 'nothing unverified is saved');
       final parts = b.resumeDir.listSync().whereType<File>().toList();
       expect(parts.where((x) => x.path.endsWith('.part')), hasLength(1));
@@ -662,7 +673,7 @@ void main() {
           await a.engine.send(a.engine.trustedDevices.single, sources),
         );
         expect(first.state, JobState.failed);
-        await settle();
+        await receiverDone(b);
         expect(b.received(), ['one.bin']);
         // "Kill" B: stop the engine, drop every object, boot again from disk.
         await b.engine.stop();
@@ -699,7 +710,7 @@ void main() {
           ]),
         );
         expect(first.state, JobState.failed);
-        await settle();
+        await receiverDone(b);
         final part = b.resumeDir.listSync().whereType<File>().firstWhere(
           (x) => x.path.endsWith('.part'),
         );
@@ -739,6 +750,7 @@ void main() {
         ]),
       );
       expect(first.state, JobState.failed);
+      await receiverDone(b);
       a.engine.debugDropAfterBytes = null;
       b.approve = true;
       final j = await a.engine.retry(first);
