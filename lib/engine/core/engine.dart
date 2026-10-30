@@ -79,10 +79,41 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     bool Function(TrustedDevice device)? autoAccept,
     bool Function()? saveFileNames,
     bool Function()? visible,
+    this.directLinks,
+    bool Function()? fastDirect,
+    Duration directIdle = const Duration(seconds: 30),
+    this.directMinBytes = kDirectMinBytes,
   }) : acceptingFiles = acceptingFiles ?? _yes,
+       fastDirect = fastDirect ?? _yes,
        autoAccept = autoAccept ?? _no,
        saveFileNames = saveFileNames ?? _yes,
-       visible = visible ?? _yes;
+       visible = visible ?? _yes {
+    final d = directLinks;
+    directHost = d != null && d.canHost
+        ? DirectHostManager(d, idle: directIdle, onChange: notifyListeners)
+        : null;
+  }
+
+  /// 0.10.0 Fast direct: platform part (Android) or null (not available).
+  final DirectLinkPlatform? directLinks;
+
+  /// Smallest transfer for which a Fast direct link is tried.
+  final int directMinBytes;
+
+  /// Settings: try a Fast direct link for big transfers.
+  final bool Function() fastDirect;
+
+  /// Receiving side: the link this device hosts (null = cannot host).
+  late final DirectHostManager? directHost;
+
+  /// Sending side: a link this device joined from a Fast direct QR code.
+  DirectLinkInfo? _joinedLink;
+  DirectJoin? _joinedInfo;
+
+  /// Why the last Fast direct attempt was not used (plain language), for
+  /// the Fast direct card and Diagnostics. Null = last attempt worked.
+  @override
+  String? lastDirectProblem;
 
   static bool _yes() => true;
   static bool _no(TrustedDevice _) => false;
@@ -463,6 +494,9 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   Future<void> stop() async {
     _pruneTimer?.cancel();
     _pruneTimer = null;
+    // 0.10.0: never leave a Fast direct link on after the app stops.
+    await directHost?.stop();
+    await leaveDirectLink();
     _discovery?.stop();
     await _server?.close();
     _server = null;
@@ -783,7 +817,20 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       }
       switch (first['t']) {
         case 'offer':
-          await _serverReceive(s, reader, dev, first);
+          // 0.10.0: an offer that arrives over our Fast direct link keeps
+          // the link on until it is finished.
+          // (Server sockets do not know their local address, so the
+          // sender says which way it came.)
+          final route = _routeOfOffer(first);
+          final held =
+              route != LinkRoute.router && (directHost?.hold() ?? false);
+          try {
+            await _serverReceive(s, reader, dev, first, route: route);
+          } finally {
+            if (held) directHost!.release();
+          }
+        case 'direct_req':
+          await _serverDirect(s, reader, dev);
         case 'ping':
           s.add(jsonFrame({'t': 'pong'}));
         default:
@@ -798,6 +845,117 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       } catch (_) {}
       s.destroy();
       await reader.cancel();
+    }
+  }
+
+  // ------------------------------------------------------- Fast direct
+
+  /// Which way a connected socket goes: over a link this device hosts or
+  /// joined, or through the normal network (router).
+  LinkRoute _routeOf(Socket s, {String? remoteHost}) {
+    String? local;
+    try {
+      local = s.address.address;
+    } catch (_) {}
+    final hosted = directHost?.current;
+    if (hosted != null && local == hosted.hostIp) {
+      return LinkRoute.forKind(hosted.kind);
+    }
+    final joined = _joinedLink;
+    if (joined != null && remoteHost == joined.hostIp) {
+      return LinkRoute.forKind(joined.kind);
+    }
+    return LinkRoute.router;
+  }
+
+  LinkRoute _routeOfOffer(Map<String, dynamic> offer) {
+    final via = offer['via'];
+    final hosted = directHost?.current;
+    final joined = _joinedLink;
+    if (via is! String || via == LinkRoute.router.name) return LinkRoute.router;
+    if (hosted == null && joined == null) return LinkRoute.router;
+    for (final r in LinkRoute.values) {
+      if (r.name == via) return r;
+    }
+    return LinkRoute.router;
+  }
+
+  void _setJobRoute(TransferJob job, LinkRoute route, {DirectJoin? join}) {
+    String? detail;
+    if (route != LinkRoute.router) {
+      final link = directHost?.current ?? _joinedLink;
+      final mhz = join?.frequencyMhz ?? link?.frequencyMhz;
+      final mbps = join?.linkMbps;
+      detail = [
+        if (mhz != null) bandLabelFor(mhz),
+        if (mbps != null && mbps > 0) 'link $mbps Mbps',
+      ].join(', ');
+      if (detail.isEmpty) detail = null;
+    }
+    job.setRoute(route, detail: detail);
+  }
+
+  /// A trusted device asks this one to make a Fast direct link (it is about
+  /// to send something big). Answers with the link details, then keeps the
+  /// link on while this control connection stays open.
+  Future<void> _serverDirect(
+    SecureSocket s,
+    FrameReader reader,
+    TrustedDevice dev,
+  ) async {
+    final mgr = directHost;
+    final plat = directLinks;
+    void no(String reason) {
+      diagLog.add(
+        'direct_host_$reason',
+        'Fast direct (receiving): not made: ${explainDirectError(reason)}',
+      );
+      s.add(jsonFrame({'t': 'direct_no', 'reason': reason}));
+    }
+
+    if (mgr == null || plat == null) return no('unsupported');
+    if (!fastDirect()) return no('off');
+    if (!acceptingFiles()) return no('not_accepting');
+    final perm = await plat.permissionState();
+    if (perm != 'granted') {
+      final code = perm == 'denied' ? 'no_permission' : perm;
+      lastDirectProblem =
+          'Another device wanted a Fast direct link, but: '
+          '${explainDirectError(code)}';
+      notifyListeners();
+      return no(code);
+    }
+    final DirectLinkInfo info;
+    try {
+      info = await mgr.acquire();
+    } on DirectLinkException catch (e) {
+      lastDirectProblem = explainDirectError(e.code);
+      notifyListeners();
+      return no(e.code);
+    }
+    try {
+      lastDirectProblem = null;
+      diagLog.add(
+        'direct_host_ok',
+        'Fast direct (receiving): ${info.kind.label} link on, ${info.bandLabel}.',
+      );
+      s.add(
+        jsonFrame({
+          't': 'direct_ok',
+          'link': info.toJson(),
+          'port': _server?.port ?? port,
+        }),
+      );
+      await s.flush();
+      // Wait for "direct_end" or the connection to close.
+      try {
+        while (true) {
+          final m = await reader.nextJson(const Duration(hours: 12));
+          if (m['t'] == 'direct_end') break;
+        }
+      } catch (_) {}
+    } finally {
+      mgr.release();
     }
   }
 
@@ -919,8 +1077,9 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     SecureSocket s,
     FrameReader reader,
     TrustedDevice dev,
-    Map<String, dynamic> offer,
-  ) async {
+    Map<String, dynamic> offer, {
+    LinkRoute route = LinkRoute.router,
+  }) async {
     final files = (offer['files'] as List?) ?? const [];
     if (files.isEmpty || files.length > 10000) {
       s.add(jsonFrame({'t': 'decline', 'reason': 'bad_offer'}));
@@ -1009,6 +1168,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       trustedId: dev.id,
       fileNames: names,
     );
+    _setJobRoute(job, route);
     final req = PendingRequest(
       id: job.id,
       kind: RequestKind.transfer,
@@ -1542,11 +1702,25 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     SecureSocket? s;
     FrameReader? reader;
     var stage = _SendStage.connect;
+    _DirectUse? direct;
     try {
       Object? connectError;
       String? usedHost;
       var usedPort = kDefaultPort;
-      for (final (h, pt) in tries) {
+      // 0.10.0: big transfer to a phone: try a Fast direct link first.
+      final directSkip = _directSkip(dev, job);
+      if (directSkip == null) {
+        direct = await _tryDirect(job, dev, tries);
+        if (direct != null) s = direct.sock;
+      } else if (directSkip != 'small' &&
+          directSkip != 'already' &&
+          directSkip != 'not_android') {
+        diagLog.add(
+          'direct_skip_$directSkip',
+          'Fast direct not tried: ${explainDirectError(directSkip)}',
+        );
+      }
+      for (final (h, pt) in s != null ? const <(String, int)>[] : tries) {
         try {
           s = await _connectTrusted(dev, h, pt);
           usedHost = h;
@@ -1567,8 +1741,21 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       if (s == null) throw connectError ?? const SocketException('no address');
       final sock = s;
       stage = _SendStage.answer;
-      // Authenticated by TLS (key matched): now it is safe to remember.
-      _keep(trust.rememberAddress(dev.id, usedHost!, usedPort));
+      if (direct != null) {
+        _setJobRoute(
+          job,
+          LinkRoute.forKind(direct.link.kind),
+          join: direct.join,
+        );
+      } else {
+        final route = _routeOf(sock, remoteHost: usedHost);
+        _setJobRoute(job, route, join: _joinedInfo);
+        // Authenticated by TLS (key matched): now it is safe to remember.
+        // (A Fast direct address is not remembered: it is gone later.)
+        if (route == LinkRoute.router) {
+          _keep(trust.rememberAddress(dev.id, usedHost!, usedPort));
+        }
+      }
       reader = FrameReader(sock);
       job.onCancel = () {
         try {
@@ -1585,6 +1772,8 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         jsonFrame({
           't': 'offer',
           'v': kProtocolVersion,
+          if (job.route != null && job.route != LinkRoute.router)
+            'via': job.route!.name,
           'tid': transferIdFor(dev.fingerprint, files),
           'files': [
             for (final f in files)
@@ -1793,9 +1982,241 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       }
       s?.destroy();
       await reader?.cancel();
+      await direct?.close(directLinks);
       _recordEnd(job);
       notifyListeners();
     }
+  }
+
+  /// Null = try Fast direct for this send, else the reason code not to.
+  String? _directSkip(TrustedDevice dev, TransferJob job) {
+    if (directHost?.active == true || _joinedLink != null) return 'already';
+    return directSkipReason(
+      enabled: fastDirect(),
+      canJoin: directLinks?.canJoin ?? false,
+      peerPlatform: dev.platform,
+      totalBytes: job.totalBytes,
+      minBytes: directMinBytes,
+    );
+  }
+
+  void _directFallback(TransferJob job, String stage, String code) {
+    final text = explainDirectError(code);
+    lastDirectProblem = text;
+    diagLog.add('direct_${stage}_$code', 'Fast direct ($stage): $text');
+    job.setRoute(
+      LinkRoute.router,
+      note: 'Fast direct not available: $text Used the normal network.',
+    );
+  }
+
+  /// Asks the receiver (over the normal network) to make a link, joins it
+  /// and connects over it with the same pinned key. Null = use the router;
+  /// the reason is on the job and in Diagnostics.
+  Future<_DirectUse?> _tryDirect(
+    TransferJob job,
+    TrustedDevice dev,
+    List<(String, int)> tries,
+  ) async {
+    final plat = directLinks!;
+    job.setRoute(null, note: 'Setting up Fast direct...');
+    final perm = await plat.permissionState();
+    if (perm != 'granted') {
+      _directFallback(job, 'join', perm == 'denied' ? 'no_permission' : perm);
+      return null;
+    }
+    SecureSocket? ctl;
+    for (final (h, pt) in tries) {
+      try {
+        ctl = await _connectTrusted(dev, h, pt);
+        break;
+      } on PairingException {
+        rethrow;
+      } catch (_) {
+        if (job.cancelRequested) return null;
+      }
+    }
+    if (ctl == null) {
+      job.setRoute(null);
+      return null; // the normal connect below reports the problem
+    }
+    final control = ctl;
+    final ctlReader = FrameReader(control);
+    var joined = false;
+    job.onCancel = control.destroy;
+    Future<void> giveUp() async {
+      try {
+        control.add(jsonFrame({'t': 'direct_end'}));
+        await control.flush().timeout(const Duration(seconds: 2));
+      } catch (_) {}
+      control.destroy();
+      await ctlReader.cancel();
+      if (joined) {
+        try {
+          await plat.leave();
+        } catch (_) {}
+      }
+    }
+
+    try {
+      control.add(
+        jsonFrame({
+          't': 'direct_req',
+          'v': 1,
+          'kinds': [DirectKind.wifiDirect.wire, DirectKind.hotspot.wire],
+          'bytes': job.totalBytes,
+        }),
+      );
+      await _flushOrClosed(control);
+      final r = await ctlReader.nextJson(const Duration(seconds: 45));
+      if (r['t'] != 'direct_ok') {
+        final reason = '${r['reason'] ?? ''}';
+        await giveUp();
+        if (r['t'] == 'error') {
+          _directFallback(job, 'peer', 'peer_old');
+        } else if (reason == 'not_accepting') {
+          job.setRoute(null); // the offer below explains it
+        } else {
+          _directFallback(job, 'peer', switch (reason) {
+            'no_permission' || 'location_off' => 'peer_no_permission',
+            'off' => 'peer_off',
+            'unsupported' => 'not_android',
+            _ => 'peer_busy',
+          });
+        }
+        return null;
+      }
+      final link = DirectLinkInfo.tryFromJson(r['link']);
+      final p = r['port'];
+      if (link == null || p is! int || p < 1 || p > 65535) {
+        await giveUp();
+        _directFallback(job, 'peer', 'peer_busy');
+        return null;
+      }
+      if (job.cancelRequested) {
+        await giveUp();
+        return null;
+      }
+      job.setRoute(null, note: 'Joining Fast direct (${link.kind.label})...');
+      joined = true; // leave() is safe even if join fails half way
+      final join = await plat.join(link, timeout: const Duration(seconds: 30));
+      final SecureSocket sock;
+      try {
+        sock = await _connectTrusted(dev, link.hostIp, p);
+      } on PairingException {
+        await giveUp();
+        rethrow;
+      } catch (e) {
+        await giveUp();
+        _directFallback(job, 'connect', 'connect_failed');
+        return null;
+      }
+      diagLog.add(
+        'direct_join_ok',
+        'Fast direct (sending): joined ${link.kind.label}, '
+            '${bandLabelFor(join.frequencyMhz ?? link.frequencyMhz)}'
+            '${join.linkMbps != null ? ', link ${join.linkMbps} Mbps' : ''}.',
+      );
+      lastDirectProblem = null;
+      return _DirectUse(control, ctlReader, sock, link, join);
+    } on PairingException {
+      rethrow;
+    } on DirectLinkException catch (e) {
+      await giveUp();
+      _directFallback(job, 'join', e.code);
+      return null;
+    } catch (e) {
+      await giveUp();
+      if (job.cancelRequested) return null;
+      _directFallback(job, 'peer', 'peer_busy');
+      return null;
+    }
+  }
+
+  // Fast direct from the UI (no router: QR code flow).
+
+  @override
+  bool get canHostDirect => directHost != null;
+  @override
+  bool get canJoinDirect => directLinks?.canJoin ?? false;
+  @override
+  DirectLinkInfo? get hostedDirectLink => directHost?.current;
+  @override
+  DirectLinkInfo? get joinedDirectLink => _joinedLink;
+
+  @override
+  Future<String> directPermissionState() async =>
+      await directLinks?.permissionState() ?? 'unsupported';
+
+  @override
+  Future<String> requestDirectPermission() async =>
+      await directLinks?.requestPermission() ?? 'unsupported';
+
+  /// Turns the link on and keeps it on until [closeDirectLink] (the
+  /// "Fast direct" screen is open), then it idles out.
+  @override
+  Future<DirectLinkInfo> openDirectLink() async {
+    final mgr = directHost;
+    if (mgr == null) throw const DirectLinkException('unsupported');
+    final info = await mgr.acquire();
+    mgr.setPinned(true);
+    mgr.release(); // pinned keeps it; idle starts when unpinned
+    diagLog.add(
+      'direct_host_ok',
+      'Fast direct: ${info.kind.label} link on, ${info.bandLabel}.',
+    );
+    notifyListeners();
+    return info;
+  }
+
+  @override
+  Future<void> closeDirectLink({bool now = false}) async {
+    final mgr = directHost;
+    if (mgr == null) return;
+    if (now) {
+      await mgr.stop();
+    } else {
+      mgr.setPinned(false);
+    }
+    notifyListeners();
+  }
+
+  /// Joins a link from a scanned Fast direct QR code.
+  @override
+  Future<DirectJoin> joinDirectLink(DirectLinkInfo link) async {
+    final plat = directLinks;
+    if (plat == null || !plat.canJoin) {
+      throw const DirectLinkException('unsupported');
+    }
+    try {
+      final j = await plat.join(link, timeout: const Duration(seconds: 40));
+      _joinedLink = link;
+      _joinedInfo = j;
+      diagLog.add(
+        'direct_join_ok',
+        'Fast direct: joined ${link.kind.label}, '
+            '${bandLabelFor(j.frequencyMhz ?? link.frequencyMhz)}.',
+      );
+      notifyListeners();
+      return j;
+    } on DirectLinkException catch (e) {
+      diagLog.add('direct_join_${e.code}', 'Fast direct: ${e.message}');
+      try {
+        await plat.leave();
+      } catch (_) {}
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> leaveDirectLink() async {
+    if (_joinedLink == null) return;
+    _joinedLink = null;
+    _joinedInfo = null;
+    try {
+      await directLinks?.leave();
+    } catch (_) {}
+    notifyListeners();
   }
 
   List<(String, int)> _addressesFor(
@@ -2062,6 +2483,29 @@ Future<void> _flushOrClosed(Socket sock) => Future.any<void>([
 ]);
 
 enum _SendStage { connect, answer, transfer }
+
+/// A Fast direct link in use by one send: the control connection over the
+/// normal network (keeps the receiver's link on) and the data connection.
+class _DirectUse {
+  _DirectUse(this.control, this.controlReader, this.sock, this.link, this.join);
+  final SecureSocket control;
+  final FrameReader controlReader;
+  final SecureSocket sock;
+  final DirectLinkInfo link;
+  final DirectJoin join;
+
+  Future<void> close(DirectLinkPlatform? plat) async {
+    try {
+      control.add(jsonFrame({'t': 'direct_end'}));
+      await control.flush().timeout(const Duration(seconds: 2));
+    } catch (_) {}
+    control.destroy();
+    await controlReader.cancel();
+    try {
+      await plat?.leave();
+    } catch (_) {}
+  }
+}
 
 /// Receiving: writing to this device's storage failed (not the network).
 class _WriteFailed implements Exception {

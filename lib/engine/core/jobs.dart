@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../direct/direct_link.dart';
 import 'send_source.dart';
 
 enum JobDirection { sending, receiving }
@@ -65,6 +66,29 @@ class TransferJob extends ChangeNotifier {
   /// Bytes that were already on the receiver from an earlier, interrupted
   /// attempt and were not sent again.
   int resumedBytes = 0;
+
+  /// 0.10.0: which way the files go (null = not connected yet).
+  LinkRoute? route;
+
+  /// Band / link speed of a Fast direct link, e.g. "5 GHz (5180 MHz)".
+  String? routeDetail;
+
+  /// Why Fast direct was not used, or what is being set up.
+  String? routeNote;
+
+  void setRoute(LinkRoute? r, {String? detail, String? note}) {
+    if (r != null) route = r;
+    routeDetail = detail ?? (r == null ? routeDetail : null);
+    if (note != null || r == null) routeNote = note;
+    notifyListeners();
+  }
+
+  /// One line for the transfer card.
+  String? get routeLine {
+    final r = route;
+    if (r == null) return routeNote;
+    return [r.label, if (routeDetail != null) routeDetail].join(', ');
+  }
 
   /// Set when a newer job retries this one.
   String? retriedBy;

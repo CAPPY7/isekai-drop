@@ -16,6 +16,7 @@ import 'core/net_info.dart';
 import 'core/pending_send_store.dart';
 import 'core/send_source.dart';
 import 'core/trust_store.dart';
+import 'direct/direct_link.dart';
 
 export 'core/benchmark_store.dart';
 export 'core/history_store.dart';
@@ -28,6 +29,7 @@ export 'core/pending_send_store.dart' show PendingSend;
 export 'core/send_source.dart';
 export 'core/trust_store.dart' show TrustedDevice, TrustStatus;
 export 'models.dart';
+export 'direct/direct_link.dart';
 
 abstract class TransferEngine implements Listenable {
   String get version;
@@ -62,6 +64,21 @@ abstract class TransferEngine implements Listenable {
 
   Future<void> start();
   Future<void> stop();
+
+  // 0.10.0 Fast direct (one-hop Wi-Fi link, no router in the middle).
+  bool get canHostDirect;
+  bool get canJoinDirect;
+  DirectLinkInfo? get hostedDirectLink;
+  DirectLinkInfo? get joinedDirectLink;
+
+  /// Plain-language reason the last Fast direct attempt was not used.
+  String? get lastDirectProblem;
+  Future<String> directPermissionState();
+  Future<String> requestDirectPermission();
+  Future<DirectLinkInfo> openDirectLink();
+  Future<void> closeDirectLink({bool now = false});
+  Future<DirectJoin> joinDirectLink(DirectLinkInfo link);
+  Future<void> leaveDirectLink();
 
   /// Last transfer problem in plain words (no names, no addresses).
   String? get lastError;
