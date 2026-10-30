@@ -51,6 +51,35 @@ jobs:
           $setup | Format-List Name, Length
           (Get-FileHash $setup -Algorithm SHA256).Hash
           $setup.VersionInfo | Format-List CompanyName, ProductName, FileVersion, ProductVersion
+      # Smoke test on the runner (Windows Server, no Smart App Control):
+      # silent per-user install, check files/shortcuts/uninstall entry,
+      # then silent uninstall and check it is gone.
+      - name: Installer smoke test (silent install + uninstall)
+        shell: pwsh
+        run: |
+          $p = Start-Process build\installer\isekai-drop-windows-setup.exe `
+            -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/TASKS=desktopicon','/LOG=install.log' `
+            -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Get-Content install.log -Tail 30; throw "setup exit $($p.ExitCode)" }
+          $dir = Join-Path $env:LOCALAPPDATA 'Programs\Isekai Drop'
+          $need = @('isekaidrop.exe','flutter_windows.dll','data\icudtl.dat','data\app.so','unins000.exe')
+          foreach ($f in $need) { if (-not (Test-Path (Join-Path $dir $f))) { throw "missing $f" } }
+          $src = (Get-ChildItem build\windows\x64\runner\Release -Recurse -File).Count
+          $got = (Get-ChildItem $dir -Recurse -File | Where-Object { $_.Name -notlike 'unins000.*' }).Count
+          "files: release folder $src, installed $got"
+          if ($got -ne $src) { throw 'installed file count differs' }
+          $start = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Isekai Drop.lnk'
+          $desk = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Isekai Drop.lnk'
+          if (-not (Test-Path $start)) { throw 'no Start menu shortcut' }
+          if (-not (Test-Path $desk)) { throw 'no desktop shortcut' }
+          $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{7D4B8E2A-3C61-4F0B-9A57-1E2D6C9B4F31}_is1'
+          Get-ItemProperty $key | Format-List DisplayName, DisplayVersion, Publisher, InstallLocation, DisplayIcon
+          Start-Process (Join-Path $dir 'unins000.exe') -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait
+          for ($i = 0; $i -lt 60 -and (Test-Path (Join-Path $dir 'isekaidrop.exe')); $i++) { Start-Sleep 1 }
+          if (Test-Path (Join-Path $dir 'isekaidrop.exe')) { throw 'uninstall left the app' }
+          if (Test-Path $start) { throw 'uninstall left the Start menu shortcut' }
+          if (Test-Path $key) { throw 'uninstall left the registry entry' }
+          'install + uninstall OK'
       # The plain folder stays a CI artifact only (not on the release).
       - uses: actions/upload-artifact@v7.0.2
         with:
