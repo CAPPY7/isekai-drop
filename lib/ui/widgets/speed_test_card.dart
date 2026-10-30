@@ -22,7 +22,11 @@ class SpeedTestCard extends StatefulWidget {
 const _stageText = {
   'connect': 'Connecting to the other device...',
   'raw_tcp': 'Network only (plain TCP)...',
+  'raw_tcp_4': 'Network only, 4 streams...',
+  'native_tcp': 'Network only, native code...',
+  'native_tcp_4': 'Network only, native code, 4 streams...',
   'tls_lane': 'Encrypted, background thread...',
+  'tls_lane_4': 'Encrypted, background thread, 4 streams...',
   'tls_main': 'Encrypted, main thread...',
   'local': 'Disk tests on both devices...',
   'write_old': 'Disk: write (old way)...',
@@ -58,7 +62,7 @@ class _SpeedTestCardState extends State<SpeedTestCard> {
               if (mounted && s != _stage) setState(() => _stage = s);
             },
           )
-          .timeout(const Duration(minutes: 4));
+          .timeout(const Duration(minutes: 6));
       if (mounted) setState(() => _report = r);
     } on SpeedTestException catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -142,7 +146,7 @@ class _SpeedTestCardState extends State<SpeedTestCard> {
             'Measures each step of a transfer on its own: the network, '
             'encryption, and reading, writing and checking files on both '
             'devices. Only zeros are sent; test files are deleted at once. '
-            'Open Isekai Drop on the other device first. Takes up to a minute.',
+            'Open Isekai Drop on the other device first. Takes 1-3 minutes.',
           ),
           const SizedBox(height: IdSpacing.sm),
           if (devices.isEmpty)

@@ -3,7 +3,7 @@ description: "Isekai Drop - private, direct file sharing between your own device
 publish_to: 'none'
 
 # versionCode/build number is overridden in CI with the GitHub run number.
-version: 0.10.1+6
+version: 0.10.2+7
 
 environment:
   sdk: ^3.13.5
