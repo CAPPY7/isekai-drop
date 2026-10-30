@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../engine/platform_engine.dart';
 import '../../engine/transfer_engine.dart';
 import '../../engine/win_firewall.dart';
+import '../../engine/windows_link.dart';
 import '../app_scope.dart';
 import '../diag_report.dart';
 import '../theme/design_tokens.dart';
@@ -26,6 +27,7 @@ class DiagnosticsScreen extends StatefulWidget {
 
 class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
   ConnectionInfo? _info;
+  WindowsLinkReport? _winLink;
   List<String> _own = const [];
   FirewallStatus? _firewall;
   bool _checkingFirewall = false;
@@ -38,6 +40,11 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
       _firewall = r;
       _checkingFirewall = false;
     });
+  }
+
+  String? get _platformNote {
+    final l = [?_firewallLine, ...?_winLink?.lines];
+    return l.isEmpty ? null : l.join('\n- ');
   }
 
   String? get _firewallLine =>
@@ -54,9 +61,12 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
     final engine = AppScope.of(context).engine;
     final i = await readConnectionInfo();
     final nets = await engine.localNets();
+    // 0.11.0: Windows Wi-Fi details, power saving and roaming (read-only).
+    final w = await readWindowsLink(full: true);
     if (mounted) {
       setState(() {
         _info = i;
+        _winLink = w;
         _own = [for (final n in nets) '${n.name} ${n.ip}'];
       });
     }
@@ -70,7 +80,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
       platform: Platform.operatingSystem,
       ownAddresses: _own,
       connectionMethod: _info?.method,
-      platformNote: _firewallLine,
+      platformNote: _platformNote,
     );
     await Clipboard.setData(ClipboardData(text: text));
     if (!mounted) return;
@@ -121,6 +131,9 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                         style: TextStyle(color: idStatus(context).warning),
                       ),
                     if (i?.note != null) Text(i!.note!),
+                    if (_winLink != null)
+                      for (final l in _winLink!.lines)
+                        Text(l, style: Theme.of(context).textTheme.bodySmall),
                     if (e.hostedDirectLink != null)
                       Text(
                         'Fast direct link (made here): ${e.hostedDirectLink!.kind.label}, '

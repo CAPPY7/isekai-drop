@@ -20,6 +20,7 @@ import 'core/identity.dart';
 import 'core/key_migration.dart';
 import 'core/net_info.dart';
 import 'core/pending_send_store.dart';
+import 'windows_link.dart';
 import 'core/resume_store.dart';
 import 'core/send_source.dart';
 import 'core/speed_test.dart';
@@ -549,6 +550,29 @@ class _AndroidNativeSpeed implements NativeSpeedProbe {
 
 Future<Map<String, Object?>> _desktopLinkInfo() async {
   try {
+    // 0.11.0: Windows gives radio type, band, channel, send/receive rate,
+    // signal, power saving (no network names) for the Speed test report.
+    final w = await readWindowsLink(full: true);
+    if (w != null) {
+      final l = w.wlan;
+      return {
+        'transport': l.connected
+            ? 'wifi'
+            : w.ethernet
+            ? 'ethernet'
+            : 'none',
+        if (l.receiveMbps != null) 'rxMbps': l.receiveMbps,
+        if (l.transmitMbps != null) 'txMbps': l.transmitMbps,
+        if (l.frequencyMhz != null) 'frequencyMhz': l.frequencyMhz,
+        'note': [
+          if (l.connected) l.summary,
+          if (w.powerSaving != null) 'Wi-Fi power saving ${w.powerSaving}',
+          ...w.adapterProps.where(
+            (p) => RegExp('roam|mimo', caseSensitive: false).hasMatch(p),
+          ),
+        ].join('; '),
+      };
+    }
     final c = await readConnectionInfo();
     return {
       'transport': c.method,
@@ -658,12 +682,21 @@ class ConnectionInfo {
     this.linkMbps,
     this.frequencyMhz,
     this.note,
+    this.ethernet = false,
+    this.details,
   });
 
   final String method;
   final int? linkMbps;
   final int? frequencyMhz;
   final String? note;
+
+  /// 0.11.0: connected by cable (no Wi-Fi band).
+  final bool ethernet;
+
+  /// 0.11.0: more link details (Windows: radio type, channel, rates,
+  /// signal). Never a network name.
+  final String? details;
 }
 
 Future<ConnectionInfo> readConnectionInfo() async {
@@ -693,6 +726,7 @@ Future<ConnectionInfo> readConnectionInfo() async {
       method: method,
       linkMbps: (m['linkMbps'] as num?)?.toInt(),
       frequencyMhz: (m['frequencyMhz'] as num?)?.toInt(),
+      ethernet: !hosting && m['transport'] == 'ethernet',
       note: hosting
           ? 'Link speed is not reported while this phone hosts the hotspot.'
           : null,
@@ -701,22 +735,28 @@ Future<ConnectionInfo> readConnectionInfo() async {
   if (Platform.isWindows) {
     // Windows Mobile Hotspot normally uses 192.168.137.1.
     final hosting = has((_, a) => a.address == '192.168.137.1');
-    int? mbps;
-    try {
-      final r = await Process.run('netsh', ['wlan', 'show', 'interfaces']);
-      // Only the receive rate is read; network names are ignored.
-      final match = RegExp(r'Receive rate \(Mbps\)\s*:\s*([0-9.]+)')
-          .firstMatch('${r.stdout}');
-      if (match != null) mbps = double.tryParse(match.group(1)!)?.round();
-    } catch (_) {}
+    // 0.11.0: radio type, band, channel, rates and signal (no network
+    // names) from netsh; Ethernet when no Wi-Fi is connected.
+    final w = await readWindowsLink();
+    final wlan = w?.wlan;
+    final mbps = wlan?.receiveMbps;
     return ConnectionInfo(
       method: hosting
           ? 'This PC is hosting Mobile Hotspot (likely)'
+          : wlan?.connected == true
+          ? 'Wi-Fi network'
+          : w?.ethernet == true
+          ? 'Cable network (Ethernet)'
           : ifs.isEmpty
           ? 'No network'
           : 'Wi-Fi or cable network',
       linkMbps: mbps,
-      note: mbps == null ? 'Link speed not available.' : null,
+      frequencyMhz: wlan?.frequencyMhz,
+      ethernet: wlan?.connected != true && w?.ethernet == true,
+      details: wlan?.connected == true ? wlan!.summary : null,
+      note: mbps == null && w?.ethernet != true
+          ? 'Link speed not available.'
+          : null,
     );
   }
   return ConnectionInfo(
