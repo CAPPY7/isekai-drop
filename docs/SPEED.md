@@ -5,6 +5,45 @@ Owner's real-device result (0.10.0): OnePlus 8 -> OnePlus 9 over Fast direct
 step is slow on the phones, and moves the encryption off the app's main
 thread.
 
+## 0.10.2: the network is the slow step
+Owner's Speed test on 0.10.1 (OnePlus 8 -> 9, Fast direct, 5240 MHz,
+link 432 Mbps, tx/rx 432/216): plain TCP 6.9 MB/s, TLS lane 7.1, TLS main
+8.8, disk writes 121-214, read + hash 141-312, Downloads 65-1673 MB/s.
+Encryption and disk are not the limit; plain TCP over the link is.
+6.9 MB/s is about 55-60 Mbit/s, far below the 432 Mbit/s link rate.
+
+Likely causes found in the code (not confirmed on phones):
+1. **Two channels at once (MCC):** the direct group was created with
+   "any 5 GHz" while the phones stayed on the router at 5240 MHz. If the group
+   picks another channel the chip time-shares between two channels.
+   0.10.2 asks for the router's channel when it is non-DFS 5 GHz.
+2. **No Wi-Fi lock on Android 14+** (0.9.2 left it out) and none during the
+   Speed test. 0.10.2 holds LOW_LATENCY (34+) / HIGH_PERF plus a CPU wake
+   lock. Android docs: LOW_LATENCY works only with the screen on, app in the
+   foreground and connected to an access point, and "throughput may be
+   reduced"; Wi-Fi locks act on the router connection, p2p power save is up
+   to the driver.
+3. **Routing:** the joiner is not bound to the p2p network; the report now
+   names the interface used ("p2p..." = Wi-Fi Direct) and warns if the
+   direct test went through the router.
+4. **Socket buffers:** not forced (forcing turns off autotuning; at LAN round
+   trip times the bandwidth-delay product is small). Native rows show the
+   buffer sizes Android gave.
+
+New rows tell the rest apart: if native raw TCP is also ~7 MB/s the limit is
+the radio/driver, not Dart; if 4 streams are much faster than 1, it is
+per-connection (latency/window) and the 4-stream data lane helps.
+
+### Box numbers 0.10.2 (Linux x86_64 box, loopback, NOT phones)
+| Test (512 MB) | 1 stream | 2 streams | 4 streams |
+|---|---|---|---|
+| raw TCP | 922 MB/s | 933 MB/s | 860 MB/s |
+| TLS | 155 MB/s | 241 MB/s | 240 MB/s |
+
+Engine bench (512 MB, lanes, hash + disk on the box, hashMatch true):
+1 stream 79.3 MB/s, 4 streams 74.5 / 84.5 MB/s. The box is disk/hash
+bound, so 4 streams do not help there; they are meant for the Wi-Fi link.
+
 ## The in-app Speed test (Diagnostics > Speed test)
 Runs between two paired devices on the route they use now (router, or Fast
 direct if "Try Fast direct" is on and both are Android). Each step is

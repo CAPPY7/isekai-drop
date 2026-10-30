@@ -227,3 +227,12 @@ file before every phase. Stop after each phase and wait for "next".
 - Speed test: session message `speed` -> `speed_ok`; steps `lane{raw}`, `main`/`main_end`, `local`, `bye`. Core in lib/engine/core/speed_test.dart (SpeedProbes, SpeedReport.toText). The report must never contain device names, file names, SSIDs or IPs (speed_engine_test checks). Android probes: MainActivity `speedWriteDownloads` (always deletes), `networkInfo` tx/rx, DirectLinks `linkNow`.
 - Widget tests must not run a real speed test (real sockets + fake clock hang); the engine test covers the run.
 - Docs: docs/SPEED.md has the box numbers.
+
+## Phase 7j notes (2026-10-30, 0.10.2 network bottleneck)
+- Owner Speed test on 0.10.1: raw TCP 6.9, TLS 7.1/8.8 MB/s vs disk/hash 121-312 MB/s -> network. Suspects: MCC (group made with BAND_5GHZ, not on STA 5240), no Wi-Fi lock on Android 14+, routing.
+- DirectLinks.host(): setGroupOperatingFrequency(STA MHz) when the STA is on non-DFS 5 GHz (5170-5250, 5735-5895); failure -> freq 0 (band) -> AUTO -> LOHS. linkNow adds staMhz, and with a group up mhz/role/iface from requestGroupInfo.
+- MainActivity setAwake(reason, on): reasons "job" (keepScreenOn) and "speed" (transferAwake). WifiLock LOW_LATENCY on 34+ (only works screen on + foreground + STA connected), HIGH_PERF older; PARTIAL_WAKE_LOCK "isekaidrop:transfer" 2 h timeout. Locks do not control p2p power save (driver).
+- NativeSpeed.kt: Java NIO raw TCP sink/sender for the Speed test (nativeSinkStart/End, nativeSend), token + index byte per stream like lanes.
+- Lanes: offer `lane_streams`, answer `streams` (clamped 1..8, default kLaneStreams 4), 1 MiB stripes. Client acks a block only after its flush completes (drain() = handed to the socket); acking at add() made phase6 resume-after-drop flaky.
+- Speed test caps in speed_ok: `streams`, `native`. Older peers skip the new rows with a note. Report shows interface name + kind only (interfaceKind), never IPs.
+- Do not force SO_RCVBUF/SO_SNDBUF smaller: Linux/Android autotuning is disabled once set; LAN BDP is small anyway.

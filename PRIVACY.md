@@ -55,6 +55,18 @@ and needs a random one-time token that is sent inside the encrypted
 connection. The copied report has no device names, file names, network
 names or IP addresses.
 
+## Speed test and transfers (0.10.2)
+- The Speed test report names the network interface the test used (for
+  example "p2p0 (Wi-Fi Direct)" or "wlan0 (Wi-Fi)") and the direct link's
+  channel and role. It still has no IP addresses, device, file or network
+  names.
+- The native speed rows (Android) send only zeros over a one-time port that
+  needs a random token sent inside the encrypted connection.
+- During a transfer or the Speed test the app holds a Wi-Fi lock and a CPU
+  wake lock (WAKE_LOCK permission, already declared) so the phone does not
+  slow Wi-Fi down; both are released when it ends (the wake lock after 2 h
+  at most).
+
 ## Fast direct (0.10.0)
 - **Permissions (Android):** "Nearby devices" on Android 13+ (declared
   `neverForLocation`: never used to find your location) or "Location" on

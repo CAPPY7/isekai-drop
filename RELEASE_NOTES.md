@@ -1,3 +1,32 @@
+# Isekai Drop 0.10.2 (DRAFT release notes, test build)
+
+Your Speed test (OnePlus 8 -> 9, Fast direct, 5240 MHz, link 432 Mbps) showed
+plain TCP 6.9 MB/s, encrypted 7.1-8.8 MB/s, but disk and hashing at
+121-312 MB/s: the **network link** is the slow step, not encryption or disk.
+
+## What changed
+- **Fast direct group on your router's channel:** when the phone is on a
+  5 GHz router channel without radar rules (36-48, 149-165) the direct group
+  is now asked to use that same channel. Two channels at once (router +
+  direct) make the Wi-Fi chip switch back and forth, which can cut speed a
+  lot. If the phone refuses, it falls back to "any 5 GHz" like before.
+- **Wi-Fi stays awake during a transfer and the Speed test:** Wi-Fi lock
+  (low-latency on Android 14+, high-performance on older Android; 0.10.1 had
+  no lock at all on Android 14+) and a CPU wake lock (auto-released after 2 h
+  at most). Released when the transfer or test ends.
+- **4 TCP streams per data lane** for transfers between two 0.10.2 apps
+  (older apps keep 1 stream).
+- **Speed test, new rows:** network with 4 streams, Android native code
+  (no Dart) with 1 and 4 streams, encrypted with 4 streams. The report now
+  shows which interface the test used (for example "p2p0 (Wi-Fi Direct)",
+  names only, no addresses), the direct group's channel and role, the lock
+  state, and warnings when the direct test went through the router or the
+  router and direct link are on different channels.
+
+## Not tested
+- Everything on phones: channel matching, Wi-Fi/CPU locks, native rows,
+  4 streams over Wi-Fi, the interface report, any real speed gain.
+
 # Isekai Drop 0.10.1 (DRAFT release notes, test build)
 
 ## New: Speed test (Diagnostics > Speed test)

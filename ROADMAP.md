@@ -150,6 +150,14 @@ Owner on 0.10.0: OnePlus 8 -> 9 over Fast direct ran at 7.5 MB/s.
 - [x] Box bench 36.0 -> 82-90 MB/s
 - [ ] Run the Speed test on the OnePlus 8 + 9 and fix the slowest step (NOT TESTED)
 
+## Phase 7j - Network bottleneck on Fast direct (0.10.2)
+Owner on 0.10.1: plain TCP 6.9, TLS 7.1/8.8 MB/s; disk/hash 121-312 MB/s -> network.
+- [x] Direct group asked on the router's (non-DFS 5 GHz) channel, report shows real group MHz/role/interface
+- [x] Wi-Fi lock (LOW_LATENCY 34+, HIGH_PERF older) + partial wake lock during transfers and the Speed test
+- [x] 4 striped TCP streams per data lane (negotiated, old apps 1)
+- [x] Speed test rows: 4 streams, native Kotlin raw TCP 1/4 streams, TLS 4 streams; interface kind; MCC/router warnings
+- [ ] Re-run the Speed test on the OnePlus 8 + 9 (NOT TESTED)
+
 ## Phase 8 - Fix security, compatibility, performance, usability
 - [ ] Security tests for all acceptance tests
 - [ ] Real release key (never committed)
