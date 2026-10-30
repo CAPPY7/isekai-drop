@@ -10,6 +10,7 @@ import '../app_scope.dart';
 import '../diag_report.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
+import '../widgets/speed_test_card.dart';
 import '../widgets/wifi_band.dart';
 
 /// Connection facts for troubleshooting. Shows no file names, no other
@@ -195,6 +196,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                     ],
                   ),
                 ),
+              SpeedTestCard(engine: e),
               SectionCard(
                 title: 'Last transfer',
                 child: last == null
