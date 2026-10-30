@@ -33,6 +33,7 @@ export 'core/speed_test.dart'
 export 'core/trust_store.dart' show TrustedDevice, TrustStatus;
 export 'models.dart';
 export 'direct/direct_link.dart';
+export 'direct/route_choice.dart';
 
 abstract class TransferEngine implements Listenable {
   String get version;

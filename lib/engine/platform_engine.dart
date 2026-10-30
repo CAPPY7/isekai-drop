@@ -25,6 +25,7 @@ import 'core/resume_store.dart';
 import 'core/send_source.dart';
 import 'core/speed_test.dart';
 import 'core/trust_store.dart';
+import 'direct/route_choice.dart';
 
 const _android = MethodChannel('isekai_drop/android');
 // 0.9.2: background (non-UI-thread) channels for reading and hashing.
@@ -166,6 +167,7 @@ Future<IsekaiEngine> createPlatformEngine(
   bool Function()? saveFileNames,
   bool Function()? visible,
   bool Function()? fastDirect,
+  String Function()? routeMode,
 }) async {
   final support = await getApplicationSupportDirectory();
   final (identity, note) = await _loadIdentity(support);
@@ -186,6 +188,9 @@ Future<IsekaiEngine> createPlatformEngine(
   );
   await pendingSends.load();
   final history = HistoryStore(File(p.join(support.path, 'history.json')));
+  // 0.11.0 Auto route: measured speeds per device (no names, no paths).
+  final routeStats = RouteStats(File(p.join(support.path, 'route_stats.json')));
+  await routeStats.load();
   try {
     await history.load();
   } catch (_) {
@@ -261,6 +266,8 @@ Future<IsekaiEngine> createPlatformEngine(
     identity: identity,
     directLinks: directLinks,
     fastDirect: fastDirect,
+    routeMode: routeMode,
+    routeStats: routeStats,
     trust: trust,
     deviceName: deviceName,
     platformName: Platform.operatingSystem,

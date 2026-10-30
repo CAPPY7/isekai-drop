@@ -572,10 +572,11 @@ class _FastDirectSettingState extends State<FastDirectSetting> {
                   ? 'Needs a permission to work'
                   : 'Route for big files to Android phones',
               info:
-                  'Auto (fastest): a direct phone-to-phone Wi-Fi link is used only '
-                  'when it is expected to be faster than your router (for example '
-                  'when the router link is 2.4 GHz or was slow last time). '
-                  'Otherwise the router is used.\n\n'
+                  'Auto (fastest): the first big transfer to a phone uses your '
+                  'router and its speed is measured. A direct phone-to-phone '
+                  'Wi-Fi link is tried later only if the router was slower than '
+                  '20 MB/s, and kept only if it was clearly faster. Only speeds '
+                  'are remembered, on this device.\n\n'
                   'Router only: never make a direct link.\n\n'
                   'Fast direct always: try a direct link for every big transfer '
                   'to another Android phone (the 0.10 behaviour). If it cannot '

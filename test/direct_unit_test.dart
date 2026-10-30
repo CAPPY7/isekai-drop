@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isekaidrop/engine/direct/direct_link.dart';
+import 'package:isekaidrop/engine/direct/route_choice.dart';
 import 'package:isekaidrop/engine/direct/wifi_join.dart';
 
 class _P implements DirectLinkPlatform {
@@ -150,6 +151,43 @@ void main() {
     expect(w(j: false), 'unsupported');
     expect(w(p: 'windows'), 'not_android');
     expect(w(b: 1000), 'small');
+  });
+
+  test('0.11.0 Auto route decision', () {
+    expect(autoRouteSkip(), 'auto_first');
+    expect(autoRouteSkip(router: 7e6), isNull);
+    expect(autoRouteSkip(router: 30e6), 'auto_router_good');
+    expect(autoRouteSkip(direct: 25e6), isNull);
+    expect(autoRouteSkip(direct: 5e6), 'auto_direct_slow');
+    expect(autoRouteSkip(router: 7e6, direct: 9e6), isNull);
+    expect(autoRouteSkip(router: 7e6, direct: 7.5e6), 'auto_router_faster');
+    for (final c in [
+      'auto_first',
+      'auto_router_good',
+      'auto_router_faster',
+      'auto_direct_slow',
+    ]) {
+      expect(explainDirectError(c), startsWith('Auto: '));
+    }
+  });
+
+  test('RouteStats smooths, saves and loads (speeds only)', () async {
+    final d = await Directory.systemTemp.createTemp('isekai_rs');
+    addTearDown(() => d.delete(recursive: true));
+    final f = File('${d.path}/route_stats.json');
+    final s = RouteStats(f);
+    await s.record('dev1', 'router', 10e6);
+    await s.record('dev1', 'router', 20e6);
+    await s.record('dev1', 'bogus', 1);
+    expect(s.speed('dev1', 'router'), 15e6);
+    final t = RouteStats(f);
+    await t.load();
+    expect(t.speed('dev1', 'router'), 15e6);
+    expect(t.speed('dev1', 'direct'), isNull);
+    await f.writeAsString('{not json');
+    final u = RouteStats(f);
+    await u.load();
+    expect(u.speed('dev1', 'router'), isNull);
   });
 
   test('every error code has plain words', () {

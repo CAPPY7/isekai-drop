@@ -94,6 +94,8 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     bool Function()? visible,
     this.directLinks,
     bool Function()? fastDirect,
+    this.routeMode,
+    this.routeStats,
     Duration directIdle = const Duration(seconds: 30),
     this.directMinBytes = kDirectMinBytes,
     this.useLanes = true,
@@ -131,6 +133,13 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
 
   /// Settings: try a Fast direct link for big transfers.
   final bool Function() fastDirect;
+
+  /// 0.11.0 Settings route: 'auto', 'router' or 'direct'. Null = old
+  /// behaviour (try Fast direct whenever [fastDirect] is on).
+  final String Function()? routeMode;
+
+  /// 0.11.0 measured speeds per device and route, for 'auto'.
+  final RouteStats? routeStats;
 
   /// Receiving side: the link this device hosts (null = cannot host).
   late final DirectHostManager? directHost;
@@ -344,11 +353,31 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
 
   final Set<String> _recorded = {};
 
+  /// 0.11.0 Auto: remember how fast a big send to an Android phone was.
+  void _recordRouteSpeed(TransferJob job) {
+    final stats = routeStats;
+    final id = job.peerDeviceId;
+    final r = job.route;
+    final v = job.averageSpeed;
+    if (stats == null ||
+        id == null ||
+        r == null ||
+        v == null ||
+        job.direction != JobDirection.sending ||
+        job.state != JobState.completed ||
+        job.peerPlatform != 'android' ||
+        job.totalBytes < directMinBytes) {
+      return;
+    }
+    _keep(stats.record(id, r == LinkRoute.router ? 'router' : 'direct', v));
+  }
+
   void _recordEnd(TransferJob job) {
     if (job.isActive) return;
     if (!_recorded.add(job.id)) return;
     _lastFinished = job;
     _trackPending(job);
+    _recordRouteSpeed(job);
     final h = history;
     if (h != null) {
       final now = DateTime.now().toUtc();
@@ -2535,6 +2564,9 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       if (directSkip == null) {
         direct = await _tryDirect(job, dev, tries);
         if (direct != null) s = direct.sock;
+      } else if (directSkip.startsWith('auto_')) {
+        job.setRoute(null, note: explainDirectError(directSkip));
+        diagLog.add('direct_skip_$directSkip', explainDirectError(directSkip));
       } else if (directSkip != 'small' &&
           directSkip != 'already' &&
           directSkip != 'not_android') {
@@ -2878,13 +2910,17 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   /// Null = try Fast direct for this send, else the reason code not to.
   String? _directSkip(TrustedDevice dev, TransferJob job) {
     if (directHost?.active == true || _joinedLink != null) return 'already';
-    return directSkipReason(
+    final base = directSkipReason(
       enabled: fastDirect(),
       canJoin: directLinks?.canJoin ?? false,
       peerPlatform: dev.platform,
       totalBytes: job.totalBytes,
       minBytes: directMinBytes,
     );
+    if (base != null) return base;
+    final stats = routeStats;
+    if (routeMode?.call() != 'auto' || stats == null) return null;
+    return stats.autoSkip(dev.deviceId);
   }
 
   void _directFallback(TransferJob job, String stage, String code) {

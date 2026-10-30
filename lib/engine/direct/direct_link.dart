@@ -315,6 +315,18 @@ String explainDirectError(String code) => switch (code) {
   'peer_busy' => 'The other phone could not make a direct link right now.',
   'peer_old' =>
     'The other device runs an older Isekai Drop without Fast direct.',
+  // 0.11.0 Auto (fastest): why the router was chosen.
+  'auto_first' =>
+    'Auto: first big send to this device, so the normal network is used '
+        'and its speed is measured.',
+  'auto_router_good' =>
+    'Auto: the normal network was already fast to this device.',
+  'auto_router_faster' =>
+    'Auto: the normal network was as fast or faster than Fast direct to '
+        'this device.',
+  'auto_direct_slow' =>
+    'Auto: Fast direct was slow to this device last time; trying the normal '
+        'network.',
   _ => 'The direct link could not be made ($code).',
 };
 

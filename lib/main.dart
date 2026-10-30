@@ -17,6 +17,7 @@ Future<void> main() async {
       saveFileNames: () => settings.historyFileNames,
       visible: () => settings.visibleOnNetwork,
       fastDirect: () => settings.fastDirect,
+      routeMode: () => settings.routeMode,
     );
     var visible = settings.visibleOnNetwork;
     settings.addListener(() {

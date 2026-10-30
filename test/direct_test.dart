@@ -13,6 +13,7 @@ import 'package:isekaidrop/engine/core/jobs.dart';
 import 'package:isekaidrop/engine/core/send_source.dart';
 import 'package:isekaidrop/engine/core/trust_store.dart';
 import 'package:isekaidrop/engine/direct/direct_link.dart';
+import 'package:isekaidrop/engine/direct/route_choice.dart';
 import 'package:path/path.dart' as p;
 
 /// Linux routes all of 127.0.0.0/8 to loopback; others only 127.0.0.1.
@@ -82,6 +83,8 @@ class N {
     String platform = 'android',
     FakeDirect? fake,
     bool any = false,
+    String Function()? routeMode,
+    RouteStats? routeStats,
   }) async {
     final root = await Directory.systemTemp.createTemp('isekai_d_$name');
     final inbox = Directory(p.join(root.path, 'inbox'));
@@ -100,6 +103,8 @@ class N {
       directLinks: fake,
       directIdle: const Duration(milliseconds: 300),
       directMinBytes: 1024,
+      routeMode: routeMode,
+      routeStats: routeStats,
     );
     e.debugAutoDecide = (_) async => true;
     await e.start();
@@ -154,10 +159,17 @@ void main() {
   Future<void> setup({
     String bPlatform = 'android',
     bool bDirect = true,
+    String Function()? routeMode,
+    RouteStats? routeStats,
   }) async {
     fa = FakeDirect();
     fb = FakeDirect(hostIp: linkIp);
-    a = await N.create('A', fake: fa);
+    a = await N.create(
+      'A',
+      fake: fa,
+      routeMode: routeMode,
+      routeStats: routeStats,
+    );
     b = await N.create(
       'B',
       platform: bPlatform,
@@ -304,6 +316,49 @@ void main() {
       await a.engine.leaveDirectLink(); // forgets the address
     },
   );
+
+  group('0.11.0 Auto (fastest)', () {
+    test('first big send: router, reason on the job', () async {
+      await setup(routeMode: () => 'auto', routeStats: RouteStats());
+      final job = await sendBig();
+      expect(job.state, JobState.completed, reason: job.message);
+      expect(job.route, LinkRoute.router);
+      expect(job.routeNote, contains('Auto: first big send'));
+      expect(fa.joins, 0);
+      expect(
+        a.engine.diagLog.entries.map((e) => e.kind),
+        contains('direct_skip_auto_first'),
+      );
+    });
+
+    test('router measured slow: Fast direct is tried and used', () async {
+      final stats = RouteStats();
+      await setup(routeMode: () => 'auto', routeStats: stats);
+      await stats.record(b.engine.identity.deviceId, 'router', 6e6);
+      final job = await sendBig();
+      expect(job.state, JobState.completed, reason: job.message);
+      expect(job.route, LinkRoute.wifiDirect);
+      expect(fa.joins, 1);
+    });
+
+    test('router measured fast: stays on the router', () async {
+      final stats = RouteStats();
+      await setup(routeMode: () => 'auto', routeStats: stats);
+      await stats.record(b.engine.identity.deviceId, 'router', 40e6);
+      final job = await sendBig();
+      expect(job.route, LinkRoute.router);
+      expect(job.routeNote, contains('already fast'));
+      expect(fa.joins, 0);
+    });
+
+    test('"direct" mode ignores the measurements (as 0.10.x)', () async {
+      final stats = RouteStats();
+      await setup(routeMode: () => 'direct', routeStats: stats);
+      await stats.record(b.engine.identity.deviceId, 'router', 40e6);
+      final job = await sendBig();
+      expect(job.route, LinkRoute.wifiDirect);
+    });
+  });
 
   test('engine stop always stops a hosted link', () async {
     await setup();
