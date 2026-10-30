@@ -69,6 +69,11 @@ class _SelfHashingSource extends SendSource {
 
   @override
   Future<void> close() async {
+    // A read-ahead may still be running (a real platform reader queues the
+    // close behind it; RandomAccessFile throws instead).
+    try {
+      await _chain;
+    } catch (_) {}
     await _raf?.close();
     _raf = null;
   }
