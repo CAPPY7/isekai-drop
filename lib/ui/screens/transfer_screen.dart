@@ -138,8 +138,18 @@ class TransferScreen extends StatelessWidget {
                         Text(
                           'Time left (from measured speed): ${_fmtDuration(left)}',
                         ),
-                      // 0.9.2: band + link speed, hint on 2.4 GHz.
-                      const WifiBandLine(),
+                      // 0.10.0: which way the files go.
+                      if (job.routeLine != null)
+                        Text('Route: ${job.routeLine}'),
+                      if (job.route != null && job.routeNote != null)
+                        Text(
+                          job.routeNote!,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      // 0.9.2: band + link speed, hint on 2.4 GHz (the
+                      // router Wi-Fi; a fast link shows its own band above).
+                      if (job.route == null || job.route == LinkRoute.router)
+                        const WifiBandLine(),
                       if (!job.isActive)
                         Text('Time taken: ${_fmtDuration(job.elapsed)}'),
                       if (job.resumedBytes > 0)

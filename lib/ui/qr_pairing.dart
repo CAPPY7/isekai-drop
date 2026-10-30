@@ -5,8 +5,10 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../engine/core/qr_payload.dart';
+import '../engine/direct/direct_link.dart';
 import 'app_scope.dart';
 import 'pairing_flow.dart';
+import 'screens/fast_direct_screen.dart';
 import 'theme/design_tokens.dart';
 import 'widgets/common.dart';
 
@@ -91,9 +93,19 @@ Future<void> scanQrAndPair(BuildContext context) async {
     ),
   );
   if (go != true || !context.mounted) return;
-  final qr = await Navigator.of(context)
-      .push<PairingQr>(MaterialPageRoute(builder: (_) => const _ScanScreen()));
-  if (qr == null || !context.mounted) return;
+  final scanned = await Navigator.of(context)
+      .push<Object>(MaterialPageRoute(builder: (_) => const _ScanScreen()));
+  if (scanned == null || !context.mounted) return;
+  if (scanned is DirectQr) {
+    await joinScannedDirect(context, scanned);
+    return;
+  }
+  if (scanned is (String, String)) {
+    await joinScannedWifi(context, scanned.$1, scanned.$2);
+    return;
+  }
+  if (scanned is! PairingQr) return;
+  final qr = scanned;
   await startPairingFlow(
     context,
     qr.hosts.first,
@@ -126,13 +138,18 @@ class _ScanScreenState extends State<_ScanScreen> {
     for (final b in capture.barcodes) {
       final raw = b.rawValue;
       if (raw == null) continue;
-      final qr = PairingQr.tryParse(raw);
+      final Object? qr =
+          PairingQr.tryParse(raw) ?? DirectQr.tryParse(raw) ?? parseWifiQr(raw);
       if (qr != null) {
         _done = true;
         Navigator.of(context).pop(qr);
         return;
       }
-      setState(() => _hint = 'That is not an Isekai Drop pairing code.');
+      setState(
+        () => _hint =
+            'That is not an Isekai Drop pairing code, Fast direct code or '
+            'Wi-Fi code.',
+      );
     }
   }
 
@@ -157,7 +174,7 @@ class _ScanScreenState extends State<_ScanScreen> {
           child: Text(
             _hint ??
                 'Point the camera at the QR code shown on the other device '
-                    '(Connect > Show my QR code).',
+                    '(Connect > Show my QR code, or its Fast direct code).',
             textAlign: TextAlign.center,
           ),
         ),

@@ -96,6 +96,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     d?.events.listen((e) {
       if (e == 'join_lost' && _joinedLink != null) {
         _joinedLink = null;
+        _directPeer = null;
         _joinedInfo = null;
         diagLog.add(
           'direct_join_lost',
@@ -2195,7 +2196,11 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
 
   /// Joins a link from a scanned Fast direct QR code.
   @override
-  Future<DirectJoin> joinDirectLink(DirectLinkInfo link) async {
+  Future<DirectJoin> joinDirectLink(
+    DirectLinkInfo link, {
+    String? peerFingerprint,
+    int? peerPort,
+  }) async {
     final plat = directLinks;
     if (plat == null || !plat.canJoin) {
       throw const DirectLinkException('unsupported');
@@ -2204,6 +2209,9 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       final j = await plat.join(link, timeout: const Duration(seconds: 40));
       _joinedLink = link;
       _joinedInfo = j;
+      if (peerFingerprint != null) {
+        noteDirectPeer(link.hostIp, peerPort ?? kDefaultPort, peerFingerprint);
+      }
       diagLog.add(
         'direct_join_ok',
         'Fast direct: joined ${link.kind.label}, '
@@ -2220,8 +2228,26 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     }
   }
 
+  /// Where a device is on a direct link this device joined (from its
+  /// Fast direct QR code). Used first when sending to that device, and
+  /// forgotten when the link is left. Never saved.
+  ({String host, int port, String fingerprint})? _directPeer;
+
+  @override
+  void noteDirectPeer(String host, int port, String fingerprint) {
+    _directPeer = (
+      host: host,
+      port: port,
+      fingerprint: fingerprint.toLowerCase(),
+    );
+  }
+
+  @override
+  void forgetDirectPeer() => _directPeer = null;
+
   @override
   Future<void> leaveDirectLink() async {
+    _directPeer = null;
     if (_joinedLink == null) return;
     _joinedLink = null;
     _joinedInfo = null;
@@ -2243,6 +2269,12 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       if (!out.contains(e)) out.add(e);
     }
 
+    // A link joined from this device's Fast direct code comes first: it
+    // was chosen just now, and the saved (router) address may be gone.
+    final dp = _directPeer;
+    if (dp != null && dp.fingerprint == dev.fingerprint.toLowerCase()) {
+      add(dp.host, dp.port);
+    }
     add(host, port);
     for (final n in _nearby.values) {
       if (n.deviceId == dev.deviceId && !n.fingerprintMismatch) {

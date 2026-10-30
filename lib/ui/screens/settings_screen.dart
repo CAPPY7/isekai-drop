@@ -7,6 +7,7 @@ import 'benchmark_screen.dart';
 import 'diagnostics_screen.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
+import 'fast_direct_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key, required this.onTrusted});
@@ -197,15 +198,20 @@ class SettingsScreen extends StatelessWidget {
           ),
           SectionCard(
             title: 'Connection',
-            child: SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              value: settings.visibleOnNetwork,
-              onChanged: (v) => settings.setVisibleOnNetwork(v),
-              title: const Text('Visible to nearby devices'),
-              subtitle: const Text(
-                'Off: this device stops announcing itself (and stops Bonjour). '
-                'Paired devices and QR/typed-address connections still work.',
-              ),
+            child: Column(
+              children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: settings.visibleOnNetwork,
+                  onChanged: (v) => settings.setVisibleOnNetwork(v),
+                  title: const Text('Visible to nearby devices'),
+                  subtitle: const Text(
+                    'Off: this device stops announcing itself (and stops Bonjour). '
+                    'Paired devices and QR/typed-address connections still work.',
+                  ),
+                ),
+                const FastDirectSetting(),
+              ],
             ),
           ),
           SectionCard(

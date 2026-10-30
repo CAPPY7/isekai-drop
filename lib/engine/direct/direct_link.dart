@@ -37,7 +37,7 @@ enum DirectKind {
 enum LinkRoute {
   router('Wi-Fi router'),
   wifiDirect('Fast direct (Wi-Fi Direct)'),
-  hotspot('Fast direct (phone hotspot)');
+  hotspot('Fast direct (hotspot link)');
 
   const LinkRoute(this.label);
   final String label;

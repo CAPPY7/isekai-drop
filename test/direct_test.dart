@@ -69,8 +69,9 @@ class FakeDirect implements DirectLinkPlatform {
 }
 
 class N {
-  N(this.engine, this.root, this.inbox, this.fake);
+  N(this.engine, this.root, this.inbox, this.fake, this.trust);
   final IsekaiEngine engine;
+  final TrustStore trust;
   final Directory root;
   final Directory inbox;
   final FakeDirect? fake;
@@ -102,7 +103,7 @@ class N {
     );
     e.debugAutoDecide = (_) async => true;
     await e.start();
-    return N(e, root, inbox, fake);
+    return N(e, root, inbox, fake, store);
   }
 
   Future<void> dispose() async {
@@ -278,6 +279,31 @@ void main() {
     await waitFor(() => b.engine.hostedDirectLink == null);
     expect(fb.hosts, 1);
   });
+
+  test(
+    'QR join: sends go to the device\'s address on the joined link',
+    () async {
+      await setup();
+      final dev = a.engine.trustedDevices.single;
+      // The saved (router) address no longer works.
+      await a.trust.rememberAddress(dev.id, '192.0.2.1', b.port);
+      a.engine.noteDirectPeer(linkIp, b.port, b.engine.myFingerprint);
+      final f = await file(Directory(p.join(a.root.path, 'src')), 4000);
+      final sw = Stopwatch()..start();
+      final job = await waitDone(
+        await a.engine.send(a.engine.trustedDevices.single, [
+          FileSendSource(f),
+        ]),
+      );
+      expect(job.state, JobState.completed, reason: job.message);
+      expect(
+        sw.elapsed,
+        lessThan(const Duration(seconds: 5)),
+        reason: 'link address tried before the dead saved one',
+      );
+      await a.engine.leaveDirectLink(); // forgets the address
+    },
+  );
 
   test('engine stop always stops a hosted link', () async {
     await setup();

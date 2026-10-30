@@ -77,7 +77,16 @@ abstract class TransferEngine implements Listenable {
   Future<String> requestDirectPermission();
   Future<DirectLinkInfo> openDirectLink();
   Future<void> closeDirectLink({bool now = false});
-  Future<DirectJoin> joinDirectLink(DirectLinkInfo link);
+  Future<DirectJoin> joinDirectLink(
+    DirectLinkInfo link, {
+    String? peerFingerprint,
+    int? peerPort,
+  });
+
+  /// A device seen in a Fast direct QR code is at [host]:[port] on a link
+  /// this device joined (PCs join with the system Wi-Fi tools).
+  void noteDirectPeer(String host, int port, String fingerprint);
+  void forgetDirectPeer();
   Future<void> leaveDirectLink();
 
   /// Last transfer problem in plain words (no names, no addresses).

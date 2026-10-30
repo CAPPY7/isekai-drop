@@ -11,6 +11,7 @@ import '../pairing_flow.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
 import '../widgets/device_widgets.dart';
+import 'fast_direct_screen.dart';
 
 class ConnectScreen extends StatefulWidget {
   const ConnectScreen({super.key});
@@ -215,6 +216,32 @@ class _ConnectScreenState extends State<ConnectScreen> {
                     'This device has no QR scanner: scan this device\'s code '
                     'from your phone instead.',
                   ),
+              ],
+            ),
+          ),
+          SectionCard(
+            title: 'Fast direct (no router)',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  Platform.isAndroid
+                      ? 'Link straight to another device over Wi-Fi - often '
+                            'faster than through a router, and works with no '
+                            'router at all. Between two Android phones it '
+                            'happens automatically for big files.'
+                      : 'Join an Android phone\'s fast link (no router in '
+                            'between)${Platform.isWindows ? ', or let a phone join this PC\'s Mobile Hotspot' : ''}.',
+                ),
+                const SizedBox(height: IdSpacing.sm),
+                FilledButton.tonalIcon(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(IdLayout.minTouchTarget),
+                  ),
+                  onPressed: () => openFastDirect(context),
+                  icon: const Icon(Icons.bolt),
+                  label: const Text('Open Fast direct'),
+                ),
               ],
             ),
           ),

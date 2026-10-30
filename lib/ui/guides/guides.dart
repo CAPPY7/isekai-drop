@@ -198,7 +198,41 @@ const guideLinux = Guide(
   ],
 );
 
+const guideFastDirect = Guide(
+  id: 'fast_direct',
+  title: 'Fast direct: no router in between',
+  summary: 'A direct Wi-Fi link from an Android phone. Usually faster.',
+  icon: Icons.bolt,
+  sections: [
+    GuideSection('Android phone to Android phone', [
+      'On both phones keep Settings > Fast direct when possible on, and tap Allow once (Nearby devices, or Location on Android 12 and older - your location is not used).',
+      'Pair the phones once as usual. Then just send big files (64 MB or more): the phones make a direct link by themselves, 5 GHz when they allow it. The transfer card shows "Route: Fast direct".',
+      'No router at all? On one phone open Connect > Fast direct > Start fast link. On the other phone tap Connect > Scan QR code and scan the "Isekai Drop" code.',
+    ]),
+    GuideSection('Android phone to Windows, Mac or Linux PC', [
+      'On the phone open Connect > Fast direct > Start fast link.',
+      'On the PC open Connect > Fast direct, type the network name and password shown on the phone and click Join (the Mac can also scan the code). Or join that network from the PC\'s Wi-Fi menu.',
+      'The PC then pairs with the phone (tap Accept on the phone) or finds it under Connect.',
+    ]),
+    GuideSection('Android phone to iPhone', [
+      'On the phone open Connect > Fast direct > Start fast link and tap "PC / iPhone camera".',
+      'Scan that code with the iPhone Camera app and tap Join.',
+      'Open Isekai Drop on the iPhone, tap Connect > Scan QR code and scan the "Isekai Drop" code on the phone.',
+    ]),
+    GuideSection('Windows PC as the link', [
+      'On the PC open Connect > Fast direct > Start Windows hotspot (or Open Mobile hotspot settings and set Band to 5 GHz if offered).',
+      'On the phone scan the Wi-Fi code shown on the PC (Isekai Drop Connect > Scan QR code works too), then pair as usual.',
+    ]),
+  ],
+  notes: [
+    'While a phone or PC is on a fast link it may have no internet. Leaving the link (or the link stopping) brings the normal Wi-Fi back.',
+    'If the direct link cannot be made, Isekai Drop uses your router as before and Diagnostics shows why.',
+    'Speed depends on both devices\' Wi-Fi chips. A direct link only helps when the router is the slow part.',
+  ],
+);
+
 const allGuides = [
+  guideFastDirect,
   guideIphone,
   guideLinux,
   guidePhoneHotspot,

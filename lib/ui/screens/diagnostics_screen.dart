@@ -120,6 +120,21 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                         style: TextStyle(color: IdColors.warning),
                       ),
                     if (i?.note != null) Text(i!.note!),
+                    if (e.hostedDirectLink != null)
+                      Text(
+                        'Fast direct link (made here): ${e.hostedDirectLink!.kind.label}, '
+                        '${e.hostedDirectLink!.bandLabel}',
+                      ),
+                    if (e.joinedDirectLink != null)
+                      Text(
+                        'Fast direct link (joined): ${e.joinedDirectLink!.ssid}, '
+                        '${e.joinedDirectLink!.bandLabel}',
+                      ),
+                    if (e.lastDirectProblem != null)
+                      Text(
+                        'Last Fast direct problem: ${e.lastDirectProblem}',
+                        style: const TextStyle(color: IdColors.warning),
+                      ),
                     Text(
                       'Receiving on port: ${e.listeningPort ?? 'not running'}',
                     ),
@@ -192,6 +207,10 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                             '${last.fileCount} file(s), ${formatBytes(last.bytesDone)} of ${formatBytes(last.totalBytes)}',
                           ),
                           Text('Result: ${last.state.label}'),
+                          if (last.routeLine != null)
+                            Text('Route: ${last.routeLine}'),
+                          if (last.route != null && last.routeNote != null)
+                            Text(last.routeNote!),
                           Text(
                             'Average speed (measured): ${last.averageSpeed == null ? '-' : formatSpeed(last.averageSpeed!)}',
                           ),
