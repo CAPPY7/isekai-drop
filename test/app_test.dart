@@ -149,10 +149,22 @@ void main() {
     await _pump(tester);
     await tester.tap(find.text('Connect').last);
     await tester.pumpAndSettle();
+    // 0.11.0: QR first; the address fields are under "Advanced".
+    expect(find.text('Pair with a QR code'), findsOneWidget);
+    expect(
+      find.widgetWithText(TextField, 'IP address of the other device'),
+      findsNothing,
+    );
+    await tester.tap(find.text('Advanced'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.widgetWithText(TextField, 'IP address of the other device'),
+    );
     await tester.enterText(
       find.widgetWithText(TextField, 'IP address of the other device'),
       'abc',
     );
+    await tester.ensureVisible(find.text('Connect and pair'));
     await tester.tap(find.text('Connect and pair'));
     await tester.pumpAndSettle();
     expect(find.textContaining('not a valid IP address'), findsOneWidget);

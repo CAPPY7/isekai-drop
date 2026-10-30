@@ -11,6 +11,7 @@ import '../pairing_flow.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
 import '../widgets/device_widgets.dart';
+import '../widgets/discovery_hint.dart';
 import 'fast_direct_screen.dart';
 
 class ConnectScreen extends StatefulWidget {
@@ -72,15 +73,59 @@ class _ConnectScreenState extends State<ConnectScreen> {
       listenable: engine,
       builder: (context, _) => PageBody(
         children: [
-          ThisDeviceCard(engine: engine),
+          // 0.11.0 (spec A4): the QR code first - what most people use.
+          SectionCard(
+            title: 'Pair with a QR code',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'This device: ${engine.myName}',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: IdSpacing.sm),
+                Wrap(
+                  spacing: IdSpacing.sm,
+                  runSpacing: IdSpacing.sm,
+                  children: [
+                    if (canScanQr)
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size(160, IdLayout.minTouchTarget),
+                        ),
+                        onPressed: () => scanQrAndPair(context),
+                        icon: const Icon(Icons.qr_code_scanner),
+                        label: const Text('Scan QR code'),
+                      ),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(160, IdLayout.minTouchTarget),
+                      ),
+                      onPressed: () => showMyQr(context),
+                      icon: const Icon(Icons.qr_code_2),
+                      label: const Text('Show my QR code'),
+                    ),
+                  ],
+                ),
+                if (!canScanQr)
+                  Padding(
+                    padding: const EdgeInsets.only(top: IdSpacing.xs),
+                    child: Text(
+                      'No camera scanner here: scan this code from your phone.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+              ],
+            ),
+          ),
           if (Platform.isIOS)
             Card(
               child: ListTile(
                 leading: const Icon(Icons.info_outline),
                 title: const Text('On iPhone/iPad'),
                 subtitle: const Text(
-                  'Keep the app open while sending. Windows and Linux PCs do not '
-                  'appear automatically: scan their QR code.',
+                  'Keep the app open while sending. PCs do not appear '
+                  'automatically: scan their QR code.',
                 ),
                 onTap: () => openGuide(context, guideIphone),
               ),
@@ -90,23 +135,18 @@ class _ConnectScreenState extends State<ConnectScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (engine.nearby.isEmpty)
-                  StateMessage(
-                    icon: Icons.wifi_find,
-                    title: engine.scanning
-                        ? 'Searching this network...'
-                        : 'No devices found yet',
-                    message: [
-                      if (engine.discoveryError != null) engine.discoveryError!,
-                      if (!engine.scanning && engine.lastScanFound == 0)
-                        'The search found no Isekai Drop on this network. '
-                            'Check that the other device is on the SAME Wi-Fi or hotspot '
-                            'and has Isekai Drop open. A Windows PC must also allow Isekai Drop '
-                            'in its firewall (see Help).',
-                      'Or scan the QR code, or type the address below.',
-                    ].join(' '),
-                  )
-                else
+                if (engine.nearby.isEmpty) ...[
+                  DiscoveryHint(engine: engine),
+                  if (!engine.scanning && engine.lastScanFound == 0)
+                    const EmptyLine(
+                      icon: Icons.search_off,
+                      text: 'The search found nothing on this network.',
+                      info:
+                          'Check that the other device is on the SAME Wi-Fi or hotspot '
+                          'and has Isekai Drop open. A Windows PC must also allow Isekai Drop '
+                          'in its firewall (see Help).',
+                    ),
+                ] else
                   for (final d in engine.nearby)
                     NearbyTile(
                       device: d,
@@ -117,105 +157,6 @@ class _ConnectScreenState extends State<ConnectScreen> {
                         peerName: d.name,
                       ),
                     ),
-                const SizedBox(height: IdSpacing.sm),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(IdLayout.minTouchTarget),
-                  ),
-                  onPressed: engine.scanning
-                      ? null
-                      : () => unawaited(engine.scanNetwork()),
-                  icon: engine.scanning
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.radar),
-                  label: Text(
-                    engine.scanning ? 'Searching...' : 'Search this network',
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SectionCard(
-            title: 'Pair by typing the address',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  'On the other device open Connect and read its address. Type it here. '
-                  'The other device then asks once to accept this one.',
-                ),
-                const SizedBox(height: IdSpacing.md),
-                TextField(
-                  controller: _ip,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(
-                    labelText: 'IP address of the other device',
-                    hintText: '192.168.1.23',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: IdSpacing.sm),
-                TextField(
-                  controller: _port,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Port',
-                    border: OutlineInputBorder(),
-                  ),
-                  onSubmitted: (_) => _pair(),
-                ),
-                if (_error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: IdSpacing.sm),
-                    child: Text(
-                      _error!,
-                      style: const TextStyle(color: IdColors.danger),
-                    ),
-                  ),
-                const SizedBox(height: IdSpacing.sm),
-                FilledButton(
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(IdLayout.minTouchTarget),
-                  ),
-                  onPressed: _pair,
-                  child: const Text('Connect and pair'),
-                ),
-              ],
-            ),
-          ),
-          SectionCard(
-            title: 'QR code',
-            child: Wrap(
-              spacing: IdSpacing.sm,
-              runSpacing: IdSpacing.sm,
-              children: [
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(200, IdLayout.minTouchTarget),
-                  ),
-                  onPressed: () => showMyQr(context),
-                  icon: const Icon(Icons.qr_code_2),
-                  label: const Text('Show my QR code'),
-                ),
-                if (canScanQr)
-                  FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(200, IdLayout.minTouchTarget),
-                    ),
-                    onPressed: () => scanQrAndPair(context),
-                    icon: const Icon(Icons.qr_code_scanner),
-                    label: const Text('Scan QR code'),
-                  )
-                else
-                  const Text(
-                    'This device has no QR scanner: scan this device\'s code '
-                    'from your phone instead.',
-                  ),
               ],
             ),
           ),
@@ -264,6 +205,99 @@ class _ConnectScreenState extends State<ConnectScreen> {
                     onTap: () => openGuide(context, g),
                   ),
               ],
+            ),
+          ),
+          // 0.11.0 (spec A4): technical details collapsed.
+          Card(
+            child: Theme(
+              data: Theme.of(context)
+                  .copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                key: const ValueKey('connect-advanced'),
+                leading: const Icon(Icons.tune),
+                title: const Text('Advanced'),
+                subtitle: const Text('Address, port, key fingerprint, search'),
+                childrenPadding: const EdgeInsets.fromLTRB(
+                  IdSpacing.md,
+                  0,
+                  IdSpacing.md,
+                  IdSpacing.md,
+                ),
+                expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ThisDeviceCard(engine: engine),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(
+                        IdLayout.minTouchTarget,
+                      ),
+                    ),
+                    onPressed: engine.scanning
+                        ? null
+                        : () => unawaited(engine.scanNetwork()),
+                    icon: const Icon(Icons.radar),
+                    label: Text(
+                      engine.scanning ? 'Searching...' : 'Search this network',
+                    ),
+                  ),
+                  const SizedBox(height: IdSpacing.md),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'Pair by typing the address',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      Text(
+                        'Read the address under Advanced on the other device.',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: IdSpacing.md),
+                      TextField(
+                        controller: _ip,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'IP address of the other device',
+                          hintText: '192.168.1.23',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: IdSpacing.sm),
+                      TextField(
+                        controller: _port,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Port',
+                          border: OutlineInputBorder(),
+                        ),
+                        onSubmitted: (_) => _pair(),
+                      ),
+                      if (_error != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: IdSpacing.sm),
+                          child: Text(
+                            _error!,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: IdSpacing.sm),
+                      FilledButton(
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(
+                            IdLayout.minTouchTarget,
+                          ),
+                        ),
+                        onPressed: _pair,
+                        child: const Text('Connect and pair'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ],

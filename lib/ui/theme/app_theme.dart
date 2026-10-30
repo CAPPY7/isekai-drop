@@ -34,7 +34,15 @@ class AppTheme {
           seedColor: IdColors.accentBlue,
           brightness: brightness,
         ).copyWith(
-          primary: IdColors.accentBlue,
+          // 0.11.0: on dark, blue text (text buttons, links) used
+          // accentBlue at 3.1:1. The lighter glow blue is 7.4:1, with dark
+          // text on filled buttons (8:1).
+          primary: brightness == Brightness.dark
+              ? IdColors.accentGlow
+              : IdColors.accentBlue,
+          onPrimary: brightness == Brightness.dark
+              ? IdColors.darkBackground
+              : Colors.white,
           secondary: IdColors.accentPurple,
           surface: surface,
           onSurface: onSurface,
@@ -71,6 +79,7 @@ class AppTheme {
         ),
         bodyMedium: TextStyle(fontSize: IdTypeSizes.body, color: onSurface),
         bodySmall: TextStyle(fontSize: IdTypeSizes.caption, color: muted),
+        bodyLarge: TextStyle(fontSize: IdTypeSizes.body, color: onSurface),
       ),
     );
   }

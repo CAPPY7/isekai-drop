@@ -15,7 +15,9 @@ class IdColors {
   static const Color darkSurface = Color(0xFF141726);
   static const Color darkSurfaceRaised = Color(0xFF1C2033);
   static const Color darkOnSurface = Color(0xFFE8EAF6);
-  static const Color darkOnSurfaceMuted = Color(0xFF9AA0BC);
+  // 0.11.0: lighter grey (9.2:1 on darkSurface, was 6.9:1) so small
+  // description text is easy to read. WCAG AA needs 4.5:1.
+  static const Color darkOnSurfaceMuted = Color(0xFFB4BAD3);
 
   // Light surfaces.
   static const Color lightBackground = Color(0xFFF5F6FB);
@@ -26,7 +28,8 @@ class IdColors {
   // Status colours.
   static const Color success = Color(0xFF2FBF71);
   static const Color warning = Color(0xFFF5A524);
-  static const Color danger = Color(0xFFE5484D);
+  // 0.11.0: lighter red (5.8:1 on darkSurfaceRaised, was 4.1:1).
+  static const Color danger = Color(0xFFFF6B6F);
 
   static const LinearGradient brandGradient = LinearGradient(
     begin: Alignment.topLeft,
@@ -55,7 +58,7 @@ class IdRadii {
 
 class IdTypeSizes {
   IdTypeSizes._();
-  static const double caption = 12;
+  static const double caption = 13;
   static const double body = 15;
   static const double title = 20;
   static const double headline = 28;

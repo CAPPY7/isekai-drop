@@ -7,17 +7,13 @@ import '../app_scope.dart';
 import '../pairing_flow.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
+import '../widgets/discovery_hint.dart';
 import 'transfer_screen.dart';
 
 class FilesScreen extends StatefulWidget {
-  const FilesScreen({
-    super.key,
-    required this.isDesktop,
-    required this.onConnect,
-  });
+  const FilesScreen({super.key, required this.isDesktop});
 
   final bool isDesktop;
-  final VoidCallback onConnect;
 
   @override
   State<FilesScreen> createState() => _FilesScreenState();
@@ -160,7 +156,7 @@ class _FilesScreenState extends State<FilesScreen> {
           widget.isDesktop
               ? Icons.file_download_outlined
               : Icons.add_circle_outline,
-          size: 48,
+          size: 36,
           color: IdColors.accentGlow,
         ),
         const SizedBox(height: IdSpacing.sm),
@@ -234,135 +230,155 @@ class _FilesScreenState extends State<FilesScreen> {
           if ('nearby:${n.deviceId}' == _targetId) nearbyTarget = n;
         }
         final targetName = target?.name ?? nearbyTarget?.name;
-        return PageBody(
-          children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(IdSpacing.lg),
-                child: widget.isDesktop
-                    ? DropTarget(
-                        onDragEntered: (_) => setState(() => _dragging = true),
-                        onDragExited: (_) => setState(() => _dragging = false),
-                        onDragDone: _onDrop,
-                        child: AnimatedContainer(
-                          duration: IdMotion.fast,
-                          padding: const EdgeInsets.all(IdSpacing.lg),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(IdRadii.md),
-                            border: Border.all(
-                              color: _dragging
-                                  ? IdColors.accentPurple
-                                  : IdColors.darkOnSurfaceMuted,
-                              width: _dragging ? 3 : 1,
-                            ),
-                          ),
-                          child: pickArea,
-                        ),
-                      )
-                    : pickArea,
-              ),
-            ),
-            if (_error != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: IdSpacing.sm),
-                child: Text(
-                  _error!,
-                  style: const TextStyle(color: IdColors.danger),
+        final pickCard = widget.isDesktop
+            ? DropTarget(
+                onDragEntered: (_) => setState(() => _dragging = true),
+                onDragExited: (_) => setState(() => _dragging = false),
+                onDragDone: _onDrop,
+                child: AnimatedContainer(
+                  duration: IdMotion.fast,
+                  padding: const EdgeInsets.all(IdSpacing.md),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(IdRadii.md),
+                    border: Border.all(
+                      color: _dragging
+                          ? IdColors.accentPurple
+                          : theme.colorScheme.outline,
+                      width: _dragging ? 3 : 1,
+                    ),
+                  ),
+                  child: pickArea,
                 ),
-              ),
-            SectionCard(
-              title:
-                  'Selected: ${_files.length} file(s), ${formatBytes(_total)}',
-              trailing: _files.isEmpty
-                  ? null
-                  : TextButton(
-                      onPressed: _confirmClear,
-                      child: const Text('Clear'),
-                    ),
-              child: _files.isEmpty
-                  ? const StateMessage(
-                      icon: Icons.inbox_outlined,
-                      title: 'Nothing selected yet',
-                      message: 'Tap "Pick files" to choose what to send.',
-                    )
-                  : Column(
+              )
+            : pickArea;
+        final ready = _files.isNotEmpty && targetName != null;
+        final sendButton = FilledButton.icon(
+          key: const ValueKey('send-button'),
+          style: FilledButton.styleFrom(
+            minimumSize: const Size.fromHeight(IdLayout.minTouchTarget),
+          ),
+          onPressed: !ready
+              ? null
+              : () =>
+                    target != null ? _send(target) : _sendNearby(nearbyTarget!),
+          icon: const Icon(Icons.send_rounded),
+          label: Text(
+            targetName == null
+                ? 'Send'
+                : _files.isEmpty
+                ? 'Send to $targetName'
+                : 'Send ${_files.length} file(s) to $targetName',
+            overflow: TextOverflow.ellipsis,
+          ),
+        );
+        // 0.11.0: three steps. The list scrolls; step 3 (Send) sits right
+        // under it and stays pinned at the bottom when the list is long.
+        return Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 900),
+            child: Padding(
+              padding: const EdgeInsets.all(IdSpacing.md),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Flexible(
+                    child: ListView(
+                      shrinkWrap: true,
                       children: [
-                        for (var i = 0; i < _files.length && i < 100; i++)
-                          ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            minTileHeight: IdLayout.minTouchTarget,
-                            leading: const Icon(
-                              Icons.insert_drive_file_outlined,
-                            ),
-                            title: Text(
-                              _files[i].relativePath,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            subtitle: Text(formatBytes(_files[i].size)),
-                            trailing: IconButton(
-                              tooltip: 'Remove ${_files[i].name} from list',
-                              icon: const Icon(Icons.close),
-                              onPressed: () =>
-                                  setState(() => _files.removeAt(i)),
-                            ),
+                        SectionCard(
+                          title: _files.isEmpty
+                              ? '1. Pick files'
+                              : '1. Files: ${_files.length}, ${formatBytes(_total)}',
+                          trailing: _files.isEmpty
+                              ? null
+                              : TextButton(
+                                  onPressed: _confirmClear,
+                                  child: const Text('Clear'),
+                                ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              pickCard,
+                              if (_error != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    top: IdSpacing.sm,
+                                  ),
+                                  child: Text(
+                                    _error!,
+                                    style: TextStyle(
+                                      color: theme.colorScheme.error,
+                                    ),
+                                  ),
+                                ),
+                              for (var i = 0; i < _files.length && i < 100; i++)
+                                ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  minTileHeight: IdLayout.minTouchTarget,
+                                  leading: const Icon(
+                                    Icons.insert_drive_file_outlined,
+                                  ),
+                                  title: Text(
+                                    _files[i].relativePath,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  subtitle: Text(formatBytes(_files[i].size)),
+                                  trailing: IconButton(
+                                    tooltip:
+                                        'Remove ${_files[i].name} from list',
+                                    icon: const Icon(Icons.close),
+                                    onPressed: () =>
+                                        setState(() => _files.removeAt(i)),
+                                  ),
+                                ),
+                              if (_files.length > 100)
+                                Text('...and ${_files.length - 100} more'),
+                            ],
                           ),
-                        if (_files.length > 100)
-                          Text('...and ${_files.length - 100} more'),
+                        ),
+                        SectionCard(
+                          title: '2. Pick a device',
+                          child: ids.isEmpty
+                              ? DiscoveryHint(engine: engine)
+                              : DropdownButton<String>(
+                                  isExpanded: true,
+                                  value: _targetId,
+                                  items: [
+                                    for (final d in targets)
+                                      DropdownMenuItem(
+                                        value: d.id,
+                                        child: Text(
+                                          engine.nearby.any(
+                                                (n) => n.trusted?.id == d.id,
+                                              )
+                                              ? '${d.name}  (nearby)'
+                                              : d.name,
+                                        ),
+                                      ),
+                                    for (final n in unpaired)
+                                      DropdownMenuItem(
+                                        value: 'nearby:${n.deviceId}',
+                                        child: Text(
+                                          '${n.name}  (nearby, asks once to accept)',
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                  ],
+                                  onChanged: (v) =>
+                                      setState(() => _targetId = v),
+                                ),
+                        ),
                       ],
                     ),
-            ),
-            SectionCard(
-              title: 'Send to',
-              child: ids.isEmpty
-                  ? StateMessage(
-                      icon: Icons.wifi_find,
-                      title: 'No device found yet',
-                      message:
-                          'Open Isekai Drop on the other device, on the same Wi-Fi. '
-                          'It appears here; it does not need to be paired first.',
-                      action: TextButton(
-                        onPressed: widget.onConnect,
-                        child: const Text('Connect a device'),
-                      ),
-                    )
-                  : DropdownButton<String>(
-                      isExpanded: true,
-                      value: _targetId,
-                      items: [
-                        for (final d in targets)
-                          DropdownMenuItem(
-                            value: d.id,
-                            child: Text(
-                              engine.nearby.any((n) => n.trusted?.id == d.id)
-                                  ? '${d.name}  (nearby)'
-                                  : d.name,
-                            ),
-                          ),
-                        for (final n in unpaired)
-                          DropdownMenuItem(
-                            value: 'nearby:${n.deviceId}',
-                            child: Text(
-                              '${n.name}  (nearby, asks once to accept)',
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                      ],
-                      onChanged: (v) => setState(() => _targetId = v),
-                    ),
-            ),
-            FilledButton.icon(
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(IdLayout.minTouchTarget),
+                  ),
+                  const SizedBox(height: IdSpacing.sm),
+                  sendButton,
+                ],
               ),
-              onPressed: _files.isEmpty || targetName == null
-                  ? null
-                  : () => target != null
-                        ? _send(target)
-                        : _sendNearby(nearbyTarget!),
-              icon: const Icon(Icons.send_rounded),
-              label: Text(targetName == null ? 'Send' : 'Send to $targetName'),
             ),
-          ],
+          ),
         );
       },
     );

@@ -257,7 +257,7 @@ class _AppShellState extends State<AppShell> {
             onConnect: () => _go(2),
             onTrusted: _openTrusted,
           ),
-          FilesScreen(isDesktop: desktop, onConnect: () => _go(2)),
+          FilesScreen(isDesktop: desktop),
           const ConnectScreen(),
           const HistoryScreen(),
           SettingsScreen(onTrusted: _openTrusted),

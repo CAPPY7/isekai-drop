@@ -6,6 +6,7 @@ import '../pairing_flow.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
 import '../widgets/device_widgets.dart';
+import '../widgets/discovery_hint.dart';
 import 'transfer_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -53,6 +54,9 @@ class HomeScreen extends StatelessWidget {
                     style: const TextStyle(color: Colors.white),
                   ),
                   const SizedBox(height: IdSpacing.md),
+                  // 0.11.0 (spec A3): one primary action (Send) and one
+                  // secondary (Connect a device). No other "Connect a
+                  // device" links elsewhere.
                   Wrap(
                     spacing: IdSpacing.sm,
                     runSpacing: IdSpacing.sm,
@@ -195,14 +199,7 @@ class HomeScreen extends StatelessWidget {
             SectionCard(
               title: 'Nearby devices',
               child: engine.nearby.isEmpty
-                  ? StateMessage(
-                      icon: Icons.wifi_find,
-                      title: 'Looking for devices...',
-                      message:
-                          engine.discoveryError ??
-                          'Open Isekai Drop on your other device, on the same Wi-Fi. '
-                              'If it does not appear, use "Connect a device" and type its address.',
-                    )
+                  ? DiscoveryHint(engine: engine)
                   : Column(
                       children: [
                         for (final d in engine.nearby)
@@ -220,35 +217,27 @@ class HomeScreen extends StatelessWidget {
                       ],
                     ),
             ),
-            SectionCard(
-              title: 'Saved trusted devices',
-              trailing: TextButton(
-                onPressed: onTrusted,
-                child: const Text('Manage'),
-              ),
-              child: engine.trustedDevices.isEmpty
-                  ? StateMessage(
-                      icon: Icons.shield_outlined,
-                      title: 'No trusted devices yet',
-                      message: 'Pair a device to trust it.',
-                      action: TextButton(
-                        onPressed: onConnect,
-                        child: const Text('Connect a device'),
+            // 0.11.0: hidden while empty (pairing lives in the Connect tab).
+            if (engine.trustedDevices.isNotEmpty)
+              SectionCard(
+                title: 'Saved trusted devices',
+                trailing: TextButton(
+                  onPressed: onTrusted,
+                  child: const Text('Manage'),
+                ),
+                child: Column(
+                  children: [
+                    for (final d in engine.trustedDevices)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        minTileHeight: IdLayout.minTouchTarget,
+                        leading: Icon(platformIcon(d.platform)),
+                        title: Text(d.name),
+                        subtitle: TrustBadge(trust: trustOf(d)),
                       ),
-                    )
-                  : Column(
-                      children: [
-                        for (final d in engine.trustedDevices)
-                          ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            minTileHeight: IdLayout.minTouchTarget,
-                            leading: Icon(platformIcon(d.platform)),
-                            title: Text(d.name),
-                            subtitle: TrustBadge(trust: trustOf(d)),
-                          ),
-                      ],
-                    ),
-            ),
+                  ],
+                ),
+              ),
             Text(
               'Files go directly between your devices, encrypted. Nothing is uploaded.',
               textAlign: TextAlign.center,
