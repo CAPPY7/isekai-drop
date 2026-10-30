@@ -45,11 +45,11 @@ An overlapped receive writer (write chunk N while reading N+1) was slower: 51.9 
 - Estimate: Wi-Fi 6, 2x2, 80 MHz on 5 GHz (link ~1201 Mbps) -> ~600 Mbps one hop -> ~36 MB/s phone-to-phone through the router at best. 2.4 GHz (144-286 Mbps link) -> ~8-17 MB/s one hop, ~4-9 MB/s through the router: this matches the reported 6-10 MB/s.
 - So 60-70 MB/s through a home router is unlikely for any app; a direct link (Wi-Fi Direct / hotspot) is the roadmap item.
 
-## Reproduce
+## Reproduce (the script calls `sudo -n ip netns` itself)
 ```
 dart compile exe tool/bench_stages.dart -o /tmp/bs && /tmp/bs 256
-sudo tool/bench/netns_run.sh 0 label                 # 0.9.2, Dart hashing
-sudo E2E_NATIVE_HASH=1 tool/bench/netns_run.sh 0 n   # 0.9.2, native hashing (sha256sum)
-sudo REPO=/path/to/0.9.1-worktree tool/bench/netns_run.sh 0 base
-sudo tool/bench/netns_run.sh 3 rtt                   # 3 ms one-way delay proxy
+tool/bench/netns_run.sh 0 label                 # 0.9.2, Dart hashing
+E2E_NATIVE_HASH=1 tool/bench/netns_run.sh 0 n   # 0.9.2, native hashing (sha256sum)
+REPO=/path/to/0.9.1-worktree tool/bench/netns_run.sh 0 base
+tool/bench/netns_run.sh 3 rtt                   # 3 ms one-way delay proxy
 ```
