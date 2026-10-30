@@ -41,10 +41,10 @@ android {
     // builds so every APK is signed the same way and updates install cleanly.
     // A real release key is created in the final phase and is never committed.
     //
-    // REAL RELEASE KEY (prepared, not active until the owner adds secrets):
-    // only the separate workflow .github/workflows/android-release.yml sets
-    // these environment variables, from GitHub secrets. Normal test builds
-    // never see them and keep using the dev key. See docs/RELEASE_SIGNING.md.
+    // RELEASE KEY (active since 0.11.1): CI (android.yml and
+    // android-release.yml) sets these environment variables from GitHub
+    // secrets. Local/debug builds don't have them and use the dev key.
+    // See docs/RELEASE_SIGNING.md.
     val releaseStore = System.getenv("ISEKAI_RELEASE_KEYSTORE")
     val useReleaseKey = !releaseStore.isNullOrBlank()
     signingConfigs {

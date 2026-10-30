@@ -18,11 +18,11 @@ line=$3
 shift 3
 R="$GITHUB_REPOSITORY"
 TAG=latest-build
-TITLE="Latest test build (DEV-signed, not a real release)"
+TITLE="Latest test build (not a real release)"
 
 base_notes() {
   cat <<'TXT'
-Automatic TEST build of Isekai Drop. Signed with the throwaway DEV key (Android). Not for public distribution.
+Automatic TEST build of Isekai Drop. Android: signed with the owner's release key when the repo has the ISEKAI_RELEASE_* secrets, otherwise with the public DEV key - the Android line below says which ("release key" / "dev key"). Coming from a DEV-signed build (0.11.0 or older)? Uninstall it once first, then install. Not for public distribution.
 Each new build replaces the files below (no build number in the file names; the build numbers are listed here).
 
 - isekai-drop-android-arm64.apk: smaller file for most phones from about 2017 on.

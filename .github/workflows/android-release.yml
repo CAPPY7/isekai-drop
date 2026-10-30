@@ -1,6 +1,8 @@
 name: Android RELEASE (real key, manual only)
 
-# PREPARED, NOT ACTIVE: needs 4 repository secrets that only the owner can add
+# Manual tagged DRAFT release, release key (secrets set since 0.11.1). Normal
+# pushes are also release-signed by android.yml when the secrets exist.
+# Old note: needs 4 repository secrets that only the owner can add
 # (docs/RELEASE_SIGNING.md). Runs ONLY when started by hand (Actions tab >
 # this workflow > Run workflow). Normal pushes keep building DEV-signed test
 # APKs in android.yml. If a secret is missing this workflow FAILS; it never

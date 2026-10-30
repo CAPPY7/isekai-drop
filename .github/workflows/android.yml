@@ -13,7 +13,7 @@ env:
 
 jobs:
   build:
-    name: Build signed APK
+    name: Build signed APK (release key if secrets exist, else dev key)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -32,7 +32,37 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
+      # RELEASE KEY (0.11.1): if the 4 ISEKAI_RELEASE_* secrets exist, the
+      # APKs are signed with the owner's release key. Otherwise (forks, or
+      # the secrets were removed) they fall back to the public DEV key with
+      # a warning. Secret values are never printed.
+      - name: Release key from secrets (falls back to the dev key)
+        env:
+          KEYSTORE_B64: ${{ secrets.ISEKAI_RELEASE_KEYSTORE_B64 }}
+          STORE_PW: ${{ secrets.ISEKAI_RELEASE_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ISEKAI_RELEASE_KEY_ALIAS }}
+          KEY_PW: ${{ secrets.ISEKAI_RELEASE_KEY_PASSWORD }}
+        run: |
+          missing=""
+          for v in KEYSTORE_B64 STORE_PW KEY_ALIAS KEY_PW; do
+            [ -n "${!v}" ] || missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then
+            echo "::warning title=DEV-signed build::Release key secrets missing ($missing ). This APK is signed with the PUBLIC dev key - test use only. See docs/RELEASE_SIGNING.md."
+            echo "SIGNING_KEY=dev" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          umask 077
+          printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.p12"
+          test -s "$RUNNER_TEMP/release.p12"
+          echo "ISEKAI_RELEASE_KEYSTORE=$RUNNER_TEMP/release.p12" >> "$GITHUB_ENV"
+          echo "SIGNING_KEY=release" >> "$GITHUB_ENV"
+          echo "Signing with the release key."
       - name: Build release APK (versionCode = run number)
+        env:
+          ISEKAI_RELEASE_STORE_PASSWORD: ${{ secrets.ISEKAI_RELEASE_STORE_PASSWORD }}
+          ISEKAI_RELEASE_KEY_ALIAS: ${{ secrets.ISEKAI_RELEASE_KEY_ALIAS }}
+          ISEKAI_RELEASE_KEY_PASSWORD: ${{ secrets.ISEKAI_RELEASE_KEY_PASSWORD }}
         run: flutter build apk --release --build-number=${{ github.run_number }}
       - name: Check APK exists, is not empty, and show signing fingerprint
         run: |
@@ -44,6 +74,10 @@ jobs:
           "$APKSIGNER" verify --print-certs "$APK" | grep -i "SHA-256"
           cp "$APK" "isekai-drop-android-${{ github.run_number }}.apk"
       - name: Build smaller arm64-only APK (most modern phones; under 25 MB)
+        env:
+          ISEKAI_RELEASE_STORE_PASSWORD: ${{ secrets.ISEKAI_RELEASE_STORE_PASSWORD }}
+          ISEKAI_RELEASE_KEY_ALIAS: ${{ secrets.ISEKAI_RELEASE_KEY_ALIAS }}
+          ISEKAI_RELEASE_KEY_PASSWORD: ${{ secrets.ISEKAI_RELEASE_KEY_PASSWORD }}
         run: >
           flutter build apk --release --split-per-abi
           --target-platform android-arm64
@@ -60,6 +94,25 @@ jobs:
           AAPT=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)aapt
           "$AAPT" dump badging "$APK" | head -1
           cp "$APK" "isekai-drop-android-arm64-${{ github.run_number }}.apk"
+      - name: Check which key signed the APKs
+        run: |
+          DEV=5b36eeb022d11e4c4a9470d4d7cae387407ba238f4bb19c0b2847cefb1b257c1
+          REL=8131623f17c711dc42322f2ba9b6426edd298de27f783ffdbd30d04e30a9049b
+          APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner
+          for f in isekai-drop-android-*.apk; do
+            d=$("$APKSIGNER" verify --print-certs "$f" | grep -i "certificate SHA-256" | head -1 | awk '{print $NF}')
+            echo "$f: $d"
+            if [ "$SIGNING_KEY" = release ]; then
+              [ "$d" = "$REL" ] || { echo "ERROR: expected the release key"; exit 1; }
+            else
+              [ "$d" = "$DEV" ] || { echo "ERROR: expected the dev key"; exit 1; }
+              echo "::warning title=DEV-signed build::$f is signed with the public dev key."
+            fi
+          done
+          echo "$SIGNING_KEY" > signing-key.txt
+      - name: Remove keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.p12"
       - uses: actions/upload-artifact@v7.0.2
         with:
           name: isekai-drop-android
@@ -69,7 +122,9 @@ jobs:
       - uses: actions/upload-artifact@v7.0.2
         with:
           name: isekai-drop-android-arm64
-          path: isekai-drop-android-arm64-${{ github.run_number }}.apk
+          path: |
+            isekai-drop-android-arm64-${{ github.run_number }}.apk
+            signing-key.txt
           if-no-files-found: error
           retention-days: 30
 
@@ -101,10 +156,12 @@ jobs:
           test -s isekai-drop-android-universal.apk
           test -s isekai-drop-android-arm64.apk
           ls -l *.apk
+          K=$(cat signing-key.txt); rm -f signing-key.txt
+          echo "SIGNING_KEY=$K" >> "$GITHUB_ENV"
       - name: Upload (replace) and remove old Android files
         run: |
           V=$(grep -m1 '^version:' pubspec.yaml | sed 's/version: *//; s/+.*//')
           .github/scripts/latest_build.sh android \
             '^isekai-drop-android-.*\.apk$' \
-            "Android ${V} build ${{ github.run_number }} (versionCode ${{ github.run_number }}), commit ${GITHUB_SHA::7}" \
+            "Android ${V} build ${{ github.run_number }} (versionCode ${{ github.run_number }}, ${SIGNING_KEY} key), commit ${GITHUB_SHA::7}" \
             isekai-drop-android-arm64.apk isekai-drop-android-universal.apk
