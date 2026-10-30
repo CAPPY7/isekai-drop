@@ -6,6 +6,7 @@ import '../engine/platform_engine.dart' show setKeepScreenOn;
 
 import '../engine/transfer_engine.dart';
 import 'app_scope.dart';
+import 'shell_nav.dart';
 import 'screens/connect_screen.dart';
 import 'screens/transfer_screen.dart';
 import 'screens/files_screen.dart';
@@ -55,7 +56,21 @@ class _AppShellState extends State<AppShell> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    shellTabRequest.addListener(_onTabRequest);
+  }
+
+  void _onTabRequest() {
+    final i = shellTabRequest.value;
+    if (i == null || !mounted) return;
+    shellTabRequest.value = null;
+    _go(i);
+  }
+
+  @override
   void dispose() {
+    shellTabRequest.removeListener(_onTabRequest);
     _engine?.removeListener(_onEngine);
     super.dispose();
   }

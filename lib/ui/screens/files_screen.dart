@@ -1,5 +1,6 @@
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../engine/platform_engine.dart';
 import '../../engine/transfer_engine.dart';
@@ -259,8 +260,11 @@ class _FilesScreenState extends State<FilesScreen> {
           ),
           onPressed: !ready
               ? null
-              : () =>
-                    target != null ? _send(target) : _sendNearby(nearbyTarget!),
+              : () {
+                  // Spec D22: a light tap when the send starts.
+                  HapticFeedback.lightImpact();
+                  target != null ? _send(target) : _sendNearby(nearbyTarget!);
+                },
           icon: const Icon(Icons.send_rounded),
           label: Text(
             targetName == null
@@ -276,7 +280,9 @@ class _FilesScreenState extends State<FilesScreen> {
         return Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 900),
+            constraints: const BoxConstraints(
+              maxWidth: IdLayout.maxContentWidth,
+            ),
             child: Padding(
               padding: const EdgeInsets.all(IdSpacing.md),
               child: Column(
