@@ -31,10 +31,21 @@ void main() {
   Future<(Node, Node)> two({
     bool lanesA = true,
     bool lanesB = true,
+    int? streamsA,
+    int? streamsB,
     Future<String> Function(File f)? digestB,
   }) async {
-    final a = await Node.create('LaneA', useLanes: lanesA);
-    final b = await Node.create('LaneB', useLanes: lanesB, fileDigest: digestB);
+    final a = await Node.create(
+      'LaneA',
+      useLanes: lanesA,
+      laneStreams: streamsA,
+    );
+    final b = await Node.create(
+      'LaneB',
+      useLanes: lanesB,
+      fileDigest: digestB,
+      laneStreams: streamsB,
+    );
     nodes.addAll([a, b]);
     await pair(a, b);
     return (a, b);
@@ -61,6 +72,21 @@ void main() {
     await expectSame(b, f2);
     expect(b.engine.jobs.single.bytesDone, f1.lengthSync() + 1000);
   });
+
+  // 0.10.2: several TCP connections per lane; 1 = a 0.10.1 app.
+  for (final (sa, sb) in [(4, 4), (1, 4), (4, 1), (2, 8)]) {
+    test('lane streams sender $sa / receiver $sb: verified', () async {
+      final (a, b) = await two(streamsA: sa, streamsB: sb);
+      final f = await randomFile(a.root, 'st.bin', 9 * 1024 * 1024 + 3);
+      final g = await randomFile(a.root, 'st2.bin', 123457);
+      final job = await sendTo(a, b, [f, g]);
+      expect(job.state, JobState.completed, reason: job.message);
+      expect(a.engine.lastDataPath, 'lane');
+      expect(b.engine.lastDataPath, 'lane');
+      await expectSame(b, f);
+      await expectSame(b, g);
+    });
+  }
 
   test('lane with a receiver that hashes at the end (Android way)', () async {
     final (a, b) = await two(

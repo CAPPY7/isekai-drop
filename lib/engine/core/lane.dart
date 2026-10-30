@@ -131,6 +131,9 @@ class LaneServer {
   final Isolate _iso;
   final ReceivePort _rp;
   final int port;
+
+  /// TCP connections this lane waits for.
+  int streams = 1;
   final String token;
   SendPort? _to;
   Completer<LaneResult>? _pending;
@@ -188,7 +191,9 @@ class LaneServer {
       srv._onMessage(m);
     });
     final (to, port) = await ready.future;
-    srv = LaneServer._(iso, rp, port, token).._to = to;
+    srv = LaneServer._(iso, rp, port, token)
+      .._to = to
+      ..streams = streams;
     return srv;
   }
 

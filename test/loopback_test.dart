@@ -10,6 +10,7 @@ import 'package:isekaidrop/engine/core/engine.dart';
 import 'package:isekaidrop/engine/core/speed_test.dart';
 import 'package:isekaidrop/engine/core/identity.dart';
 import 'package:isekaidrop/engine/core/jobs.dart';
+import 'package:isekaidrop/engine/core/lane.dart' show kLaneStreams;
 import 'package:isekaidrop/engine/core/send_source.dart';
 import 'package:isekaidrop/engine/core/trust_store.dart';
 import 'package:path/path.dart' as p;
@@ -28,6 +29,7 @@ class Node {
     ReceiveFinalizer? finalizer,
     Future<String> Function(File f)? fileDigest,
     bool useLanes = true,
+    int? laneStreams,
     SpeedProbes speedProbes = const SpeedProbes(),
     bool Function()? acceptingFiles,
   }) async {
@@ -48,6 +50,7 @@ class Node {
       bindAddress: InternetAddress.loopbackIPv4,
       enableDiscovery: false,
       useLanes: useLanes,
+      laneStreams: laneStreams ?? kLaneStreams,
       speedProbes: speedProbes,
       acceptingFiles: acceptingFiles,
     );

@@ -97,6 +97,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     Duration directIdle = const Duration(seconds: 30),
     this.directMinBytes = kDirectMinBytes,
     this.useLanes = true,
+    this.laneStreams = kLaneStreams,
     this.speedProbes = const SpeedProbes(),
   }) : acceptingFiles = acceptingFiles ?? _yes,
        fastDirect = fastDirect ?? _yes,
@@ -264,6 +265,10 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   /// by background isolates on both devices) when both sides support it.
   /// Off = everything in the main connection, like before.
   final bool useLanes;
+
+  /// 0.10.2: TCP connections per data lane (both sides must support it;
+  /// older apps use 1).
+  final int laneStreams;
 
   /// 0.10.1: platform hooks for the Speed test.
   final SpeedProbes speedProbes;
@@ -1644,8 +1649,12 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     if (useLanes && offer['lanes'] == 1) {
       try {
         if (debugFailLaneStart) throw const LaneException('debug');
+        final want = offer['lane_streams'];
         lane = await LaneServer.start(
           bindAddress: bindAddress,
+          streams: want is int
+              ? want.clamp(1, laneStreams.clamp(1, kLaneMaxStreams))
+              : 1,
           keys: LaneKeys(
             certPem: identity.certPem,
             keyPem: identity.keyPem,
@@ -1694,7 +1703,12 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     s.add(
       jsonFrame({
         't': 'accept',
-        if (lane != null) 'lane': {'port': lane.port, 'token': lane.token},
+        if (lane != null)
+          'lane': {
+            'port': lane.port,
+            'token': lane.token,
+            if (lane.streams > 1) 'streams': lane.streams,
+          },
         if (state != null) ...{
           'skip': state.done.keys.toList()..sort(),
           'offsets': {for (final e in offsets.entries) '${e.key}': e.value},
@@ -2410,6 +2424,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
             'via': job.route!.name,
           'tid': transferIdFor(dev.fingerprint, files),
           if (useLanes) 'lanes': 1,
+          if (useLanes && laneStreams > 1) 'lane_streams': laneStreams,
           'files': [
             for (final f in files)
               {'name': f.name, 'path': f.relativePath, 'size': f.size},
@@ -2466,6 +2481,10 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
             host: sock.remoteAddress.address,
             port: la['port'] as int,
             token: la['token'] as String,
+            streams: switch (la['streams']) {
+              final int n when n >= 1 && n <= kLaneMaxStreams => n,
+              _ => 1,
+            },
             keys: LaneKeys(
               certPem: identity.certPem,
               keyPem: identity.keyPem,

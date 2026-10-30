@@ -39,8 +39,20 @@ void main() {
     () async {
       // ISEKAI_BENCH_LANES=0: everything in the main connection (0.10.0 way).
       final lanes = Platform.environment['ISEKAI_BENCH_LANES'] != '0';
-      final a = await Node.create('BenchA', useLanes: lanes);
-      final b = await Node.create('BenchB', useLanes: lanes);
+      // ISEKAI_BENCH_STREAMS=1: one TCP connection per lane (0.10.1 way).
+      final streams = int.tryParse(
+        Platform.environment['ISEKAI_BENCH_STREAMS'] ?? '',
+      );
+      final a = await Node.create(
+        'BenchA',
+        useLanes: lanes,
+        laneStreams: streams,
+      );
+      final b = await Node.create(
+        'BenchB',
+        useLanes: lanes,
+        laneStreams: streams,
+      );
       try {
         await pair(a, b);
         final src = await randomFile(a.root, 'big.bin', mb! * 1024 * 1024);
