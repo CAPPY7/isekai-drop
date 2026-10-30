@@ -93,6 +93,40 @@ class DirectLinks(
         )
     }
 
+    /** Channel of the normal (router) Wi-Fi connection, 0 = none/unknown. */
+    private fun staMhz(): Int = try {
+        val f = wifi.connectionInfo?.frequency ?: 0
+        if (f > 0) f else 0
+    } catch (_: Exception) { 0 }
+
+    /** 5 GHz channels a group owner may use without radar checks (UNII-1
+     *  and UNII-3); DFS channels usually cannot host a group. */
+    private fun nonDfs5(mhz: Int) = mhz in 5170..5250 || mhz in 5735..5895
+
+    private fun linkNow(out: Once) {
+        val base = mutableMapOf<String, Any?>()
+        boundNetwork?.let { base.putAll(linkOf(it)) }
+        val sta = staMhz()
+        if (sta > 0) base["staMhz"] = sta
+        val m = p2p
+        val ch = p2pChannel
+        if (m == null || ch == null || !(p2pGroupUp || p2pJoinUp) || Build.VERSION.SDK_INT < 29) {
+            out.ok(base); return
+        }
+        try {
+            m.requestGroupInfo(ch) { g: WifiP2pGroup? ->
+                if (g != null) {
+                    if (g.frequency > 0) base["mhz"] = g.frequency
+                    base["role"] = if (g.isGroupOwner) "host" else "joined"
+                    g.`interface`?.let { base["iface"] = it }
+                }
+                out.ok(base)
+            }
+        } catch (_: Exception) {
+            out.ok(base)
+        }
+    }
+
     private fun hasP2p(): Boolean =
         p2p != null && activity.packageManager.hasSystemFeature(PackageManager.FEATURE_WIFI_DIRECT)
 
@@ -118,7 +152,9 @@ class DirectLinks(
                 "join" -> join(call, Once(result))
                 "leave" -> { leave(); result.success(true) }
                 // 0.10.1 Speed test: current speeds of the joined link (no names).
-                "linkNow" -> result.success(boundNetwork?.let { linkOf(it) } ?: emptyMap<String, Int?>())
+                // 0.10.2: plus the Wi-Fi Direct group channel (host and joiner),
+                // the router channel and the group interface name.
+                "linkNow" -> linkNow(Once(result))
                 else -> result.notImplemented()
             }
         } catch (e: SecurityException) {
@@ -258,24 +294,35 @@ class DirectLinks(
         precheck()?.let { out.fail(it); return }
         if (hostingP2p || lohs != null) stopHost()
         if (Build.VERSION.SDK_INT >= 29 && hasP2p()) {
+            // 0.10.2: when this phone is also on a router, a group on another
+            // channel makes the Wi-Fi chip switch channels all the time
+            // (channel sharing), which can cut the speed a lot. So the group
+            // is asked for on the router's channel first (5 GHz, non-DFS).
+            val sta = staMhz()
+            val freq = if (preferFive && nonDfs5(sta)) sta else 0
             hostP2p(if (preferFive) WifiP2pConfig.GROUP_OWNER_BAND_5GHZ else WifiP2pConfig.GROUP_OWNER_BAND_AUTO,
-                retriedBusy = false, out = out)
+                retriedBusy = false, out = out, freq = freq)
         } else {
             hostLohs(out, null)
         }
     }
 
-    private fun hostP2p(band: Int, retriedBusy: Boolean, out: Once) {
+    private fun hostP2p(band: Int, retriedBusy: Boolean, out: Once, freq: Int = 0) {
         if (Build.VERSION.SDK_INT < 29) { hostLohs(out, null); return }
         val m = p2p ?: run { hostLohs(out, null); return }
         val ch = p2pCh() ?: run { hostLohs(out, null); return }
         val ssid = "DIRECT-" + rand(2) + "-IsekaiDrop"
         val pass = rand(10)
-        val cfg = WifiP2pConfig.Builder()
-            .setNetworkName(ssid)
-            .setPassphrase(pass)
-            .setGroupOperatingBand(band)
-            .build()
+        val cfg = try {
+            val b = WifiP2pConfig.Builder()
+                .setNetworkName(ssid)
+                .setPassphrase(pass)
+            if (freq > 0) b.setGroupOperatingFrequency(freq) else b.setGroupOperatingBand(band)
+            b.build()
+        } catch (_: Exception) {
+            if (freq > 0) { hostP2p(band, retriedBusy, out, 0); return }
+            hostLohs(out, null); return
+        }
         ensureReceiver()
         hostingP2p = true
         p2pGroupUp = false
@@ -288,10 +335,12 @@ class DirectLinks(
                         reason == WifiP2pManager.BUSY && !retriedBusy -> {
                             // Usually a group left over from an earlier run.
                             m.removeGroup(ch, object : WifiP2pManager.ActionListener {
-                                override fun onSuccess() { main.postDelayed({ hostP2p(band, true, out) }, 600) }
+                                override fun onSuccess() { main.postDelayed({ hostP2p(band, true, out, freq) }, 600) }
                                 override fun onFailure(r: Int) { hostLohs(out, "busy") }
                             })
                         }
+                        // Router channel refused: let the system pick in 5 GHz.
+                        freq > 0 -> hostP2p(band, retriedBusy, out, 0)
                         band == WifiP2pConfig.GROUP_OWNER_BAND_5GHZ ->
                             hostP2p(WifiP2pConfig.GROUP_OWNER_BAND_AUTO, retriedBusy, out)
                         else -> hostLohs(out, p2pCode(reason))
@@ -319,6 +368,7 @@ class DirectLinks(
                         "pass" to g.passphrase,
                         "host" to ip,
                         "mhz" to (if (Build.VERSION.SDK_INT >= 29) g.frequency else 0),
+                        "staMhz" to staMhz(),
                     ))
                 } else if (System.currentTimeMillis() > deadline) {
                     stopP2pGroup()

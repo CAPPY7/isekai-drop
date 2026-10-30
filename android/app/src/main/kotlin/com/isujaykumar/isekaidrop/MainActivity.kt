@@ -86,6 +86,10 @@ class MainActivity : FlutterActivity() {
     private val readers = java.util.concurrent.ConcurrentHashMap<Int, Reader>()
     private val nextReader = java.util.concurrent.atomic.AtomicInteger(1)
     private var wifiLock: WifiManager.WifiLock? = null
+    private var wakeLock: android.os.PowerManager.WakeLock? = null
+    // 0.10.2: why the Wi-Fi/CPU locks are held ("job", "speed").
+    private val awakeReasons = mutableSetOf<String>()
+    private val nativeSpeed = NativeSpeed()
     // 0.10.0 Fast direct (see DirectLinks.kt).
     private var direct: DirectLinks? = null
 
@@ -169,9 +173,15 @@ class MainActivity : FlutterActivity() {
                         } else {
                             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                         }
-                        setWifiLock(on)
+                        setAwake("job", on)
                         result.success(null)
                     }
+                    // 0.10.2: Wi-Fi lock + CPU wake lock without the screen
+                    // flag (Speed test on both devices). Returns what is held.
+                    "transferAwake" -> result.success(
+                        setAwake(call.argument<String>("reason") ?: "speed", call.argument<Boolean>("on") == true)
+                    )
+                    "nativeSinkStart", "nativeSinkEnd", "nativeSend" -> nativeSpeed.handle(call, result)
                     "localNets" -> {
                         try {
                             result.success(localNetsInfo())
@@ -312,7 +322,10 @@ class MainActivity : FlutterActivity() {
         } catch (_: Exception) {
         }
         direct = null
+        nativeSpeed.dispose()
+        synchronized(awakeReasons) { awakeReasons.clear() }
         setWifiLock(false)
+        setWakeLock(false)
         try {
             multicastLock?.release()
         } catch (_: Exception) {
@@ -465,24 +478,65 @@ class MainActivity : FlutterActivity() {
     }
 
     /**
-     * 0.9.2: keep Wi-Fi out of power save while a transfer runs.
-     * WIFI_MODE_FULL_HIGH_PERF only below Android 14: from API 34 the system
-     * turns it into a LOW_LATENCY lock, which its documentation says may
-     * reduce throughput, so there we take no lock.
+     * 0.10.2: keep Wi-Fi out of power save and the CPU awake while a
+     * transfer or Speed test runs. Below Android 14: WIFI_MODE_FULL_HIGH_PERF.
+     * Android 14+: HIGH_PERF no longer exists (the system turns it into
+     * LOW_LATENCY anyway), so LOW_LATENCY is asked for directly; Android
+     * applies it only while the app is in front with the screen on, and only
+     * to the router connection. (0.9.2 took no lock at all on Android 14+.)
      */
+    private fun setAwake(reason: String, on: Boolean): String {
+        val any = synchronized(awakeReasons) {
+            if (on) awakeReasons.add(reason) else awakeReasons.remove(reason)
+            awakeReasons.isNotEmpty()
+        }
+        setWifiLock(any)
+        setWakeLock(any)
+        return awakeNote()
+    }
+
+    private fun awakeNote(): String {
+        val w = wifiLock?.isHeld == true
+        val mode = if (Build.VERSION.SDK_INT >= 34) "low-latency" else "high-perf"
+        return listOf(
+            if (w) "Wi-Fi lock $mode" else "no Wi-Fi lock",
+            if (wakeLock?.isHeld == true) "CPU wake lock" else "no wake lock",
+        ).joinToString(", ")
+    }
+
     @Suppress("DEPRECATION")
     private fun setWifiLock(on: Boolean) {
         try {
             if (on) {
-                if (Build.VERSION.SDK_INT >= 34 || wifiLock?.isHeld == true) return
+                if (wifiLock?.isHeld == true) return
                 val wifi = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
-                wifiLock = wifi.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "isekai-drop-transfer").apply {
+                val mode = if (Build.VERSION.SDK_INT >= 34) WifiManager.WIFI_MODE_FULL_LOW_LATENCY
+                    else WifiManager.WIFI_MODE_FULL_HIGH_PERF
+                wifiLock = wifi.createWifiLock(mode, "isekai-drop-transfer").apply {
                     setReferenceCounted(false)
                     acquire()
                 }
             } else {
                 wifiLock?.let { if (it.isHeld) it.release() }
                 wifiLock = null
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun setWakeLock(on: Boolean) {
+        try {
+            if (on) {
+                if (wakeLock?.isHeld == true) return
+                val pm = getSystemService(POWER_SERVICE) as android.os.PowerManager
+                wakeLock = pm.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "isekaidrop:transfer").apply {
+                    setReferenceCounted(false)
+                    // Safety net: never held longer than 2 hours at a time.
+                    acquire(2 * 60 * 60 * 1000L)
+                }
+            } else {
+                wakeLock?.let { if (it.isHeld) it.release() }
+                wakeLock = null
             }
         } catch (_: Exception) {
         }
