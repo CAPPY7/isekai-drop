@@ -19,9 +19,10 @@ the release.
 The installer and the app are **NOT code-signed** (no paid certificate).
 
 - **SmartScreen** ("Windows protected your PC"): click **More info > Run
-  anyway**. This works.
-- **Smart App Control (SAC, Windows 11)**: if SAC is **On**, it blocks
-  unsigned apps it does not already know. That includes this installer AND
+  anyway** (the usual way past SmartScreen; NOT TESTED with this app).
+- **Smart App Control (SAC, Windows 11)**: if SAC is **On**, it may block
+  unsigned apps its cloud service does not already trust (the owner's PC did
+  block 0.10.2). That includes this installer AND
   the installed app (`isekaidrop.exe`): a single installer does not get
   around it. There is no "Run anyway" button and no per-app exception.
   This is a Windows security feature; Isekai Drop does not try to bypass it.
