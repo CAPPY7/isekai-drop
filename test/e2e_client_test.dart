@@ -86,7 +86,11 @@ void main() {
       final end = DateTime.now().add(const Duration(seconds: 120));
       File? got;
       while (got == null && DateTime.now().isBefore(end)) {
-        final fs = inbox.listSync().whereType<File>().toList();
+        final fs = inbox
+            .listSync()
+            .whereType<File>()
+            .where((f) => !p.basename(f.path).startsWith('.'))
+            .toList();
         if (fs.isNotEmpty) got = fs.first;
         await Future<void>.delayed(const Duration(milliseconds: 300));
       }
