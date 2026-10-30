@@ -19,6 +19,15 @@ Uint8List encodeFrame(int type, List<int> payload) {
   return out;
 }
 
+/// 0.10.1: just the 5-byte frame header, so a big payload can be added to
+/// the socket as it is (no copy into a new frame buffer).
+Uint8List frameHeader(int type, int length) {
+  final out = Uint8List(5);
+  out[0] = type;
+  ByteData.sublistView(out).setUint32(1, length);
+  return out;
+}
+
 Uint8List jsonFrame(Map<String, Object?> message) =>
     encodeFrame(frameJson, utf8.encode(jsonEncode(message)));
 

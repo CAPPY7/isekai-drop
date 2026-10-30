@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'lane.dart';
+
 /// One problem seen by the engine, for Diagnostics. Never contains file
 /// names, device names or the other device's address.
 class DiagEntry {
@@ -69,6 +71,9 @@ class DiagLog {
 /// Short class for an exception, for the log. Never includes addresses.
 String classifyError(Object e) {
   if (e is TimeoutException) return 'timeout';
+  if (e is LaneException) {
+    return e.code == 'lane_timeout' ? 'timeout' : 'lane_closed';
+  }
   if (e is HandshakeException) return 'tls_handshake_failed';
   if (e is TlsException) return 'tls_error';
   if (e is SocketException) {
@@ -133,5 +138,6 @@ String explainErrorClass(String kind) => switch (kind) {
   'connection_closed' => 'The other device closed the connection.',
   'disk_full' => 'The storage is full.',
   'storage_error' => 'Storage error (no permission, or the file is gone).',
+  'lane_closed' => 'The background data connection closed (the other device stopped, or the network dropped).',
   _ => 'Connection error.',
 };

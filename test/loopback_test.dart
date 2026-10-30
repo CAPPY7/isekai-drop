@@ -26,6 +26,7 @@ class Node {
     Identity? identity,
     ReceiveFinalizer? finalizer,
     Future<String> Function(File f)? fileDigest,
+    bool useLanes = true,
   }) async {
     final root = await Directory.systemTemp.createTemp('isekai_$name');
     final inbox = Directory(p.join(root.path, 'inbox'));
@@ -43,6 +44,7 @@ class Node {
       port: 0,
       bindAddress: InternetAddress.loopbackIPv4,
       enableDiscovery: false,
+      useLanes: useLanes,
     );
     node = Node._(e, root, inbox);
     e.debugAutoDecide = (r) async {

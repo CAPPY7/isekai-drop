@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
@@ -10,9 +11,11 @@ import 'bg_hasher.dart';
 import 'discovery.dart';
 import 'frames.dart';
 import 'identity.dart';
+import 'lane.dart';
 import 'pending_send_store.dart';
 import 'resume_store.dart';
 import 'safe_files.dart';
+import 'speed_test.dart';
 import 'trust_store.dart';
 
 /// Moves a verified temp file to its final place. Returns where it went.
@@ -37,7 +40,17 @@ const Duration kFirstMessageTimeout = Duration(seconds: 10);
 /// Audit #16: keep this much space free after receiving.
 /// Audit #18: flush (wait for the socket to drain) after this many bytes,
 /// so unsent TLS data in memory stays small.
-const int kFlushEveryBytes = 1024 * 1024;
+/// 0.10.1: 4 MiB (was 1 MiB): fewer stalls where the socket runs dry while
+/// the app waits for the flush.
+const int kFlushEveryBytes = 4 * 1024 * 1024;
+
+/// 0.10.1: the receiver writes in-band file data in blocks of this size,
+/// with one write running while the next block arrives.
+const int kInBandWriteBlock = 1024 * 1024;
+
+/// 0.10.1: the sender hands file data to its lane isolate in batches of
+/// about this size (fewer messages between isolates).
+const int kLaneBatchBytes = 1024 * 1024;
 
 const int kFreeSpaceMargin = 64 * 1024 * 1024;
 
@@ -83,6 +96,8 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     bool Function()? fastDirect,
     Duration directIdle = const Duration(seconds: 30),
     this.directMinBytes = kDirectMinBytes,
+    this.useLanes = true,
+    this.speedProbes = const SpeedProbes(),
   }) : acceptingFiles = acceptingFiles ?? _yes,
        fastDirect = fastDirect ?? _yes,
        autoAccept = autoAccept ?? _no,
@@ -244,6 +259,26 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   final String? secureStorageNote;
   @override
   final String receiveLocationNote;
+
+  /// 0.10.1: file bytes go over a "data lane" (a second TLS connection run
+  /// by background isolates on both devices) when both sides support it.
+  /// Off = everything in the main connection, like before.
+  final bool useLanes;
+
+  /// 0.10.1: platform hooks for the Speed test.
+  final SpeedProbes speedProbes;
+
+  /// Test hook only: the receiver's lane cannot start (fallback test).
+  @visibleForTesting
+  bool debugFailLaneStart = false;
+
+  /// Test hook only: the sender's lane connect fails (fallback test).
+  @visibleForTesting
+  bool debugFailLaneConnect = false;
+
+  /// What the last transfers used ("lane" / "in-band"), for tests and
+  /// Diagnostics.
+  String? lastDataPath;
 
   /// Test hook only: changes outgoing bytes AFTER hashing (simulates tampering).
   @visibleForTesting
@@ -1209,14 +1244,37 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     _jobs.insert(0, job);
     notifyListeners();
     var discardState = false;
+    // 0.10.1: a data lane for the file bytes, when the sender supports it.
+    LaneServer? lane;
+    if (useLanes && offer['lanes'] == 1) {
+      try {
+        if (debugFailLaneStart) throw const LaneException('debug');
+        lane = await LaneServer.start(
+          bindAddress: bindAddress,
+          keys: LaneKeys(
+            certPem: identity.certPem,
+            keyPem: identity.keyPem,
+            peerCertPem: dev.certPem,
+            peerFingerprint: dev.fingerprint,
+          ),
+        );
+      } catch (e) {
+        diagLog.add(
+          'lane_start_failed',
+          'Receiving: background data connection not available; using the main connection.',
+        );
+      }
+    }
     job.onCancel = () {
       discardState = true;
       try {
         s.add(jsonFrame({'t': 'cancel'}));
       } catch (_) {}
       s.destroy();
+      lane?.close();
     };
     job.onPauseChanged = (p) {
+      lane?.setPaused(p);
       try {
         s.add(jsonFrame({'t': p ? 'pause' : 'resume'}));
       } catch (_) {}
@@ -1241,6 +1299,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     s.add(
       jsonFrame({
         't': 'accept',
+        if (lane != null) 'lane': {'port': lane.port, 'token': lane.token},
         if (state != null) ...{
           'skip': state.done.keys.toList()..sort(),
           'offsets': {for (final e in offsets.entries) '${e.key}': e.value},
@@ -1253,11 +1312,35 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     RandomAccessFile? out;
     FileHasher? hasher;
     var keepPartial = false;
+    // A control message read while the lane was busy (still pending).
+    Future<Frame>? ctlRead;
+    Map<String, dynamic>? early;
+    Future<Map<String, dynamic>> nextCtl() async {
+      final e = early;
+      if (e != null) {
+        early = null;
+        return e;
+      }
+      final pending = ctlRead;
+      if (pending == null) return _nextControl(reader, job);
+      ctlRead = null;
+      final m = (await pending.timeout(const Duration(seconds: 60))).json;
+      switch (m['t']) {
+        case 'pause':
+          job.setPeerPaused(true);
+          return _nextControl(reader, job);
+        case 'resume':
+          job.setPeerPaused(false);
+          return _nextControl(reader, job);
+      }
+      return m;
+    }
+
     try {
       for (var i = 0; i < names.length; i++) {
         if (state != null && state.done.containsKey(i)) continue;
         await job.waitIfPaused();
-        final head = await _nextControl(reader, job);
+        final head = await nextCtl();
         if (head['t'] == 'cancel') {
           discardState = true;
           job.finish(JobState.cancelled, 'The sender cancelled.');
@@ -1269,19 +1352,32 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
             ((head['offset'] as int?) ?? 0) != offset) {
           throw const FormatException('Unexpected message');
         }
+        final viaLane = head['lane'] == true;
+        if (viaLane && lane == null) {
+          throw const FormatException('No lane');
+        }
+        lastDataPath = viaLane ? 'lane' : 'in-band';
         hasher?.dispose();
+        hasher = null;
         final digestFile = fileDigest;
-        hasher = digestFile != null ? _NoHasher() : await fileHasher(sizes[i]);
+        // With a lane, the lane isolate hashes (desktop) - not this one.
+        final laneHash = viaLane && digestFile == null;
+        if (!viaLane) {
+          hasher = digestFile != null
+              ? _NoHasher()
+              : await fileHasher(sizes[i]);
+        }
+        var append = false;
         if (state != null) {
           temp = store!.partFile(state.key);
           if (offset > 0) {
             // Re-hash what is already on disk; the final check covers the
             // whole file from byte 0. (With [fileDigest] the whole file is
-            // hashed at the end instead.)
-            if (digestFile == null) {
+            // hashed at the end instead; with a lane, the lane does it.)
+            if (!viaLane && digestFile == null) {
               var n = 0;
               await for (final c in temp.openRead(0, offset)) {
-                await hasher.add(c);
+                await hasher!.add(c);
                 n += c.length;
               }
               if (n != offset) {
@@ -1290,10 +1386,15 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
             } else if (await temp.length() != offset) {
               throw const FileSystemException('Partial changed');
             }
-            out = await temp.open(mode: FileMode.append);
+            append = true;
+            if (!viaLane) out = await temp.open(mode: FileMode.append);
           } else {
             await store.dir.create(recursive: true);
-            out = await temp.open(mode: FileMode.write);
+            if (viaLane) {
+              await temp.writeAsBytes(const <int>[], flush: true);
+            } else {
+              out = await temp.open(mode: FileMode.write);
+            }
             state.partialIndex = i;
             await store.save(state);
           }
@@ -1301,48 +1402,167 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         } else {
           try {
             temp = await createTempPart(tempDir);
-            out = await temp.open(mode: FileMode.writeOnly);
+            if (!viaLane) out = await temp.open(mode: FileMode.writeOnly);
           } catch (e) {
             throw _WriteFailed(e);
           }
         }
-        var got = offset;
-        while (got < sizes[i]) {
-          // Pausing here stops reading; TCP then makes the sender wait.
-          await job.waitIfPaused();
-          if (!job.isActive) return;
-          final fr = await reader.next(
-            job.pausedByPeer
-                ? const Duration(hours: 6)
-                : const Duration(seconds: 60),
-          );
-          if (fr.type != frameData) {
+        String? laneDigest;
+        if (viaLane) {
+          final ln = lane!;
+          LaneResult? res;
+          Object? laneErr;
+          final done = ln
+              .receiveFile(
+                path: temp.path,
+                count: sizes[i] - offset,
+                append: append,
+                hash: laneHash,
+                hashExisting: laneHash ? offset : 0,
+                onBytes: job.addBytes,
+              )
+              .then<void>((r) => res = r, onError: (Object e) => laneErr = e);
+          // Meanwhile the sender may pause, cancel or already end the file.
+          while (res == null && laneErr == null && early == null) {
+            final ctl = ctlRead ??= reader.next(const Duration(hours: 6));
+            ctl.ignore();
+            final which = await Future.any<int>([
+              done.then((_) => 0),
+              ctl.then((_) => 1, onError: (_) => 1),
+            ]);
+            if (which == 0) break;
+            ctlRead = null;
+            final Frame fr;
+            try {
+              fr = await ctl;
+            } catch (_) {
+              // Main connection lost: let the lane save what it has.
+              await done.timeout(const Duration(seconds: 5), onTimeout: () {});
+              ln.close();
+              rethrow;
+            }
             final t = fr.isJson ? fr.messageType : '';
             if (t == 'pause' || t == 'resume') {
               job.setPeerPaused(t == 'pause');
               continue;
             }
             if (t == 'cancel') {
+              ln.close();
               discardState = true;
               job.finish(JobState.cancelled, 'The sender cancelled.');
               return;
             }
-            throw const FormatException('Expected file data');
+            if (!fr.isJson) {
+              ln.close();
+              throw const FormatException('Data outside the lane');
+            }
+            early = fr.json; // e.g. file_end: the lane is still finishing
           }
-          if (got + fr.payload.length > sizes[i]) {
-            throw const FormatException('More data than announced');
+          await done;
+          if (laneErr != null) {
+            final err = laneErr!;
+            if (!job.isActive) return;
+            if (err is LaneException && err.code == 'write_failed') {
+              throw _WriteFailed(err);
+            }
+            // Did the sender cancel? (Its cancel closes the lane too.)
+            if (early == null) {
+              try {
+                final m = await (ctlRead ??= reader.next()).timeout(
+                  const Duration(seconds: 2),
+                );
+                ctlRead = null;
+                if (m.isJson && m.messageType == 'cancel') {
+                  discardState = true;
+                  job.finish(JobState.cancelled, 'The sender cancelled.');
+                  return;
+                }
+              } catch (_) {}
+            }
+            throw SocketException(
+              'lane: ${err is LaneException ? err.code : err}',
+            );
           }
-          try {
-            await out.writeFrom(fr.payload);
-          } catch (e) {
-            throw _WriteFailed(e);
+          laneDigest = res!.sha256;
+        } else {
+          final f = out!;
+          var got = offset;
+          // 0.10.1: collect ~1 MiB, then write it while the next arrives.
+          final pend = <Uint8List>[];
+          var pendLen = 0;
+          Future<void>? writing;
+          Future<void> kick() async {
+            if (writing != null) {
+              final w = writing!;
+              writing = null;
+              await w;
+            }
+            if (pendLen == 0) return;
+            final Uint8List block;
+            if (pend.length == 1) {
+              block = pend.single;
+            } else {
+              final bb = BytesBuilder(copy: false);
+              for (final x in pend) {
+                bb.add(x);
+              }
+              block = bb.takeBytes();
+            }
+            pend.clear();
+            pendLen = 0;
+            final h = hasher!;
+            final w = writing = () async {
+              try {
+                await f.writeFrom(block);
+              } catch (e) {
+                throw _WriteFailed(e);
+              }
+              await h.add(block);
+            }();
+            w.ignore();
           }
-          await hasher.add(fr.payload);
-          got += fr.payload.length;
-          job.addBytes(fr.payload.length);
+
+          while (got < sizes[i]) {
+            // Pausing here stops reading; TCP then makes the sender wait.
+            if (job.paused) await kick();
+            await job.waitIfPaused();
+            if (!job.isActive) {
+              await kick();
+              return;
+            }
+            final fr = await reader.next(
+              job.pausedByPeer
+                  ? const Duration(hours: 6)
+                  : const Duration(seconds: 60),
+            );
+            if (fr.type != frameData) {
+              final t = fr.isJson ? fr.messageType : '';
+              if (t == 'pause' || t == 'resume') {
+                job.setPeerPaused(t == 'pause');
+                continue;
+              }
+              if (t == 'cancel') {
+                await kick().catchError((_) {});
+                discardState = true;
+                job.finish(JobState.cancelled, 'The sender cancelled.');
+                return;
+              }
+              throw const FormatException('Expected file data');
+            }
+            if (got + fr.payload.length > sizes[i]) {
+              throw const FormatException('More data than announced');
+            }
+            pend.add(fr.payload);
+            pendLen += fr.payload.length;
+            got += fr.payload.length;
+            job.addBytes(fr.payload.length);
+            if (pendLen >= kInBandWriteBlock) await kick();
+          }
+          await kick();
+          await kick(); // waits for the last write
         }
-        final end = await _nextControl(reader, job);
-        await out.close();
+        final end = await nextCtl();
+        await out?.close();
         out = null;
         final String actual;
         if (digestFile != null) {
@@ -1351,8 +1571,10 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           } catch (e) {
             throw _WriteFailed(e);
           }
+        } else if (viaLane) {
+          actual = laneDigest ?? '';
         } else {
-          actual = await hasher.close();
+          actual = await hasher!.close();
         }
         hasher = null;
         if (end['t'] != 'file_end' ||
@@ -1390,7 +1612,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         job.filesDone++;
         s.add(jsonFrame({'t': 'file_ok', 'i': i}));
       }
-      final done = await _nextControl(reader, job);
+      final done = await nextCtl();
       if (done['t'] == 'done') s.add(jsonFrame({'t': 'done_ok'}));
       discardState = true;
       job.finish(JobState.completed, 'All files received and verified.');
@@ -1425,6 +1647,8 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       );
     } finally {
       hasher?.dispose();
+      ctlRead?.ignore();
+      lane?.close();
       try {
         await out?.close();
       } catch (_) {}
@@ -1714,6 +1938,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     }
     SecureSocket? s;
     FrameReader? reader;
+    LaneClient? lane;
     var stage = _SendStage.connect;
     _DirectUse? direct;
     try {
@@ -1775,6 +2000,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           sock.add(jsonFrame({'t': 'cancel'}));
         } catch (_) {}
         sock.destroy();
+        lane?.close();
       };
       job.onPauseChanged = (p) {
         try {
@@ -1788,6 +2014,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           if (job.route != null && job.route != LinkRoute.router)
             'via': job.route!.name,
           'tid': transferIdFor(dev.fingerprint, files),
+          if (useLanes) 'lanes': 1,
           'files': [
             for (final f in files)
               {'name': f.name, 'path': f.relativePath, 'size': f.size},
@@ -1834,6 +2061,32 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           }
         }
       }
+      // 0.10.1: the receiver offered a data lane: connect to it (same
+      // pinned keys). Any problem = send in the main connection as before.
+      final la = answer['lane'];
+      if (useLanes && la is Map && la['port'] is int && la['token'] is String) {
+        try {
+          if (debugFailLaneConnect) throw const LaneException('debug');
+          lane = await LaneClient.connect(
+            host: sock.remoteAddress.address,
+            port: la['port'] as int,
+            token: la['token'] as String,
+            keys: LaneKeys(
+              certPem: identity.certPem,
+              keyPem: identity.keyPem,
+              peerCertPem: dev.certPem,
+              peerFingerprint: dev.fingerprint,
+            ),
+          );
+        } catch (e) {
+          lane = null;
+          diagLog.add(
+            'lane_connect_failed',
+            'Sending: background data connection not available; using the main connection.',
+          );
+        }
+      }
+      lastDataPath = lane != null ? 'lane' : 'in-band';
       stage = _SendStage.transfer;
       job.start();
       var resumed = 0;
@@ -1847,6 +2100,17 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       job.filesDone += skip.length;
       var sentThisAttempt = 0;
       FileHasher? sendHasher;
+      final laneBatch = <Uint8List>[];
+      var laneBatchLen = 0;
+      Future<void> flushLane() async {
+        final ln = lane;
+        if (ln == null || laneBatchLen == 0) return;
+        final parts = List<Uint8List>.of(laneBatch);
+        laneBatch.clear();
+        laneBatchLen = 0;
+        await ln.addAll(parts);
+      }
+
       try {
         for (var i = 0; i < files.length; i++) {
           if (skip.contains(i)) continue;
@@ -1861,6 +2125,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
               'name': f.name,
               'size': f.size,
               if (offset > 0) 'offset': offset,
+              if (lane != null) 'lane': true,
             }),
           );
           // 0.9.2: a source that hashes natively while reading (Android)
@@ -1876,6 +2141,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
                 : SourceReadException(classifyError(e)),
           )) {
             if (job.paused) {
+              await flushLane();
               await _flushOrClosed(sock);
               await job.waitIfPaused();
             }
@@ -1896,19 +2162,27 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
               sent += chunk.length;
             }
             final wire = debugTamper != null ? debugTamper!(part) : part;
-            // 0.9.2: sources may deliver big chunks (Android: 4 MiB);
-            // frames stay at most [kDataFrameBytes] (receivers accept 2 MiB).
-            if (wire.length <= kDataFrameBytes) {
-              sock.add(encodeFrame(frameData, wire));
+            final ln = lane;
+            if (ln != null) {
+              // 0.10.1: to the lane isolate; small chunks are batched.
+              final b = wire is Uint8List ? wire : Uint8List.fromList(wire);
+              laneBatch.add(b);
+              laneBatchLen += b.length;
+              if (laneBatchLen >= kLaneBatchBytes) await flushLane();
+            } else if (wire.length <= kDataFrameBytes) {
+              // 0.10.1: header and payload separately (no frame copy).
+              sock.add(frameHeader(frameData, wire.length));
+              sock.add(wire);
             } else {
+              // 0.9.2: sources may deliver big chunks (Android: 4 MiB);
+              // frames stay at most [kDataFrameBytes] (receivers accept 2 MiB).
               final view = wire is Uint8List ? wire : Uint8List.fromList(wire);
               for (var o = 0; o < view.length; o += kDataFrameBytes) {
                 final e = o + kDataFrameBytes < view.length
                     ? o + kDataFrameBytes
                     : view.length;
-                sock.add(
-                  encodeFrame(frameData, Uint8List.sublistView(view, o, e)),
-                );
+                sock.add(frameHeader(frameData, e - o));
+                sock.add(Uint8List.sublistView(view, o, e));
               }
             }
             sinceFlush += part.length;
@@ -1916,14 +2190,23 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
             job.addBytes(part.length);
             final drop = debugDropAfterBytes;
             if (drop != null && sentThisAttempt >= drop) {
+              if (ln != null) {
+                await flushLane();
+                await ln.drain();
+                ln.close();
+              }
               await _flushOrClosed(sock);
               sock.destroy();
               throw const SocketException('debug drop');
             }
-            if (sinceFlush >= kFlushEveryBytes) {
+            if (ln == null && sinceFlush >= kFlushEveryBytes) {
               sinceFlush = 0;
               await _flushOrClosed(sock);
             }
+          }
+          if (lane != null) {
+            await flushLane();
+            await lane.drain();
           }
           final String digest;
           try {
@@ -1994,6 +2277,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         } catch (_) {}
       }
       s?.destroy();
+      lane?.close();
       await reader?.cancel();
       await direct?.close(directLinks);
       _recordEnd(job);

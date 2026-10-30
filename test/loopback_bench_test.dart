@@ -37,8 +37,10 @@ void main() {
   test(
     'loopback benchmark',
     () async {
-      final a = await Node.create('BenchA');
-      final b = await Node.create('BenchB');
+      // ISEKAI_BENCH_LANES=0: everything in the main connection (0.10.0 way).
+      final lanes = Platform.environment['ISEKAI_BENCH_LANES'] != '0';
+      final a = await Node.create('BenchA', useLanes: lanes);
+      final b = await Node.create('BenchB', useLanes: lanes);
       try {
         await pair(a, b);
         final src = await randomFile(a.root, 'big.bin', mb! * 1024 * 1024);
@@ -69,7 +71,7 @@ void main() {
             job.totalBytes / (1024 * 1024) / (sw.elapsedMilliseconds / 1000);
         // ignore: avoid_print
         print(
-          'BENCH size=${mb}MB time=${sw.elapsedMilliseconds}ms '
+          'BENCH lanes=$lanes size=${mb}MB time=${sw.elapsedMilliseconds}ms '
           'speed=${mbps.toStringAsFixed(1)}MB/s hashMatch=$ok '
           'rssStartKB=$rssStart rssPeakDuringTransferKB=$rssMax '
           'memBefore=[$before] memAfter=[${_vmHwm()}]',
