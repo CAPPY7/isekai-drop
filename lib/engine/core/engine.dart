@@ -92,6 +92,18 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     directHost = d != null && d.canHost
         ? DirectHostManager(d, idle: directIdle, onChange: notifyListeners)
         : null;
+    // Lives as long as the engine (the platform stream is app-wide).
+    d?.events.listen((e) {
+      if (e == 'join_lost' && _joinedLink != null) {
+        _joinedLink = null;
+        _joinedInfo = null;
+        diagLog.add(
+          'direct_join_lost',
+          'Fast direct: the joined link went away.',
+        );
+        notifyListeners();
+      }
+    });
   }
 
   /// 0.10.0 Fast direct: platform part (Android) or null (not available).

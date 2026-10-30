@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 
 import 'package:path_provider/path_provider.dart';
 
+import 'android_direct.dart';
 import 'android_export.dart';
 import 'bonjour.dart';
 import 'free_space.dart';
@@ -162,6 +163,7 @@ Future<IsekaiEngine> createPlatformEngine(
   bool Function(TrustedDevice device)? autoAccept,
   bool Function()? saveFileNames,
   bool Function()? visible,
+  bool Function()? fastDirect,
 }) async {
   final support = await getApplicationSupportDirectory();
   final (identity, note) = await _loadIdentity(support);
@@ -248,8 +250,15 @@ Future<IsekaiEngine> createPlatformEngine(
     }
   }
 
+  // 0.10.0 Fast direct (Android only; PCs join a phone's link by hand).
+  final directLinks = Platform.isAndroid
+      ? await AndroidDirectLinks.create()
+      : null;
+
   final engine = IsekaiEngine(
     identity: identity,
+    directLinks: directLinks,
+    fastDirect: fastDirect,
     trust: trust,
     deviceName: deviceName,
     platformName: Platform.operatingSystem,

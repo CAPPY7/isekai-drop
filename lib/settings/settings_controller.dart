@@ -16,6 +16,7 @@ class SettingsController extends ChangeNotifier {
   static const _kAuto = 'auto_receive_verified';
   static const _kNames = 'history_file_names';
   static const _kVisible = 'visible_on_network';
+  static const _kFastDirect = 'fast_direct';
   static const _kVersion = 'settings_schema_version';
   static const _kTheme = 'theme_mode';
   static const _kName = 'device_name';
@@ -61,6 +62,11 @@ class SettingsController extends ChangeNotifier {
   /// Announce this device on the local network.
   bool get visibleOnNetwork => _prefs.getBool(_kVisible) ?? true;
 
+  /// 0.10.0: use a phone-to-phone Wi-Fi link (no router) for big
+  /// transfers between Android phones when possible. On by default; the
+  /// normal network is always the fallback.
+  bool get fastDirect => _prefs.getBool(_kFastDirect) ?? true;
+
   Future<void> _setBool(String k, bool v) async {
     await _prefs.setBool(k, v);
     notifyListeners();
@@ -70,6 +76,7 @@ class SettingsController extends ChangeNotifier {
   Future<void> setAutoReceiveVerified(bool v) => _setBool(_kAuto, v);
   Future<void> setHistoryFileNames(bool v) => _setBool(_kNames, v);
   Future<void> setVisibleOnNetwork(bool v) => _setBool(_kVisible, v);
+  Future<void> setFastDirect(bool v) => _setBool(_kFastDirect, v);
 
   ThemeMode get themeMode => _themeMode;
   String get deviceName => _deviceName;

@@ -16,6 +16,7 @@ Future<void> main() async {
       autoAccept: (_) => settings.autoReceiveVerified,
       saveFileNames: () => settings.historyFileNames,
       visible: () => settings.visibleOnNetwork,
+      fastDirect: () => settings.fastDirect,
     );
     var visible = settings.visibleOnNetwork;
     settings.addListener(() {

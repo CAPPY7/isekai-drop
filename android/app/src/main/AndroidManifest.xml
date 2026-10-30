@@ -15,6 +15,22 @@
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
+    <!-- 0.10.0 Fast direct: phone-to-phone Wi-Fi link (Wi-Fi Direct group or
+         local-only hotspot) and joining one. Android 13+ uses "Nearby
+         devices" and never derives location from it; Android 12 and older
+         require the Location permission for these Wi-Fi APIs. -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <uses-permission
+        android:name="android.permission.NEARBY_WIFI_DEVICES"
+        android:usesPermissionFlags="neverForLocation" />
+    <uses-permission
+        android:name="android.permission.ACCESS_FINE_LOCATION"
+        android:maxSdkVersion="32" />
+    <uses-permission
+        android:name="android.permission.ACCESS_COARSE_LOCATION"
+        android:maxSdkVersion="32" />
+    <uses-feature android:name="android.hardware.wifi.direct" android:required="false" />
     <uses-feature android:name="android.hardware.camera" android:required="false" /> 
     <application
         android:label="Isekai Drop"

@@ -86,6 +86,8 @@ class MainActivity : FlutterActivity() {
     private val readers = java.util.concurrent.ConcurrentHashMap<Int, Reader>()
     private val nextReader = java.util.concurrent.atomic.AtomicInteger(1)
     private var wifiLock: WifiManager.WifiLock? = null
+    // 0.10.0 Fast direct (see DirectLinks.kt).
+    private var direct: DirectLinks? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -106,6 +108,13 @@ class MainActivity : FlutterActivity() {
             if (call.method == "hashFile") hashFile(call.argument<String>("path")!!, result)
             else result.notImplemented()
         }
+        val directChannel = MethodChannel(messenger, "isekai_drop/direct")
+        val dl = DirectLinks(this, directChannel) {
+            boundTo = null
+            evaluateBinding()
+        }
+        direct = dl
+        directChannel.setMethodCallHandler { call, result -> dl.handle(call, result) }
         channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
         channel!!.setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -230,6 +239,11 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun evaluateBinding() {
+        // A Fast direct join owns the binding while it lasts.
+        if (direct?.ownsBinding == true) {
+            bindingNote = "Fast direct link in use"
+            return
+        }
         val cm = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
         try {
             val wifis = synchronized(wifiNets) { wifiNets.toList() }
@@ -287,6 +301,11 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        try {
+            direct?.dispose()
+        } catch (_: Exception) {
+        }
+        direct = null
         setWifiLock(false)
         try {
             multicastLock?.release()
@@ -634,6 +653,10 @@ class MainActivity : FlutterActivity() {
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == DirectLinks.PERMISSION_REQUEST) {
+            direct?.onPermissionResult()
+            return
+        }
         if (requestCode == legacyRequest) {
             val r = pendingLegacy ?: return
             pendingLegacy = null
