@@ -13,6 +13,8 @@ import 'package:isekaidrop/engine/core/send_source.dart';
 import 'package:isekaidrop/engine/core/trust_store.dart';
 import 'package:path/path.dart' as p;
 
+import 'e2e_native_hash.dart';
+
 void main() {
   final env = Platform.environment;
   test(
@@ -36,6 +38,7 @@ void main() {
         platformName: 'linux',
         tempDir: inbox,
         finalizer: directoryFinalizer(inbox),
+        fileDigest: e2eNativeHash ? nativeFileSha256 : null,
         port: int.parse(env['E2E_PORT'] ?? '47830'),
         bindAddress: InternetAddress.anyIPv4,
       );
@@ -66,7 +69,7 @@ void main() {
         final via = env['E2E_VIA']?.split(':');
         job = await e.send(
           e.trustedDevices.single,
-          [FileSendSource(src)],
+          [e2eNativeHash ? NativeHashFileSource(src) : FileSendSource(src)],
           host: via?[0] ?? peer.host,
           port: via == null ? peer.port : int.parse(via[1]),
         );
