@@ -25,7 +25,7 @@ Runs interleaved A/B/C to cancel other jobs' load (`tool/bench/netns_run.sh`).
 | 1 | 59.1 | 60.3 | 63.1 |
 | 2 | 57.4 | 58.6 | 63.6 |
 
-Extra delay (3 ms one-way, ~7 ms RTT, `tool/bench/delay_proxy.py`): 0.9.1 58.4 (0 ms) vs 59.3 (7 ms RTT) -> latency is not a limit.
+Extra delay (3 ms one-way, ~7 ms RTT, `tool/bench/delay_proxy.py`): 0.9.1 58.4 (0 ms) vs 59.3 (7 ms RTT) -> latency is not a limit. Later interleaved runs through the same proxy (7 ms RTT): 0.9.1 60.0, 0.9.2 native 59.4, 0.9.2 Dart 57.6 MB/s - the Python proxy itself caps at ~60 MB/s, so these runs cannot show the hashing gain.
 The box e2e is limited by the JIT test runner + loopback TLS; it cannot show the Android-only fixes (file reading, Wi-Fi power save).
 
 ## 3. Rejected idea (measured)
