@@ -15,6 +15,7 @@ import 'core/jobs.dart';
 import 'core/net_info.dart';
 import 'core/pending_send_store.dart';
 import 'core/send_source.dart';
+import 'core/speed_test.dart';
 import 'core/trust_store.dart';
 import 'direct/direct_link.dart';
 
@@ -27,6 +28,8 @@ export 'core/jobs.dart';
 export 'core/net_info.dart';
 export 'core/pending_send_store.dart' show PendingSend;
 export 'core/send_source.dart';
+export 'core/speed_test.dart'
+    show SpeedReport, SpeedSample, SpeedTestException, kSpeedLabels;
 export 'core/trust_store.dart' show TrustedDevice, TrustStatus;
 export 'models.dart';
 export 'direct/direct_link.dart';
@@ -124,6 +127,17 @@ abstract class TransferEngine implements Listenable {
     List<SendSource> files, {
     String? host,
     int? port,
+  });
+
+  /// 0.10.1 Speed test with a paired device: network (plain TCP and
+  /// encrypted), and reading/writing/hashing on both devices, each
+  /// measured on its own. Only zeros travel; test files are deleted at once.
+  /// Throws [SpeedTestException] (or a connection error).
+  Future<SpeedReport> runSpeedTest(
+    TrustedDevice device, {
+    bool tryFastDirect = false,
+    void Function(String stage)? onStage,
+    String appVersion = '',
   });
 
   Future<void> renameTrustedDevice(String id, String newName);

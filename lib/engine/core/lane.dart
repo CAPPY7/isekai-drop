@@ -220,8 +220,16 @@ class LaneServer {
     void Function(int bytes)? onBytes,
   }) => _ask(['file', path, count, append, hash, hashExisting], onBytes);
 
-  /// Speed test: reads and throws away everything until the sender closes.
+  /// Speed test: reads and throws away everything until [sinkEnd]'s count
+  /// arrived or the sender closes.
   Future<LaneResult> sink() => _ask(['sink'], null);
+
+  /// The sender reported (over the control connection) that it sent [n]
+  /// bytes. Ending on the count does not depend on the TLS close reaching
+  /// this side (on the build box it sometimes did not, for many seconds).
+  void sinkEnd(int n) {
+    if (!_closed) _to?.send(['sink_end', n]);
+  }
 
   /// Stops/starts reading (the sender then waits: TCP back-pressure).
   void setPaused(bool paused) {
@@ -368,6 +376,8 @@ Future<void> _serverMain(_ServerArgs a) async {
   var paused = false;
   Completer<void>? unpause;
   var busy = false;
+  int? sinkExpect;
+  Completer<void>? sinkWake;
 
   Future<void> connected() async {
     if (sock != null) return;
@@ -508,15 +518,24 @@ Future<void> _serverMain(_ServerArgs a) async {
 
   Future<void> doSink() async {
     await connected();
-    var n = 0;
-    Stopwatch? sw;
-    while (true) {
-      final c = await next();
-      if (c == null) break;
-      sw ??= Stopwatch()..start();
-      n += c.length;
+    var n = carry.length;
+    carry = Uint8List(0);
+    final sw = Stopwatch();
+    if (n > 0) sw.start();
+    var lastAt = 0;
+    Future<bool>? move;
+    while (sinkExpect == null || n < sinkExpect!) {
+      move ??= it!.moveNext();
+      final wake = (sinkWake = Completer<void>()).future;
+      final r = await Future.any<Object>([move, wake.then((_) => 'wake')]);
+      if (r == 'wake') continue;
+      move = null;
+      if (r == false) break;
+      if (!sw.isRunning) sw.start();
+      n += it!.current.length;
+      lastAt = sw.elapsedMicroseconds;
     }
-    back.send(['done', n, sw?.elapsedMicroseconds ?? 0, null]);
+    back.send(['done', n, lastAt, null]);
   }
 
   inbox.listen((m) async {
@@ -528,6 +547,11 @@ Future<void> _serverMain(_ServerArgs a) async {
           unpause?.complete();
           unpause = null;
         }
+      case 'sink_end':
+        sinkExpect = msg[1] as int;
+        final w = sinkWake;
+        sinkWake = null;
+        if (w != null && !w.isCompleted) w.complete();
       case 'close':
         timeout.cancel();
         inbox.close();

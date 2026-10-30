@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isekaidrop/engine/core/engine.dart';
+import 'package:isekaidrop/engine/core/speed_test.dart';
 import 'package:isekaidrop/engine/core/identity.dart';
 import 'package:isekaidrop/engine/core/jobs.dart';
 import 'package:isekaidrop/engine/core/send_source.dart';
@@ -27,6 +28,8 @@ class Node {
     ReceiveFinalizer? finalizer,
     Future<String> Function(File f)? fileDigest,
     bool useLanes = true,
+    SpeedProbes speedProbes = const SpeedProbes(),
+    bool Function()? acceptingFiles,
   }) async {
     final root = await Directory.systemTemp.createTemp('isekai_$name');
     final inbox = Directory(p.join(root.path, 'inbox'));
@@ -45,6 +48,8 @@ class Node {
       bindAddress: InternetAddress.loopbackIPv4,
       enableDiscovery: false,
       useLanes: useLanes,
+      speedProbes: speedProbes,
+      acceptingFiles: acceptingFiles,
     );
     node = Node._(e, root, inbox);
     e.debugAutoDecide = (r) async {

@@ -16,6 +16,24 @@ import 'send_source.dart';
 const int kSpeedTestBytes = 200 * 1000 * 1000;
 const Duration kSpeedStepLimit = Duration(seconds: 15);
 
+/// Why a Speed test could not run: "busy", "no_address", "old_peer",
+/// "not_accepting", "refused", ...
+class SpeedTestException implements Exception {
+  const SpeedTestException(this.code);
+  final String code;
+
+  String get message => switch (code) {
+    'busy' => 'A Speed test is already running.',
+    'no_address' => 'Address unknown. Open Isekai Drop on the other device, on the same Wi-Fi.',
+    'old_peer' => 'The other device has an older app version without the Speed test. Update it first.',
+    'not_accepting' => 'The other device is not accepting files right now (turned off in its Settings).',
+    _ => 'The other device refused the Speed test ($code).',
+  };
+
+  @override
+  String toString() => 'SpeedTestException($code)';
+}
+
 /// One measured step. MB = 1,000,000 bytes.
 class SpeedSample {
   const SpeedSample(this.key, this.bytes, this.micros, {this.note});
@@ -329,10 +347,21 @@ class SpeedReport {
         : parts.join(', ').replaceAll(',  ', ', ');
   }
 
+  static String _when(DateTime t) {
+    final l = t.toLocal();
+    String two(int v) => v.toString().padLeft(2, '0');
+    final off = l.timeZoneOffset;
+    final sign = off.isNegative ? '-' : '+';
+    final m = off.inMinutes.abs();
+    return '${l.year}-${two(l.month)}-${two(l.day)} '
+        '${two(l.hour)}:${two(l.minute)} '
+        '(UTC$sign${two(m ~/ 60)}:${two(m % 60)})';
+  }
+
   String toText() {
     final b = StringBuffer()
       ..writeln('Isekai Drop Speed test (app $appVersion)')
-      ..writeln('When: ${at.toUtc().toIso8601String()} (UTC)')
+      ..writeln('When: ${_when(at)}')
       ..writeln('From: this device ($myPlatform) -> $peerName ($peerPlatform)')
       ..writeln('Route: $route')
       ..writeln('Wi-Fi (this device): ${linkText(link)}')

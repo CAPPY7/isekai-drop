@@ -879,6 +879,15 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           }
         case 'direct_req':
           await _serverDirect(s, reader, dev);
+        case 'speed':
+          final route = _routeOfOffer(first);
+          final held =
+              route != LinkRoute.router && (directHost?.hold() ?? false);
+          try {
+            await _serverSpeed(s, reader, dev, first);
+          } finally {
+            if (held) directHost!.release();
+          }
         case 'ping':
           s.add(jsonFrame({'t': 'pong'}));
         default:
@@ -893,6 +902,392 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       } catch (_) {}
       s.destroy();
       await reader.cancel();
+    }
+  }
+
+  // ------------------------------------------------------- Speed test
+
+  bool _speedBusy = false;
+
+  /// Live Wi-Fi facts for the Speed test (no names or addresses).
+  Future<Map<String, Object?>> _speedLink() async {
+    final m = Map<String, Object?>.of(await readLinkInfo(speedProbes));
+    final j = _joinedInfo;
+    if (j != null) {
+      m['directMbps'] ??= j.linkMbps;
+      m['directTxMbps'] ??= j.txMbps;
+      m['directRxMbps'] ??= j.rxMbps;
+      m['directMhz'] ??= j.frequencyMhz;
+    }
+    if (directHost?.active == true) {
+      m['note'] ??= 'this device hosts the Fast direct link; Android does not report its link speed';
+    }
+    m.removeWhere((k, v) => v == null);
+    return m;
+  }
+
+  static int _clampInt(Object? v, int lo, int hi, int def) =>
+      v is int ? (v < lo ? lo : (v > hi ? hi : v)) : def;
+
+  /// Receiving end of a Speed test. Only zeros travel; nothing is saved.
+  Future<void> _serverSpeed(
+    SecureSocket s,
+    FrameReader reader,
+    TrustedDevice dev,
+    Map<String, dynamic> first,
+  ) async {
+    if (!acceptingFiles()) {
+      s.add(jsonFrame({'t': 'error', 'reason': 'not_accepting'}));
+      return;
+    }
+    if (_speedBusy) {
+      s.add(jsonFrame({'t': 'error', 'reason': 'busy'}));
+      return;
+    }
+    _speedBusy = true;
+    LaneServer? lane;
+    try {
+      final bytes = _clampInt(
+        first['bytes'],
+        1000000,
+        1000000000,
+        kSpeedTestBytes,
+      );
+      final limit = Duration(
+        milliseconds: _clampInt(first['ms'], 1000, 30000, 15000),
+      );
+      s.add(
+        jsonFrame({
+          't': 'speed_ok',
+          'platform': platformName,
+          'link': await _speedLink(),
+        }),
+      );
+      await _flushOrClosed(s);
+      while (true) {
+        final m = await reader.nextJson(
+          limit * 3 + const Duration(seconds: 30),
+        );
+        switch (m['t']) {
+          case 'lane':
+            final raw = m['raw'] == true;
+            final key = raw ? 'raw_tcp' : 'tls_lane';
+            try {
+              lane = await LaneServer.start(
+                raw: raw,
+                bindAddress: bindAddress,
+                keys: raw
+                    ? null
+                    : LaneKeys(
+                        certPem: identity.certPem,
+                        keyPem: identity.keyPem,
+                        peerCertPem: dev.certPem,
+                        peerFingerprint: dev.fingerprint,
+                      ),
+              );
+            } catch (_) {
+              s.add(jsonFrame({'t': 'lane_ready', 'error': 'bind_failed'}));
+              continue;
+            }
+            s.add(
+              jsonFrame({
+                't': 'lane_ready',
+                'port': lane.port,
+                'token': lane.token,
+              }),
+            );
+            SpeedSample res;
+            final ln = lane;
+            final sinking = ln.sink();
+            // Keep the error from escaping while the end message is read.
+            sinking.ignore();
+            try {
+              final end = await reader.nextJson(
+                limit + const Duration(seconds: 25),
+              );
+              final n = end['n'];
+              if (end['t'] != 'lane_end' || n is! int) {
+                throw const FormatException('Unexpected message');
+              }
+              ln.sinkEnd(n < 0 ? 0 : n);
+              final r = await sinking.timeout(const Duration(seconds: 15));
+              res = SpeedSample(key, r.bytes, r.micros);
+            } catch (e) {
+              res = SpeedSample.failed(key, 'failed (${classifyError(e)})');
+            } finally {
+              lane.close();
+              lane = null;
+            }
+            s.add(jsonFrame({'t': 'result', 's': res.toJson()}));
+          case 'main':
+            // Data frames in this connection until 'main_end'.
+            var n = 0;
+            Stopwatch? sw;
+            while (true) {
+              final fr = await reader.next(limit + const Duration(seconds: 25));
+              if (fr.type == frameData) {
+                sw ??= Stopwatch()..start();
+                n += fr.payload.length;
+                continue;
+              }
+              if (fr.isJson && fr.messageType == 'main_end') break;
+              throw const FormatException('Unexpected message');
+            }
+            final res = SpeedSample(
+              'tls_main',
+              n,
+              sw?.elapsedMicroseconds ?? 0,
+            );
+            s.add(jsonFrame({'t': 'result', 's': res.toJson()}));
+          case 'local':
+            final list = await runLocalSpeedTests(
+              speedProbes,
+              tempDir,
+              bytes: bytes,
+              limit: limit,
+            );
+            s.add(
+              jsonFrame({
+                't': 'local_result',
+                's': [for (final x in list) x.toJson()],
+                'link': await _speedLink(),
+              }),
+            );
+          case 'bye':
+            return;
+          default:
+            throw const FormatException('Unexpected message');
+        }
+        await _flushOrClosed(s);
+      }
+    } finally {
+      lane?.close();
+      _speedBusy = false;
+    }
+  }
+
+  @override
+  Future<SpeedReport> runSpeedTest(
+    TrustedDevice dev, {
+    bool tryFastDirect = false,
+    void Function(String stage)? onStage,
+    int bytes = kSpeedTestBytes,
+    Duration limit = kSpeedStepLimit,
+    String appVersion = '',
+    String? host,
+    int? port,
+  }) async {
+    if (_speedBusy) throw const SpeedTestException('busy');
+    _speedBusy = true;
+    final notes = <String>[];
+    final network = <SpeedSample>[];
+    var local = <SpeedSample>[];
+    var peerLocal = <SpeedSample>[];
+    var peerLink = <String, Object?>{};
+    var peerPlatform = dev.platform;
+    _DirectUse? direct;
+    SecureSocket? s;
+    FrameReader? reader;
+    var route = LinkRoute.router;
+    try {
+      onStage?.call('connect');
+      final tries = _addressesFor(dev, host, port);
+      if (tries.isEmpty) throw const SpeedTestException('no_address');
+      if (tryFastDirect) {
+        final skip = directSkipReason(
+          enabled: true,
+          canJoin: directLinks?.canJoin ?? false,
+          peerPlatform: dev.platform,
+          totalBytes: 1 << 40,
+          minBytes: 0,
+        );
+        if (directHost?.active == true || _joinedLink != null) {
+          notes.add('A Fast direct link was already on; it was used as it is.');
+        } else if (skip != null) {
+          notes.add('Fast direct not tried: ${explainDirectError(skip)}');
+        } else {
+          final probe = TransferJob(
+            id: 'speed-${randomHex(4)}',
+            direction: JobDirection.sending,
+            peerName: dev.name,
+            fileCount: 0,
+            totalBytes: bytes,
+          );
+          direct = await _tryDirect(probe, dev, tries);
+          if (direct == null) {
+            notes.add(
+              'Fast direct could not be set up (${probe.routeNote ?? 'see Diagnostics'}); used the normal network.',
+            );
+          } else {
+            s = direct.sock;
+            route = LinkRoute.forKind(direct.link.kind);
+          }
+        }
+      }
+      Object? err;
+      String? usedHost;
+      for (final (h, pt) in s != null ? const <(String, int)>[] : tries) {
+        try {
+          s = await _connectTrusted(dev, h, pt);
+          usedHost = h;
+          break;
+        } on PairingException {
+          rethrow;
+        } catch (e) {
+          err = e;
+        }
+      }
+      final sock = s;
+      if (sock == null) throw err ?? const SpeedTestException('no_address');
+      if (direct == null) route = _routeOf(sock, remoteHost: usedHost);
+      final rd = reader = FrameReader(sock);
+      sock.add(
+        jsonFrame({
+          't': 'speed',
+          'v': kProtocolVersion,
+          if (route != LinkRoute.router) 'via': route.name,
+          'bytes': bytes,
+          'ms': limit.inMilliseconds,
+        }),
+      );
+      await _flushOrClosed(sock);
+      final ok = await rd.nextJson(const Duration(seconds: 20));
+      if (ok['t'] != 'speed_ok') {
+        throw SpeedTestException(
+          ok['reason'] == 'unknown_message'
+              ? 'old_peer'
+              : '${ok['reason'] ?? 'refused'}',
+        );
+      }
+      if (ok['platform'] is String) peerPlatform = ok['platform'] as String;
+      if (ok['link'] is Map) {
+        peerLink = Map<String, Object?>.from(ok['link'] as Map);
+      }
+      final peerHost = sock.remoteAddress.address;
+      Future<SpeedSample> laneStep(bool raw) async {
+        final key = raw ? 'raw_tcp' : 'tls_lane';
+        onStage?.call(key);
+        sock.add(jsonFrame({'t': 'lane', 'raw': raw}));
+        await _flushOrClosed(sock);
+        final r = await rd.nextJson(const Duration(seconds: 20));
+        if (r['t'] != 'lane_ready' ||
+            r['port'] is! int ||
+            r['token'] is! String) {
+          return SpeedSample.failed(
+            key,
+            'the other device could not open a test port',
+          );
+        }
+        LaneClient? c;
+        var mine = SpeedSample.failed(key, 'could not connect');
+        try {
+          c = await LaneClient.connect(
+            host: peerHost,
+            port: r['port'] as int,
+            token: r['token'] as String,
+            keys: raw
+                ? null
+                : LaneKeys(
+                    certPem: identity.certPem,
+                    keyPem: identity.keyPem,
+                    peerCertPem: dev.certPem,
+                    peerFingerprint: dev.fingerprint,
+                  ),
+          );
+          final g = await c.generate(bytes, limit);
+          mine = SpeedSample(key, g.bytes, g.micros);
+        } catch (e) {
+          mine = SpeedSample.failed(key, 'failed (${classifyError(e)})');
+        }
+        sock.add(jsonFrame({'t': 'lane_end', 'n': mine.ok ? mine.bytes : 0}));
+        await _flushOrClosed(sock);
+        // Close only after the other side counted everything: closing early
+        // can reset the connection before its last bytes were read.
+        final Map<String, dynamic> res;
+        try {
+          res = await rd.nextJson(limit + const Duration(seconds: 40));
+        } finally {
+          c?.close();
+        }
+        final theirs = SpeedSample.fromJson(res['s']);
+        // The receiver's count is what really arrived.
+        return theirs != null && theirs.ok
+            ? SpeedSample(key, theirs.bytes, theirs.micros, note: theirs.note)
+            : (mine.ok ? mine : (theirs ?? mine));
+      }
+
+      network.add(await laneStep(true));
+      network.add(await laneStep(false));
+      onStage?.call('tls_main');
+      sock.add(jsonFrame({'t': 'main'}));
+      final zeros = Uint8List(kDataFrameBytes);
+      final head = frameHeader(frameData, zeros.length);
+      final sw = Stopwatch()..start();
+      var sent = 0;
+      var since = 0;
+      while (sent < bytes && sw.elapsed < limit) {
+        sock.add(head);
+        sock.add(zeros);
+        sent += zeros.length;
+        since += zeros.length;
+        if (since >= kFlushEveryBytes) {
+          since = 0;
+          await _flushOrClosed(sock);
+        }
+      }
+      sock.add(jsonFrame({'t': 'main_end'}));
+      await _flushOrClosed(sock);
+      final mr = await rd.nextJson(limit + const Duration(seconds: 40));
+      network.add(
+        SpeedSample.fromJson(mr['s']) ??
+            SpeedSample.failed('tls_main', 'no result'),
+      );
+      // Both devices test their disks at the same time.
+      onStage?.call('local');
+      sock.add(jsonFrame({'t': 'local'}));
+      await _flushOrClosed(sock);
+      final mineF = runLocalSpeedTests(
+        speedProbes,
+        tempDir,
+        bytes: bytes,
+        limit: limit,
+        onStep: (k) => onStage?.call(k),
+      );
+      final pr = await rd.nextJson(limit * 6 + const Duration(seconds: 60));
+      local = await mineF;
+      peerLocal = [
+        for (final x in (pr['s'] as List? ?? const []))
+          ?SpeedSample.fromJson(x),
+      ];
+      if (pr['link'] is Map) {
+        peerLink = Map<String, Object?>.from(pr['link'] as Map);
+      }
+      try {
+        sock.add(jsonFrame({'t': 'bye'}));
+        await _flushOrClosed(sock);
+      } catch (_) {}
+      notes.add(
+        'Both devices ran their disk steps at the same time, as in a real transfer.',
+      );
+      return SpeedReport(
+        appVersion: appVersion,
+        at: DateTime.now(),
+        myPlatform: platformName,
+        peerName: dev.name,
+        peerPlatform: peerPlatform,
+        route: route.name,
+        network: network,
+        local: local,
+        peerLocal: peerLocal,
+        link: await _speedLink(),
+        peerLink: peerLink,
+        notes: notes,
+      );
+    } finally {
+      s?.destroy();
+      await reader?.cancel();
+      await direct?.close(directLinks);
+      _speedBusy = false;
     }
   }
 
