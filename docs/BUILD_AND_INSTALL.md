@@ -1,9 +1,9 @@
 # How each platform is built and installed
 
 All builds run free on GitHub Actions (GitHub's build computers). You never
-need Android Studio, Xcode or Visual Studio. Private repos get a free monthly
-allowance of build minutes; macOS minutes count 10x, Windows 2x, so iOS/macOS
-builds use the allowance fastest.
+need Android Studio, Xcode or Visual Studio. The repo is public: standard
+GitHub-hosted runners are free for public repos (private repos have a
+monthly minutes allowance where macOS counts 10x and Windows 2x).
 
 | Platform | Built on | What you get | Installable? | Cost |
 |---|---|---|---|---|
@@ -15,7 +15,9 @@ builds use the allowance fastest.
 
 ## Android signing
 Every test APK is signed with one throwaway development key stored in the
-private repo (`android/app/isekai-drop-dev.jks`), so updates install over the
+repo (`android/app/isekai-drop-dev.jks`; the repo is now PUBLIC, so this key
+is public too and anyone could sign a look-alike APK; move to the release
+key, docs/RELEASE_SIGNING.md), so updates install over the
 old version. The real release key comes only in the final phase and is never
 committed. The version number (versionCode) is the GitHub run number, so it
 goes up on every build. APKs built by hand on the build box use versionCode
@@ -37,6 +39,6 @@ before it accepts a lower-numbered GitHub build.
 **Your choice is needed before Phase 4.** Until then iOS is marked NOT
 installable.
 
-## Private repo note
-Your repo is private, so the GitHub Release page and download only work when
-you are **logged into GitHub in your phone's browser**.
+## Public repo note
+The repo is public, so the Release page and downloads work without logging
+in to GitHub. Actions artifacts still need a GitHub login to download.

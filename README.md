@@ -17,9 +17,11 @@ A free, private app for sending files **directly** between your own devices
 Speed: no speed is promised. Shown speeds are measured live. Real results depend on your devices and Wi-Fi.
 
 ## Friends and family: how to give them the app
-The repo is **private**, so other people can't open the release page. Choose one:
-1. **Send the file yourself** (easiest): download the APK (or the Windows/Mac/Linux zip) on your device, then share it with them through any messenger or cloud drive. They install it as in "Install on Android" from step 4.
-2. **Add them as GitHub collaborators** (Repo > Settings > Collaborators). They need a GitHub account. This is a repo settings change; only you can do it.
+The repo is **public**: send them the link
+`https://github.com/CAPPY7/isekai-drop/releases/tag/latest-build` (no GitHub
+account needed), or send them the file yourself through any messenger or
+cloud drive. They install it as in "Install on Android" from step 3 (Windows:
+see "Other platforms").
 Tell them: the app is a test version signed with a test key. Pairing is one tap: they tap your device and you tap Accept (comparing the 16-digit code or scanning the QR code is optional but safer on shared Wi-Fi, see PRIVACY.md). They should only accept files from people they know.
 When the real release key arrives (docs/RELEASE_SIGNING.md), everyone has to **uninstall the test app once** and install the new one. Pairings must then be made again.
 
@@ -36,17 +38,17 @@ Earlier phases: Phase 3 had real, encrypted sending on the same Wi-Fi or hotspot
    or **Downloads/Isekai Drop** folder (Windows/Mac/Linux).
 
 ## How it works (no computer needed by you)
-1. Code changes are pushed to this private GitHub repo.
+1. Code changes are pushed to this public GitHub repo.
 2. GitHub Actions (GitHub's free build computers) automatically builds the apps.
 3. The Android app (APK, the Android install file), the Windows installer and the
    unsigned iPhone file are published to the release called **latest-build**.
 
-> **Important:** this repo is **private**. The Release page and the download
-> only work when you are **logged into GitHub in your phone's browser**
-> (Chrome). If you see "404 / Page not found", you are not logged in.
+> The repo is **public**: the release page and downloads work without a
+> GitHub account. These are TEST builds (Android: signed with a public test
+> key, see "Security note" below; Windows: not code-signed).
 
 ## Install on Android (first time)
-1. On your phone, open Chrome and go to `github.com`. Log in.
+1. On your phone, open Chrome.
 2. Open `https://github.com/CAPPY7/isekai-drop/releases/tag/latest-build`.
 3. Under **Assets**, tap `isekai-drop-android-arm64.apk` (smaller, works on
    most phones from about 2017 on). If it says "App not installed", use
@@ -94,18 +96,27 @@ keeps your data, because every test build is signed with the same key.
 | Devices do not find each other | Some Wi-Fi networks (guest/office/"AP isolation") block devices from seeing each other. Tap Connect > Search this network, use a phone hotspot instead, or type the address. On Windows allow Isekai Drop in the firewall prompt. |
 | No APK in Assets | The latest build may still be running or failed. Check the **Actions** tab. |
 
+## Security note: test key is public
+Test APKs are signed with the dev key committed in this repo
+(`android/app/isekai-drop-dev.jks`). Since the repo is public, anyone can
+sign an APK with the same key, so a fake APK could install as an "update" of
+the test app. Only install APKs from the latest-build release link above.
+The fix is the real release key (docs/RELEASE_SIGNING.md) once its 4 GitHub
+secrets are added again.
+
 ## Other platforms
 1. **Windows 10/11:** download **`isekai-drop-windows-setup.exe`** from the
    **latest-build** release (one file), run it, click Install. No admin
    needed; it installs to `%LOCALAPPDATA%\Programs\Isekai Drop` with a Start
    menu entry (desktop icon optional) and an uninstaller (Settings > Apps).
    Allow the firewall prompt (Private networks).
-   - It is **NOT code-signed**. SmartScreen: More info > Run anyway.
-   - **Windows 11 Smart App Control** (if On) blocks unsigned apps, the
-     installer and the app, with no "Run anyway". The only ways are turning
-     Smart App Control off (your choice; see `docs/WINDOWS_INSTALL.md`) or
-     the developer paying for code signing. Details and options:
-     `docs/WINDOWS_INSTALL.md`.
+   - It is **NOT code-signed** (decision: it stays unsigned for now).
+     SmartScreen ("Windows protected your PC"): click **More info > Run anyway**.
+   - **Windows 11 Smart App Control** (if On) may block unsigned apps, the
+     installer and the app, with no "Run anyway" button. Then the only way
+     is to turn Smart App Control off (Windows Security > App & browser
+     control > Smart App Control settings; your choice, it lowers
+     protection). Details: `docs/WINDOWS_INSTALL.md`.
 
 macOS and Linux builds are downloadable from the **Actions** tab (open the newest green run > Artifacts: `isekai-drop-macos`, `isekai-drop-linux`; the plain Windows folder is `isekai-drop-windows`). You must be logged into GitHub.
 2. macOS: unzip, right-click the app > Open > Open.

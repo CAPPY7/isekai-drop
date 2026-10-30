@@ -249,3 +249,8 @@ file before every phase. Stop after each phase and wait for "next".
 - Do not force SO_RCVBUF/SO_SNDBUF smaller: Linux/Android autotuning is disabled once set; LAN BDP is small anyway.
 - Lane connect has an overall timeout (2x connect timeout + 2 s, incl. TLS handshakes): a receiver cancelling while 4 streams were connecting left the sender "waiting" forever (phase6 "cancel discards" under CPU load). The lane receiver also keeps what arrived when a stream is reset (SocketException/TlsException).
 - phase6 drop tests wait with `receiverDone(b)` (receiver job no longer active): the receiver gives the lane up to 5 s after the main connection drops, slower than `settle()` on a loaded CI machine.
+
+## 2026-10-30: repo PUBLIC, Windows unsigned (owner decisions)
+- CAPPY7/isekai-drop is public. Do not write "private repo / log in to download" in docs.
+- The committed dev keystore is therefore public (AUDIT #35): recommend release-key signing once the owner re-adds the 4 secrets; do not change signing without that.
+- Windows stays unsigned (no paid signing, Store or SignPath for now). Docs: SmartScreen > More info > Run anyway; Smart App Control may block it -> turn SAC off. Never add a SAC bypass.

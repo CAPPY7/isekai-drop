@@ -42,9 +42,11 @@ Check: Windows Security > App & browser control > Smart App Control settings.
    Signing** (monthly fee, identity check, only some
    countries) or a classic OV/EV certificate. Signed apps pass SAC.
 3. **SignPath Foundation** free code signing for open-source projects: needs
-   a **public** repo with an OSI licence and an application/approval. This
-   repo is private, so it does not qualify today.
+   a public repo (this one is public now), an OSI-approved licence (the repo
+   has no LICENSE file yet) and an application/approval.
 4. Use Isekai Drop on Android/other devices, or a PC where SAC is Off or in
    evaluation mode.
 
-None of these is set up; the builds stay unsigned until the owner decides.
+**Owner decision (2026-10-30): Windows stays unsigned** (no paid signing, no
+Microsoft Store, no SignPath for now). So: SmartScreen > More info > Run
+anyway; if Smart App Control blocks it, turn Smart App Control off.

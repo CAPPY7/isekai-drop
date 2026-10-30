@@ -158,8 +158,14 @@ Owner on 0.10.1: plain TCP 6.9, TLS 7.1/8.8 MB/s; disk/hash 121-312 MB/s -> netw
 - [x] Speed test rows: 4 streams, native Kotlin raw TCP 1/4 streams, TLS 4 streams; interface kind; MCC/router warnings
 - [ ] Re-run the Speed test on the OnePlus 8 + 9 (NOT TESTED)
 
+## Phase 7k - Windows installer (0.10.3)
+- [x] Single-file Inno Setup installer `isekai-drop-windows-setup.exe` (per-user, no admin), only Windows file on latest-build
+- [x] Exe version info (Isekai Drop / version); CI silent install + uninstall smoke test
+- [x] Stays unsigned (owner decision); Smart App Control documented (docs/WINDOWS_INSTALL.md)
+- [ ] Install on a real Windows 11 PC (NOT TESTED)
+
 ## Phase 8 - Fix security, compatibility, performance, usability
 - [ ] Security tests for all acceptance tests
-- [ ] Real release key (never committed)
+- [ ] Real release key (never committed). URGENT since the repo became PUBLIC (2026-10-30): the committed dev keystore `android/app/isekai-drop-dev.jks` is public, so dev-signed APKs can be imitated. Move CI to the release key once the owner re-adds the 4 signing secrets (docs/RELEASE_SIGNING.md).
 
 Note: the owner's phase prompts set the numbering. Spec phases 2-7 moved one step later because the owner made Phase 2 the UI phase.

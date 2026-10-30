@@ -10,10 +10,11 @@
 - No app logic changes; Android/iOS builds are the same code as 0.10.2.
 
 ## Known limits
-- **Not code-signed.** Windows 11 **Smart App Control** (if On) blocks the
-  installer and the app; this build cannot fix that. Options (turn SAC off,
-  paid signing such as Azure Trusted Signing, SignPath free signing for
-  public open-source repos): `docs/WINDOWS_INSTALL.md`.
+- **Not code-signed** (stays unsigned for now). SmartScreen: More info > Run
+  anyway. Windows 11 **Smart App Control** (if On) may block the installer
+  and the app; then turn Smart App Control off. See `docs/WINDOWS_INSTALL.md`.
+- The repo is now public, so the committed Android TEST key is public too:
+  only install APKs from the latest-build release (see README "Security note").
 - NOT TESTED on a real PC: install, shortcuts, uninstall, upgrade, SAC.
 
 # Isekai Drop 0.10.2 (DRAFT release notes, test build)
