@@ -45,7 +45,8 @@
   faster. The reason is shown on the transfer and in Diagnostics. Only
   speeds are stored (route_stats.json, this device only).
 - A PC still cannot join a phone's Fast direct link by itself (needs the
-  manual "Join from a PC" steps). See docs/SPEED.md.
+  manual steps: phone Connect > Fast direct > Start fast link, then on the
+  PC "Join a phone's fast link"). See docs/SPEED.md.
 
 ## Known limits / NOT TESTED
 - NOT TESTED on real phones or PCs: every screen above, haptics, TalkBack,
