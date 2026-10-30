@@ -845,6 +845,9 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   }
 
   bool _pairingOpen = false;
+  /// How long a one-tap "pair and send" acceptance covers the send.
+  @visibleForTesting
+  Duration preApprovalTtl = const Duration(minutes: 3);
   final Map<String, _PreApproval> _preApproved = {};
   bool _pairHelloOpen = false;
 
@@ -889,7 +892,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     if (offer != null && acceptingFiles()) {
       _preApproved[peerFp] = _PreApproval(
         offer.tid,
-        DateTime.now().add(const Duration(minutes: 3)),
+        DateTime.now().add(preApprovalTtl),
       );
     }
     s.add(

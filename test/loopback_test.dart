@@ -21,7 +21,11 @@ class Node {
   final List<PendingRequest> asked = [];
   bool approve = true;
 
-  static Future<Node> create(String name, {Identity? identity}) async {
+  static Future<Node> create(
+    String name, {
+    Identity? identity,
+    ReceiveFinalizer? finalizer,
+  }) async {
     final root = await Directory.systemTemp.createTemp('isekai_$name');
     final inbox = Directory(p.join(root.path, 'inbox'));
     final store = TrustStore(File(p.join(root.path, 'trusted.json')));
@@ -33,7 +37,7 @@ class Node {
       deviceName: () => name,
       platformName: 'linux',
       tempDir: inbox,
-      finalizer: directoryFinalizer(inbox),
+      finalizer: finalizer ?? directoryFinalizer(inbox),
       port: 0,
       bindAddress: InternetAddress.loopbackIPv4,
       enableDiscovery: false,

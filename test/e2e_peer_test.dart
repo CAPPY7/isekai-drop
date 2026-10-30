@@ -100,6 +100,21 @@ void main() {
         }
         expect(job.state, JobState.completed, reason: job.message);
       }
+      final expect2 = env['E2E_EXPECT2'];
+      if (expect2 != null) {
+        File? got2;
+        while (got2 == null && DateTime.now().isBefore(end)) {
+          final f = File(p.join(inbox.path, expect2));
+          if (f.existsSync()) got2 = f;
+          await Future<void>.delayed(const Duration(milliseconds: 300));
+        }
+        if (got2 == null) fail('second file not received');
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+        say(
+          'RECEIVED2 ${p.basename(got2.path)} ${got2.lengthSync()} bytes '
+          'sha256=${sha256.convert(got2.readAsBytesSync())}',
+        );
+      }
       await e.stop();
       say('DONE');
     },

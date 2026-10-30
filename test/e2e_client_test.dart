@@ -51,20 +51,30 @@ void main() {
         '${e.nearby.map((d) => '${d.name}@${d.host}:${d.port}')}',
       );
       final peer = e.nearby.firstWhere((d) => d.name == 'E2E-Host');
-      final s = await e.beginPairing(peer.host, peer.port);
-      await s.confirm();
-      say('PAIRED ${e.trustedDevices.map((d) => d.name)}');
       final src = File(env['E2E_SEND_FILE']!);
       say(
         'SENDING ${p.basename(src.path)} ${src.lengthSync()} bytes '
         'sha256=${sha256.convert(src.readAsBytesSync())}',
       );
-      final job = await e.send(
-        e.trustedDevices.single,
-        [FileSendSource(src)],
-        host: peer.host,
-        port: peer.port,
-      );
+      final TransferJob job;
+      if (env['E2E_MODE'] == 'classic') {
+        final s = await e.beginPairing(peer.host, peer.port);
+        await s.confirm();
+        say('PAIRED ${e.trustedDevices.map((d) => d.name)}');
+        job = await e.send(
+          e.trustedDevices.single,
+          [FileSendSource(src)],
+          host: peer.host,
+          port: peer.port,
+        );
+      } else {
+        // 0.9.1 one tap: send to the UNPAIRED device; it asks once.
+        say('ONE-TAP send to unpaired ${peer.name} (trusted=${peer.trusted})');
+        job = await e.sendToNearby(peer, [FileSendSource(src)]);
+        say(
+          'PAIRED ${e.trustedDevices.map((d) => '${d.name}:${d.status.name}')}',
+        );
+      }
       while (job.isActive) {
         await Future<void>.delayed(const Duration(milliseconds: 100));
       }
@@ -89,6 +99,26 @@ void main() {
         'RECEIVED ${p.basename(got!.path)} ${got.lengthSync()} bytes '
         'sha256=${sha256.convert(got.readAsBytesSync())}',
       );
+      final second = env['E2E_SEND_FILE2'];
+      if (second != null) {
+        // Send after pairing (normal path, the peer asks as usual).
+        final src2 = File(second);
+        say(
+          'SENDING2 ${p.basename(src2.path)} ${src2.lengthSync()} bytes '
+          'sha256=${sha256.convert(src2.readAsBytesSync())}',
+        );
+        final j2 = await e.send(
+          e.trustedDevices.single,
+          [FileSendSource(src2)],
+          host: peer.host,
+          port: peer.port,
+        );
+        while (j2.isActive) {
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+        }
+        say('SEND2 RESULT ${j2.state.name} ${j2.message ?? ''}');
+        expect(j2.state, JobState.completed, reason: j2.message);
+      }
       await e.stop();
     },
     skip: env['E2E_CLIENT'] == '1' ? false : 'set E2E_CLIENT=1',
