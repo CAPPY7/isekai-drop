@@ -210,7 +210,12 @@ class HomeScreen extends StatelessWidget {
                             device: d,
                             onTap: () => trustOfNearby(d).canSend
                                 ? onSend()
-                                : startPairingFlow(context, d.host, d.port),
+                                : startPairingFlow(
+                                    context,
+                                    d.host,
+                                    d.port,
+                                    peerName: d.name,
+                                  ),
                           ),
                       ],
                     ),

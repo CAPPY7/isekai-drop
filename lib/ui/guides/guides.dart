@@ -55,7 +55,7 @@ const guidePhoneHotspot = Guide(
     ]),
     GuideSection('Then', [
       'On either device open Connect. The other device should appear under "Found automatically". If not, scan its QR code or type its address.',
-      'Compare the 16-digit codes and approve on both devices.',
+      'Tap the device, then tap Accept on the other one. Comparing the 16-digit code is optional (see Privacy).',
     ]),
   ],
   notes: [
@@ -84,7 +84,7 @@ const guideWindowsHotspot = Guide(
     ]),
     GuideSection('Then', [
       'The PC should appear under "Found automatically". If not, scan the QR code shown on the PC or type its address (often 192.168.137.1).',
-      'Compare the 16-digit codes and approve on both devices.',
+      'Tap the device, then tap Accept on the other one. Comparing the 16-digit code is optional (see Privacy).',
     ]),
   ],
   notes: [
@@ -166,7 +166,7 @@ const guideIphone = Guide(
       'Put the iPhone and the other device on the same Wi-Fi, or join the other device\'s hotspot.',
       'The first time, iOS asks to find devices on your local network. Tap Allow.',
       'Android phones and Macs appear automatically (Bonjour). Windows and Linux PCs do NOT appear on iPhone: on the iPhone tap Scan QR code and scan the PC\'s QR code, or type its address.',
-      'Compare the 16-digit codes and approve, like on any device.',
+      'Tap the device, then tap Accept on the other one, like on any device.',
     ]),
     GuideSection('While sending', [
       'Keep Isekai Drop open and on screen. iOS pauses apps in the background; the screen will not auto-lock during a transfer.',

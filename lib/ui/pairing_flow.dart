@@ -4,8 +4,8 @@ import '../engine/transfer_engine.dart';
 import 'app_scope.dart';
 import 'theme/design_tokens.dart';
 
-/// Pairing from THIS device: connect, show the code, user confirms it
-/// matches the other screen, then wait for the other device to approve.
+/// One-tap pairing from THIS device: connect, then the other device shows
+/// one "Accept?" question. No code to type or confirm here (optional).
 ///
 /// From a scanned QR code, [alsoTry] holds more addresses of the same device
 /// and [expectFingerprint] its key: the connection must match it exactly.
@@ -15,6 +15,7 @@ Future<void> startPairingFlow(
   int port, {
   List<String> alsoTry = const [],
   String? expectFingerprint,
+  String? peerName,
 }) async {
   final engine = AppScope.of(context).engine;
   final messenger = ScaffoldMessenger.of(context);
@@ -73,86 +74,36 @@ Future<void> startPairingFlow(
     session.cancel();
     return;
   }
-  final ok = await showDialog<bool>(
-    context: context,
-    barrierDismissible: false,
-    builder: (c) => AlertDialog(
-      title: const Text('Compare this code'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (session.verifiedByQr) ...[
-            const Row(
-              children: [
-                Icon(Icons.verified, color: IdColors.success),
-                SizedBox(width: IdSpacing.sm),
-                Expanded(
-                  child: Text('Key checked against the scanned QR code.'),
-                ),
-              ],
-            ),
-            const SizedBox(height: IdSpacing.sm),
-            const Text(
-              'Tap "Codes match - pair". The other device then asks to approve and shows this same code:',
-            ),
-          ] else
-            const Text(
-              'Tap "Codes match - pair" below. The other device then asks to '
-              'approve and shows a code. Approve there only if it is EXACTLY this one:',
-            ),
-          const SizedBox(height: IdSpacing.md),
-          SelectableText(
-            session.code,
-            style: const TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: IdSpacing.md),
-          const Text(
-            'If the codes differ, tap Cancel: someone may be in the middle.',
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(c, false),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(c, true),
-          child: const Text('Codes match - pair'),
-        ),
-      ],
-    ),
-  );
-  if (ok != true) {
-    session.cancel();
-    return;
-  }
-  if (!context.mounted) return;
+  // 0.9.1 one-tap: no code to confirm here. The other device shows ONE
+  // question ("Accept NAME?"). The code is shown small, for whoever wants
+  // to check it (optional, also later under Trusted devices).
+  var cancelled = false;
   showDialog<void>(
     context: context,
     barrierDismissible: false,
-    builder: (_) => const AlertDialog(
-      content: Row(
-        children: [
-          CircularProgressIndicator(semanticsLabel: 'Waiting'),
-          SizedBox(width: IdSpacing.md),
-          Expanded(child: Text('Waiting for the other device to approve...')),
-        ],
-      ),
+    builder: (c) => _WaitingForAccept(
+      who: peerName ?? 'the other device',
+      code: session.code,
+      verifiedByQr: session.verifiedByQr,
+      onCancel: () {
+        cancelled = true;
+        session.cancel();
+        Navigator.pop(c);
+      },
     ),
   );
   try {
     final dev = await session.confirm();
-    nav.pop();
+    if (!cancelled) nav.pop();
     messenger.showSnackBar(
-      SnackBar(content: Text('Paired with ${dev.name}. It is now trusted.')),
+      SnackBar(
+        content: Text(
+          'Paired with ${dev.name}. Both devices remember each other.',
+        ),
+      ),
     );
   } catch (e) {
+    if (cancelled) return;
     nav.pop();
     if (!context.mounted) return;
     await showPairingProblem(
@@ -161,6 +112,111 @@ Future<void> startPairingFlow(
       e is PairingException
           ? e.message
           : 'Pairing failed: ${explainErrorClass(classifyError(e))}',
+    );
+  }
+}
+
+/// One tap on a nearby device with files to send. Paired already: starts
+/// the send. Not paired: the other device gets ONE question ("NAME wants
+/// to send you N files - Accept?"); yes pairs and sends. Returns the job,
+/// or null if it did not start (the reason was already shown).
+Future<TransferJob?> sendToNearbyFlow(
+  BuildContext context,
+  NearbyDevice n,
+  List<SendSource> files,
+) async {
+  final engine = AppScope.of(context).engine;
+  final t = n.trusted;
+  if (t != null && t.isTrusted && !n.fingerprintMismatch) {
+    return engine.send(t, files, host: n.host, port: n.port);
+  }
+  final nav = Navigator.of(context);
+  var cancelled = false;
+  showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (c) => _WaitingForAccept(
+      who: n.name,
+      onCancel: () {
+        cancelled = true;
+        Navigator.pop(c);
+      },
+    ),
+  );
+  try {
+    final job = await engine.sendToNearby(n, files);
+    if (cancelled) {
+      job.cancel();
+      return null;
+    }
+    nav.pop();
+    return job;
+  } catch (e) {
+    if (cancelled) return null;
+    nav.pop();
+    if (!context.mounted) return null;
+    await showPairingProblem(
+      context,
+      'Not sent',
+      e is PairingException
+          ? e.message
+          : 'Could not connect to ${n.name}. ${explainErrorClass(classifyError(e))}',
+    );
+    return null;
+  }
+}
+
+class _WaitingForAccept extends StatelessWidget {
+  const _WaitingForAccept({
+    required this.who,
+    required this.onCancel,
+    this.code,
+    this.verifiedByQr = false,
+  });
+  final String who;
+  final String? code;
+  final bool verifiedByQr;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = Theme.of(context).textTheme.bodySmall;
+    return AlertDialog(
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const CircularProgressIndicator(semanticsLabel: 'Waiting'),
+              const SizedBox(width: IdSpacing.md),
+              Expanded(child: Text('Tap Accept on $who.')),
+            ],
+          ),
+          if (verifiedByQr) ...[
+            const SizedBox(height: IdSpacing.md),
+            const Row(
+              children: [
+                Icon(Icons.verified, color: IdColors.success, size: 18),
+                SizedBox(width: IdSpacing.sm),
+                Expanded(child: Text('Key matches the scanned QR code.')),
+              ],
+            ),
+          ],
+          if (code != null && !verifiedByQr) ...[
+            const SizedBox(height: IdSpacing.md),
+            Text('Optional check: $who shows the same code', style: muted),
+            SelectableText(
+              code!,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                letterSpacing: 2,
+              ),
+            ),
+          ],
+        ],
+      ),
+      actions: [TextButton(onPressed: onCancel, child: const Text('Cancel'))],
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../engine/platform_engine.dart';
 import '../../engine/transfer_engine.dart';
 import '../app_scope.dart';
+import '../pairing_flow.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
 import 'transfer_screen.dart';
@@ -109,6 +110,17 @@ class _FilesScreenState extends State<FilesScreen> {
     if (ok == true) setState(_files.clear);
   }
 
+  /// 0.9.1: send to a nearby device that is not paired yet. It gets one
+  /// question ("NAME wants to send you N files - Accept?").
+  Future<void> _sendNearby(NearbyDevice n) async {
+    final job = await sendToNearbyFlow(context, n, List.of(_files));
+    if (job == null || !mounted) return;
+    setState(_files.clear);
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => TransferScreen(job: job)));
+  }
+
   Future<void> _send(TrustedDevice dev) async {
     final engine = AppScope.of(context).engine;
     NearbyDevice? live;
@@ -199,14 +211,29 @@ class _FilesScreenState extends State<FilesScreen> {
         final targets = engine.trustedDevices
             .where((d) => d.isTrusted)
             .toList();
-        if (_targetId != null && !targets.any((d) => d.id == _targetId)) {
+        // Nearby devices that are not paired: one tap sends, the other
+        // device answers one question (and both are paired after that).
+        final unpaired = [
+          for (final n in engine.nearby)
+            if (n.trusted == null || !n.trusted!.isTrusted) n,
+        ];
+        final ids = [
+          for (final d in targets) d.id,
+          for (final n in unpaired) 'nearby:${n.deviceId}',
+        ];
+        if (_targetId != null && !ids.contains(_targetId)) {
           _targetId = null;
         }
-        _targetId ??= targets.isEmpty ? null : targets.first.id;
+        _targetId ??= ids.isEmpty ? null : ids.first;
         TrustedDevice? target;
         for (final d in targets) {
           if (d.id == _targetId) target = d;
         }
+        NearbyDevice? nearbyTarget;
+        for (final n in unpaired) {
+          if ('nearby:${n.deviceId}' == _targetId) nearbyTarget = n;
+        }
+        final targetName = target?.name ?? nearbyTarget?.name;
         return PageBody(
           children: [
             Card(
@@ -286,11 +313,13 @@ class _FilesScreenState extends State<FilesScreen> {
             ),
             SectionCard(
               title: 'Send to',
-              child: targets.isEmpty
+              child: ids.isEmpty
                   ? StateMessage(
-                      icon: Icons.shield_outlined,
-                      title: 'No trusted device yet',
-                      message: 'You can only send to a device you have paired.',
+                      icon: Icons.wifi_find,
+                      title: 'No device found yet',
+                      message:
+                          'Open Isekai Drop on the other device, on the same Wi-Fi. '
+                          'It appears here; it does not need to be paired first.',
                       action: TextButton(
                         onPressed: widget.onConnect,
                         child: const Text('Connect a device'),
@@ -309,6 +338,14 @@ class _FilesScreenState extends State<FilesScreen> {
                                   : d.name,
                             ),
                           ),
+                        for (final n in unpaired)
+                          DropdownMenuItem(
+                            value: 'nearby:${n.deviceId}',
+                            child: Text(
+                              '${n.name}  (nearby, asks once to accept)',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                       ],
                       onChanged: (v) => setState(() => _targetId = v),
                     ),
@@ -317,11 +354,13 @@ class _FilesScreenState extends State<FilesScreen> {
               style: FilledButton.styleFrom(
                 minimumSize: const Size.fromHeight(IdLayout.minTouchTarget),
               ),
-              onPressed: _files.isEmpty || target == null
+              onPressed: _files.isEmpty || targetName == null
                   ? null
-                  : () => _send(target!),
+                  : () => target != null
+                        ? _send(target)
+                        : _sendNearby(nearbyTarget!),
               icon: const Icon(Icons.send_rounded),
-              label: Text(target == null ? 'Send' : 'Send to ${target.name}'),
+              label: Text(targetName == null ? 'Send' : 'Send to $targetName'),
             ),
           ],
         );

@@ -222,7 +222,7 @@ void main() {
     );
     await tester.tap(find.text('Manage'));
     await tester.pumpAndSettle();
-    expect(find.text('Trusted (code not re-checked)'), findsOneWidget);
+    expect(find.text('Paired (code not checked)'), findsOneWidget);
     await tester.tap(find.bySemanticsLabel('Check code with Test Windows PC'));
     await tester.pumpAndSettle();
     expect(find.text(_engine.codeFor(d)), findsOneWidget);
@@ -260,6 +260,37 @@ void main() {
       reason: 'dialog must close when the request times out',
     );
     expect(find.textContaining('Request expired'), findsOneWidget);
+  });
+
+  testWidgets('0.9.1: one-tap pairing prompt is a single Accept question', (
+    tester,
+  ) async {
+    await _pump(tester);
+    final req = PendingRequest(
+      id: 'p1',
+      kind: RequestKind.pairing,
+      peerName: 'Pixel 8',
+      peerPlatform: 'android',
+      fileNames: const ['video.mp4', 'b.txt'],
+      totalBytes: 12600000,
+      offerCount: 2,
+      code: '1234 5678 9012 3456',
+    );
+    late bool answer;
+    final f = _engine.debugAsk(req).then((v) => answer = v);
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Accept Pixel 8?'), findsOneWidget);
+    expect(find.textContaining('wants to send you 2 file(s)'), findsOneWidget);
+    expect(find.text('- video.mp4'), findsOneWidget);
+    expect(find.textContaining('Optional check'), findsOneWidget);
+    expect(find.text('Codes match - approve'), findsNothing);
+    await tester.tap(find.widgetWithText(FilledButton, 'Accept'));
+    await tester.pumpAndSettle();
+    await f;
+    expect(answer, isTrue);
+    // Let the "open incoming transfer" watcher finish (no job arrives here).
+    await tester.pump(const Duration(seconds: 11));
   });
 
   test('audit #11: friendly status words, never raw enum names', () {

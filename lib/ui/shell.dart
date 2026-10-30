@@ -91,6 +91,29 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
+  /// One-tap "pair and send": the files arrive right after the pairing
+  /// was accepted, without a second question. Open their progress screen.
+  Future<void> _openIncoming(Set<String> before, PendingRequest r) async {
+    final nav = Navigator.of(context);
+    for (var i = 0; i < 40 && mounted; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      for (final j in _engine?.jobs ?? const <TransferJob>[]) {
+        if (!before.contains(j.id) &&
+            j.direction == JobDirection.receiving &&
+            j.peerName == r.peerName) {
+          if (mounted) {
+            unawaited(
+              nav.push(
+                MaterialPageRoute<void>(builder: (_) => TransferScreen(job: j)),
+              ),
+            );
+          }
+          return;
+        }
+      }
+    }
+  }
+
   Future<void> _ask(PendingRequest r) async {
     final pairing = r.kind == RequestKind.pairing;
     final nav = Navigator.of(context);
@@ -112,7 +135,7 @@ class _AppShellState extends State<AppShell> {
         return AlertDialog(
           title: Text(
             pairing
-                ? 'Pair with ${r.peerName}?'
+                ? 'Accept ${r.peerName}?'
                 : '${r.peerName} wants to send you files',
           ),
           content: SingleChildScrollView(
@@ -122,14 +145,25 @@ class _AppShellState extends State<AppShell> {
               children: pairing
                   ? [
                       Text(
-                        '${platformLabel(r.peerPlatform)} device "${r.peerName}" asks to pair.',
+                        r.offerCount > 0
+                            ? '${platformLabel(r.peerPlatform)} device "${r.peerName}" wants to send you '
+                                  '${r.offerCount} file(s), ${formatBytes(r.totalBytes)}.'
+                            : '${platformLabel(r.peerPlatform)} device "${r.peerName}" wants to connect.',
+                      ),
+                      for (final n in r.fileNames.take(3))
+                        Text('- $n', overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: IdSpacing.sm),
+                      const Text(
+                        'Accept to pair: both devices remember each other, so '
+                        'next time files go straight to the usual question. '
+                        'If you did not start this, tap Decline.',
                       ),
                       if (r.keyChanged) ...[
                         const SizedBox(height: IdSpacing.sm),
                         const Text(
                           'WARNING: a device with this id was paired before with a DIFFERENT key. '
-                          'Approve only if you reinstalled or reset Isekai Drop on it. '
-                          'Approving replaces the old key.',
+                          'Accept only if you reinstalled or reset Isekai Drop on it. '
+                          'Accepting replaces the old key.',
                           style: TextStyle(
                             color: IdColors.danger,
                             fontWeight: FontWeight.w700,
@@ -137,20 +171,17 @@ class _AppShellState extends State<AppShell> {
                         ),
                       ],
                       const SizedBox(height: IdSpacing.md),
-                      const Text(
-                        'Approve ONLY if the other screen shows exactly this code:',
+                      Text(
+                        'Optional check: the other screen shows the same code',
+                        style: Theme.of(c).textTheme.bodySmall,
                       ),
-                      const SizedBox(height: IdSpacing.sm),
                       SelectableText(
                         r.code ?? '',
                         style: const TextStyle(
-                          fontSize: 26,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 2,
                         ),
                       ),
-                      const SizedBox(height: IdSpacing.sm),
-                      const Text('If you did not start this, tap Decline.'),
                     ]
                   : [
                       Text(
@@ -175,7 +206,7 @@ class _AppShellState extends State<AppShell> {
             ),
             FilledButton(
               onPressed: () => Navigator.pop(c, true),
-              child: Text(pairing ? 'Codes match - approve' : 'Accept'),
+              child: const Text('Accept'),
             ),
           ],
         );
@@ -193,7 +224,9 @@ class _AppShellState extends State<AppShell> {
       return;
     }
     if (ok == true) {
+      final before = {for (final j in _engine!.jobs) j.id};
       r.approve();
+      if (pairing && r.offerCount > 0) unawaited(_openIncoming(before, r));
       final job = r.job;
       if (job != null && mounted) {
         unawaited(

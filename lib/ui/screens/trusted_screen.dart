@@ -84,7 +84,7 @@ class TrustedDevicesScreen extends StatelessWidget {
       title: 'Revoke trust?',
       body:
           '"${d.name}" will no longer be trusted and cannot connect or send to you. '
-          'To use it again you must pair again and compare the code.',
+          'To use it again, pair again.',
       action: 'Revoke',
     )) {
       return;

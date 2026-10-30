@@ -109,7 +109,12 @@ class _ConnectScreenState extends State<ConnectScreen> {
                   for (final d in engine.nearby)
                     NearbyTile(
                       device: d,
-                      onTap: () => startPairingFlow(context, d.host, d.port),
+                      onTap: () => startPairingFlow(
+                        context,
+                        d.host,
+                        d.port,
+                        peerName: d.name,
+                      ),
                     ),
                 const SizedBox(height: IdSpacing.sm),
                 OutlinedButton.icon(
@@ -139,7 +144,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
               children: [
                 const Text(
                   'On the other device open Connect and read its address. Type it here. '
-                  'Both screens will then show a 16-digit code to compare.',
+                  'The other device then asks once to accept this one.',
                 ),
                 const SizedBox(height: IdSpacing.md),
                 TextField(

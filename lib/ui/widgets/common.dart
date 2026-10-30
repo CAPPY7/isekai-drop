@@ -149,7 +149,7 @@ enum DisplayTrust { verified, trusted, unknown, identityChanged, revoked }
 extension DisplayTrustLabel on DisplayTrust {
   String get label => switch (this) {
     DisplayTrust.verified => 'Verified (code compared)',
-    DisplayTrust.trusted => 'Trusted (code not re-checked)',
+    DisplayTrust.trusted => 'Paired (code not checked)',
     DisplayTrust.unknown => 'Unknown - not paired',
     DisplayTrust.identityChanged => 'Identity changed - blocked',
     DisplayTrust.revoked => 'Revoked - blocked',
