@@ -10,6 +10,7 @@ import '../app_scope.dart';
 import '../diag_report.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
+import '../widgets/wifi_band.dart';
 
 /// Connection facts for troubleshooting. Shows no file names, no other
 /// device's name or address, nothing personal. Since 0.8.1 it shows THIS
@@ -111,13 +112,12 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                     Text(
                       'Wi-Fi link speed: ${i?.linkMbps != null ? '${i!.linkMbps} Mbps (reported by the system, not measured)' : 'not available'}',
                     ),
-                    if (i?.frequencyMhz != null && i!.frequencyMhz! > 0)
-                      Text(
-                        'Wi-Fi band: ${i.frequencyMhz! >= 5900
-                            ? '6 GHz'
-                            : i.frequencyMhz! >= 4900
-                            ? '5 GHz'
-                            : '2.4 GHz'}',
+                    if (wifiBandLabel(i?.frequencyMhz) != null)
+                      Text('Wi-Fi band: ${wifiBandLabel(i?.frequencyMhz)}'),
+                    if (isSlowWifiBand(i?.frequencyMhz))
+                      const Text(
+                        kUse5GhzHint,
+                        style: TextStyle(color: IdColors.warning),
                       ),
                     if (i?.note != null) Text(i!.note!),
                     Text(

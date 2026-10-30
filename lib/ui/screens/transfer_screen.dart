@@ -6,6 +6,7 @@ import '../app_scope.dart';
 import 'benchmark_screen.dart' show saveJobAsBenchmark;
 import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
+import '../widgets/wifi_band.dart';
 
 String _fmtDuration(Duration d) {
   if (d.inHours > 0) return '${d.inHours} h ${d.inMinutes % 60} min';
@@ -137,6 +138,8 @@ class TransferScreen extends StatelessWidget {
                         Text(
                           'Time left (from measured speed): ${_fmtDuration(left)}',
                         ),
+                      // 0.9.2: band + link speed, hint on 2.4 GHz.
+                      const WifiBandLine(),
                       if (!job.isActive)
                         Text('Time taken: ${_fmtDuration(job.elapsed)}'),
                       if (job.resumedBytes > 0)
