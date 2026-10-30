@@ -220,3 +220,10 @@ file before every phase. Stop after each phase and wait for "next".
 - DirectQr is `isekaidrop:direct?v=1&k&s&w&h&p&f&n[&m]` (no "//"). Scanner accepts PairingQr, DirectQr, WIFI: codes.
 - UI tests must create the engine inside `tester.runAsync` (real file IO), and must not pumpAndSettle while a spinner is showing.
 - Local checks that work on the box: `flutter build apk --debug --target-platform android-arm64`, `./gradlew :app:lintDebug` (JDK17 + SDK in /home/box/ls-tools). No emulator (no /dev/kvm access).
+
+## Phase 7i notes (2026-10-30, 0.10.1 Speed test + data lane)
+- File data uses a TLS data lane in a background isolate (lib/engine/core/lane.dart): offer carries `lanes: 1`, the receiver answers port + one-time token, mTLS with the paired certs. Any lane failure falls back to in-band frames on the main connection. `useLanes` (Node/engine) and `ISEKAI_BENCH_LANES=0` turn it off for A/B.
+- Lane sinks end on a byte count sent over control (`lane_end` / `sinkEnd(n)`); the client closes its lane only after the server's result. Closing right after sending stalled ~1 in 5 runs (15-28 s). Do not go back.
+- Speed test: session message `speed` -> `speed_ok`; steps `lane{raw}`, `main`/`main_end`, `local`, `bye`. Core in lib/engine/core/speed_test.dart (SpeedProbes, SpeedReport.toText). The report must never contain device names, file names, SSIDs or IPs (speed_engine_test checks). Android probes: MainActivity `speedWriteDownloads` (always deletes), `networkInfo` tx/rx, DirectLinks `linkNow`.
+- Widget tests must not run a real speed test (real sockets + fake clock hang); the engine test covers the run.
+- Docs: docs/SPEED.md has the box numbers.

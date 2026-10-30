@@ -143,6 +143,13 @@ Owner on 0.9.2: "What about other devices? Phone to phone works more speed then 
 - [ ] Real radios: Wi-Fi Direct 5 GHz, LOHS, specifier join, PCs/iPhone joining, Windows hotspot script (NOT TESTED)
 - [ ] Measure the direct speed on the OnePlus 8 + 9 (NOT TESTED)
 
+## Phase 7i - Speed test and ARM bottlenecks (0.10.1)
+Owner on 0.10.0: OnePlus 8 -> 9 over Fast direct ran at 7.5 MB/s.
+- [x] Diagnostics Speed test: raw TCP, TLS lane, TLS main, sender read+hash, receiver write (Downloads/MediaStore + temp), native hash, Wi-Fi tx/rx, Copy report (docs/SPEED.md)
+- [x] File data over a background-isolate TLS data lane, TransferableTypedData, 4 MiB flush window, big socket buffers
+- [x] Box bench 36.0 -> 82-90 MB/s
+- [ ] Run the Speed test on the OnePlus 8 + 9 and fix the slowest step (NOT TESTED)
+
 ## Phase 8 - Fix security, compatibility, performance, usability
 - [ ] Security tests for all acceptance tests
 - [ ] Real release key (never committed)

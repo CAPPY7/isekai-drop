@@ -46,6 +46,15 @@ On iPhone/iPad and Mac, QR scanning uses Apple's built-in frameworks.
 Used only while the scan screen is open, only to read the pairing QR code.
 Nothing is recorded or saved.
 
+## Speed test (0.10.1)
+Runs only when you press "Run speed test", only with a paired device. It
+sends only zeros. The test files it writes (app temp folder, and on Android
+a hidden item in Downloads/Isekai Drop) are deleted straight away, also on
+error. The plain (unencrypted) test port is opened for one connection only
+and needs a random one-time token that is sent inside the encrypted
+connection. The copied report has no device names, file names, network
+names or IP addresses.
+
 ## Fast direct (0.10.0)
 - **Permissions (Android):** "Nearby devices" on Android 13+ (declared
   `neverForLocation`: never used to find your location) or "Location" on

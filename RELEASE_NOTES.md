@@ -1,3 +1,22 @@
+# Isekai Drop 0.10.1 (DRAFT release notes, test build)
+
+## New: Speed test (Diagnostics > Speed test)
+Finds which step is slow between two paired devices: network without
+encryption, encryption, reading + hashing, writing to Downloads and to the
+temp folder, native hash, and Wi-Fi link speed on both ends. "Copy report"
+copies the numbers (no device or file names). Only zeros are sent; test
+files are deleted at once. Details: docs/SPEED.md.
+
+## Faster engine (measured on the box only)
+File data now goes over an encrypted data lane in a background isolate, so
+encryption no longer competes with the app's main thread. Box loopback
+engine bench: 36.0 MB/s (0.10.0) -> 82-90 MB/s. Falls back to the old path
+if the lane can not open. Real phones: NOT measured.
+
+## Not tested
+- Everything on phones (lane on ARM, MediaStore test write, link readings,
+  real speed gain).
+
 # Isekai Drop 0.10.0 (DRAFT release notes, test build)
 
 ## New: Fast direct (no router in the middle)
