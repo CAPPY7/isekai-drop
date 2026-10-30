@@ -362,7 +362,10 @@ class SpeedReport {
     final b = StringBuffer()
       ..writeln('Isekai Drop Speed test (app $appVersion)')
       ..writeln('When: ${_when(at)}')
-      ..writeln('From: this device ($myPlatform) -> $peerName ($peerPlatform)')
+      // No device names in a report meant to be shared.
+      ..writeln(
+        'From: this device ($myPlatform) -> other device ($peerPlatform)',
+      )
       ..writeln('Route: $route')
       ..writeln('Wi-Fi (this device): ${linkText(link)}')
       ..writeln('Wi-Fi (other device): ${linkText(peerLink)}')

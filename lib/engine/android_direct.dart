@@ -64,6 +64,20 @@ class AndroidDirectLinks implements DirectLinkPlatform {
     }
   }
 
+  /// 0.10.1 Speed test: speeds of the joined Fast direct link right now
+  /// (Android 12+; empty when not joined or not reported).
+  Future<Map<String, int>> linkNow() async {
+    try {
+      final m = await _ch.invokeMapMethod<String, Object?>('linkNow') ?? {};
+      return {
+        for (final e in m.entries)
+          if (e.value is int && (e.value as int) > 0) e.key: e.value as int,
+      };
+    } catch (_) {
+      return const {};
+    }
+  }
+
   @override
   Future<String> permissionState() async {
     try {

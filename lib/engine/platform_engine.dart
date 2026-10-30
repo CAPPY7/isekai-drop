@@ -22,6 +22,7 @@ import 'core/net_info.dart';
 import 'core/pending_send_store.dart';
 import 'core/resume_store.dart';
 import 'core/send_source.dart';
+import 'core/speed_test.dart';
 import 'core/trust_store.dart';
 
 const _android = MethodChannel('isekai_drop/android');
@@ -266,6 +267,19 @@ Future<IsekaiEngine> createPlatformEngine(
     finalizer: finalizer,
     // 0.9.2: Android checks received files with the native SHA-256.
     fileDigest: Platform.isAndroid ? androidFileSha256 : null,
+    // 0.10.1 Speed test: measure the real Android read/hash/save paths.
+    speedProbes: Platform.isAndroid
+        ? SpeedProbes(
+            sourceFor: (f) => AndroidUriSource(
+              Uri.file(f.path).toString(),
+              p.basename(f.path),
+              f.lengthSync(),
+            ),
+            fileDigest: androidFileSha256,
+            writeTarget: _androidSpeedWrite,
+            linkInfo: () => _androidLinkInfo(directLinks),
+          )
+        : const SpeedProbes(linkInfo: _desktopLinkInfo),
     secureStorageNote: note,
     receiveLocationNote: where,
     // iPhone/iPad: UDP multicast/broadcast needs Apple's multicast
@@ -407,6 +421,61 @@ class AndroidUriSource extends SendSource {
 /// 0.9.2: bytes per Android read call (the engine splits them into
 /// smaller DATA frames).
 const int kAndroidReadChunk = 4 * 1024 * 1024;
+
+/// 0.10.1 Speed test: writes zeros into Downloads/Isekai Drop through
+/// MediaStore (where received files are saved), then deletes them.
+Future<SpeedSample> _androidSpeedWrite(int bytes, Duration limit) async {
+  try {
+    final m = await _android.invokeMapMethod<String, Object?>(
+      'speedWriteDownloads',
+      {'bytes': bytes, 'limitMs': limit.inMilliseconds},
+    );
+    return SpeedSample(
+      'write_target',
+      (m?['bytes'] as num?)?.toInt() ?? 0,
+      (m?['micros'] as num?)?.toInt() ?? 0,
+    );
+  } on PlatformException catch (e) {
+    return SpeedSample.failed('write_target', 'failed (${e.code})');
+  }
+}
+
+/// Wi-Fi facts for the Speed test report (no network names or addresses).
+Future<Map<String, Object?>> _androidLinkInfo(AndroidDirectLinks? d) async {
+  final out = <String, Object?>{};
+  try {
+    final m =
+        await _android.invokeMapMethod<String, Object?>('networkInfo') ?? {};
+    for (final k in [
+      'transport',
+      'linkMbps',
+      'txMbps',
+      'rxMbps',
+      'frequencyMhz',
+    ]) {
+      if (m[k] != null) out[k] = m[k];
+    }
+  } catch (_) {}
+  final j = await d?.linkNow() ?? const {};
+  if (j['mbps'] != null) out['directMbps'] = j['mbps'];
+  if (j['txMbps'] != null) out['directTxMbps'] = j['txMbps'];
+  if (j['rxMbps'] != null) out['directRxMbps'] = j['rxMbps'];
+  if (j['mhz'] != null) out['directMhz'] = j['mhz'];
+  return out;
+}
+
+Future<Map<String, Object?>> _desktopLinkInfo() async {
+  try {
+    final c = await readConnectionInfo();
+    return {
+      'transport': c.method,
+      if (c.linkMbps != null) 'linkMbps': c.linkMbps,
+      if (c.frequencyMhz != null) 'frequencyMhz': c.frequencyMhz,
+    };
+  } catch (_) {
+    return const {};
+  }
+}
 
 /// SHA-256 of a received file, computed natively (Android).
 Future<String> androidFileSha256(File f) async {
