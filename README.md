@@ -38,8 +38,8 @@ Earlier phases: Phase 3 had real, encrypted sending on the same Wi-Fi or hotspot
 ## How it works (no computer needed by you)
 1. Code changes are pushed to this private GitHub repo.
 2. GitHub Actions (GitHub's free build computers) automatically builds the apps.
-3. The Android app (APK, the Android install file) is published to the release
-   called **latest-build**.
+3. The Android app (APK, the Android install file), the Windows zip and the
+   unsigned iPhone file are published to the release called **latest-build**.
 
 > **Important:** this repo is **private**. The Release page and the download
 > only work when you are **logged into GitHub in your phone's browser**
@@ -47,11 +47,11 @@ Earlier phases: Phase 3 had real, encrypted sending on the same Wi-Fi or hotspot
 
 ## Install on Android (first time)
 1. On your phone, open Chrome and go to `github.com`. Log in.
-2. Open `https://github.com/iSujaykumar/Isekai-Drop/releases/tag/latest-build`.
-3. Under **Assets**, pick the highest number and tap
-   `isekai-drop-android-arm64-<number>.apk` (smaller, works on most phones from
-   about 2017 on). If it says "App not installed", use
-   `isekai-drop-android-<number>.apk` instead (works on all phones).
+2. Open `https://github.com/CAPPY7/isekai-drop/releases/tag/latest-build`.
+3. Under **Assets**, tap `isekai-drop-android-arm64.apk` (smaller, works on
+   most phones from about 2017 on). If it says "App not installed", use
+   `isekai-drop-android-universal.apk` instead (works on all phones). Each new
+   build replaces these files; the build number is in the release text.
 4. When Chrome warns about the file, tap **Download anyway**.
 5. Tap **Open** when the download finishes.
 6. If asked, tap **Settings**, turn on **Allow from this source**, then go back.
@@ -61,7 +61,7 @@ Earlier phases: Phase 3 had real, encrypted sending on the same Wi-Fi or hotspot
 The iPhone file is **UNSIGNED**. We do not sign it. You sign it yourself with your own free Apple ID. With a free Apple ID the app stops opening after **7 days**; repeat the steps (or refresh) to keep it working.
 These steps have NOT been tested by us.
 
-Get the file: open the "latest-build" release on GitHub and download `isekai-drop-ios-unsigned-N.ipa` (highest N = newest).
+Get the file: open the "latest-build" release on GitHub and download `isekai-drop-ios-unsigned.ipa` (always the newest build).
 
 AltStore (Windows 10+ or macOS 11+):
 1. Install AltServer from https://altstore.io/ on your computer.

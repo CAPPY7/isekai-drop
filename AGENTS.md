@@ -30,10 +30,17 @@ file before every phase. Stop after each phase and wait for "next".
 - versionCode = `github.run_number` (via `--build-number`). The arm64 split APK uses
   `--android-project-arg=force-version-code-ignoring-abi=true` so it has the SAME
   versionCode (otherwise it would be 2000+n and block updates to the universal APK).
-- Release `latest-build` gets two assets per run: `isekai-drop-android-N.apk`
-  (all phones, ~44 MB) and `isekai-drop-android-arm64-N.apk` (smaller, < 25 MB).
+- Release `latest-build` (0.10.2+): stable asset names, each build REPLACES
+  them via `.github/scripts/latest_build.sh` (gh release upload --clobber, then
+  deletes only that platform's other files): `isekai-drop-android-arm64.apk`,
+  `isekai-drop-android-universal.apk`, `isekai-drop-ios-unsigned.ipa`,
+  `isekai-drop-windows-x64.zip`. Build numbers go into the release text, one
+  line per platform (`<!--android-->` etc. markers). Concurrency group per
+  platform (`publish-latest-build-<platform>`); never one shared group (a
+  newer pending job cancels an older pending one).
 - Workflows: `permissions: {}` at top; build jobs `contents: read`; only the
-  Android `publish` job has `contents: write`, publishing to prerelease tag `latest-build`.
+  `publish` jobs (Android, iOS, Windows) have `contents: write`, publishing to
+  prerelease tag `latest-build`.
 - Action versions pinned: checkout v7.0.1, setup-java v6.1.0,
   flutter-action v2.23.0, upload-artifact v7.0.2, download-artifact v8.0.2,
   action-gh-release v3.0.3.
@@ -236,3 +243,5 @@ file before every phase. Stop after each phase and wait for "next".
 - Lanes: offer `lane_streams`, answer `streams` (clamped 1..8, default kLaneStreams 4), 1 MiB stripes. Client acks a block only after its flush completes (drain() = handed to the socket); acking at add() made phase6 resume-after-drop flaky.
 - Speed test caps in speed_ok: `streams`, `native`. Older peers skip the new rows with a note. Report shows interface name + kind only (interfaceKind), never IPs.
 - Do not force SO_RCVBUF/SO_SNDBUF smaller: Linux/Android autotuning is disabled once set; LAN BDP is small anyway.
+- Lane connect has an overall timeout (2x connect timeout + 2 s, incl. TLS handshakes): a receiver cancelling while 4 streams were connecting left the sender "waiting" forever (phase6 "cancel discards" under CPU load). The lane receiver also keeps what arrived when a stream is reset (SocketException/TlsException).
+- phase6 drop tests wait with `receiverDone(b)` (receiver job no longer active): the receiver gives the lane up to 5 s after the main connection drops, slower than `settle()` on a loaded CI machine.
