@@ -550,7 +550,14 @@ Future<void> _serverMain(_ServerArgs a) async {
       }
 
       while (got < count) {
-        final c = await next();
+        Uint8List? c;
+        try {
+          c = await next();
+        } on SocketException {
+          c = null; // a reset connection: still keep what arrived
+        } on TlsException {
+          c = null;
+        }
         if (c == null) {
           // Keep what arrived (a resumed send continues from there).
           try {
@@ -766,7 +773,12 @@ class LaneClient {
       c._onMessage(m);
     });
     try {
-      final to = await ready.future;
+      // Whole connect incl. TLS handshakes: a receiver that closes its lane
+      // half-way (cancel) must not leave the sender waiting forever.
+      final to = await ready.future.timeout(
+        timeout * 2 + const Duration(seconds: 2),
+        onTimeout: () => throw const LaneException('connect_failed'),
+      );
       c = LaneClient._(iso, rp)
         .._to = to
         ..note = tune;
@@ -920,7 +932,7 @@ Future<void> _clientMain(_ClientArgs a) async {
     }
     tune ??= tuneSocketBuffers(sock);
     sock.add([...utf8.encode(token), if (streams > 1) index]);
-    await sock.flush();
+    await sock.flush().timeout(timeout);
     return sock;
   }
 
