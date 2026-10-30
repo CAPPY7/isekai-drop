@@ -263,7 +263,13 @@ class PendingRequest {
     this.job,
     this.keyChanged = false,
     this.resumeBytes = 0,
+    this.offerCount = 0,
   });
+
+  /// Pairing (0.9.1 one-tap send): the peer also wants to send this many
+  /// files ([totalBytes] in total, first names in [fileNames]). Accepting
+  /// the pairing accepts these files too.
+  final int offerCount;
 
   /// Pairing: a device with this id was known with a DIFFERENT key.
   final bool keyChanged;

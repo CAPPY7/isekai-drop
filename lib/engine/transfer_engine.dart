@@ -82,6 +82,17 @@ abstract class TransferEngine implements Listenable {
     String? expectFingerprint,
   });
 
+  /// One-tap pairing (see [IsekaiEngine.quickPair]).
+  Future<TrustedDevice> quickPair(
+    String host,
+    int port, {
+    String? expectFingerprint,
+  });
+
+  /// One tap on a nearby device: send, pairing first with a single
+  /// accept question on the other device if needed.
+  Future<TransferJob> sendToNearby(NearbyDevice n, List<SendSource> files);
+
   Future<TransferJob> send(
     TrustedDevice device,
     List<SendSource> files, {

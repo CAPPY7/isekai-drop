@@ -837,6 +837,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         certPem,
         peerFp,
         peerPort: pp is int && pp > 0 && pp < 65536 ? pp : null,
+        offer: _PairOffer.parse(m['offer']),
       );
     } finally {
       _pairingOpen = false;
@@ -844,6 +845,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   }
 
   bool _pairingOpen = false;
+  final Map<String, _PreApproval> _preApproved = {};
   bool _pairHelloOpen = false;
 
   Future<void> _serverPairingAsk(
@@ -854,6 +856,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     String certPem,
     String peerFp, {
     int? peerPort,
+    _PairOffer? offer,
   }) async {
     final known = trust.byDeviceId(peerId);
     final req = PendingRequest(
@@ -863,6 +866,9 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       peerPlatform: platform,
       code: verificationCode(identity.fingerprint, peerFp),
       keyChanged: known != null && known.fingerprint != peerFp,
+      fileNames: offer?.names ?? const [],
+      totalBytes: offer?.bytes ?? 0,
+      offerCount: offer?.count ?? 0,
     );
     final ok = await _ask(req);
     if (!ok) {
@@ -876,7 +882,16 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       certPem: certPem,
       host: s.remoteAddress.address,
       port: peerPort,
+      // One tap = trusted on first use (TOFU), not "Verified". Re-pairing
+      // the same key keeps an earlier "Verified".
+      verified: trust.byFingerprint(peerFp)?.isVerified ?? false,
     );
+    if (offer != null && acceptingFiles()) {
+      _preApproved[peerFp] = _PreApproval(
+        offer.tid,
+        DateTime.now().add(const Duration(minutes: 3)),
+      );
+    }
     s.add(
       jsonFrame({
         't': 'pair_ok',
@@ -995,7 +1010,15 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       resumeBytes: already,
     );
     // Auto-receive only from VERIFIED devices, and only when switched on.
-    final auto = dev.isVerified && autoAccept(dev);
+    // 0.9.1: or when the user just accepted a one-tap "pair and send" from
+    // this exact key for this exact transfer (one-time, expires quickly).
+    final pre = _preApproved.remove(dev.fingerprint);
+    final preOk =
+        pre != null &&
+        tid != null &&
+        pre.tid == tid &&
+        DateTime.now().isBefore(pre.until);
+    final auto = preOk || (dev.isVerified && autoAccept(dev));
     if (!auto && !await _ask(req)) {
       s.add(jsonFrame({'t': 'decline', 'reason': 'declined'}));
       return;
@@ -1085,8 +1108,12 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           }
           keepPartial = true;
         } else {
-          temp = await createTempPart(tempDir);
-          out = await temp.open(mode: FileMode.writeOnly);
+          try {
+            temp = await createTempPart(tempDir);
+            out = await temp.open(mode: FileMode.writeOnly);
+          } catch (e) {
+            throw _WriteFailed(e);
+          }
         }
         var got = offset;
         while (got < sizes[i]) {
@@ -1114,7 +1141,11 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           if (got + fr.payload.length > sizes[i]) {
             throw const FormatException('More data than announced');
           }
-          await out.writeFrom(fr.payload);
+          try {
+            await out.writeFrom(fr.payload);
+          } catch (e) {
+            throw _WriteFailed(e);
+          }
           await hasher.add(fr.payload);
           got += fr.payload.length;
           job.addBytes(fr.payload.length);
@@ -1139,7 +1170,12 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           );
           return;
         }
-        final where = await finalizer(temp, names[i], batch);
+        final String where;
+        try {
+          where = await finalizer(temp, names[i], batch);
+        } catch (e) {
+          throw _WriteFailed(e);
+        }
         temp = null;
         keepPartial = false;
         if (state != null) {
@@ -1158,7 +1194,28 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       if (done['t'] == 'done') s.add(jsonFrame({'t': 'done_ok'}));
       discardState = true;
       job.finish(JobState.completed, 'All files received and verified.');
-    } catch (_) {
+    } on _WriteFailed catch (w) {
+      // Tell the sender it is a storage problem HERE, not the network.
+      try {
+        s.add(jsonFrame({'t': 'error', 'reason': 'write_failed'}));
+        await s.flush();
+      } catch (_) {}
+      recordProblem(
+        'receive_write_${classifyError(w.cause)}',
+        'Receiving: could not save the file on this device '
+            '(${explainErrorClass(classifyError(w.cause))}).',
+      );
+      job.finish(
+        JobState.failed,
+        'Could not save the file on this device (storage problem). '
+        'Nothing unverified was kept. Check free space, then ask the sender to retry.',
+      );
+    } catch (e) {
+      recordProblem(
+        'receive_${classifyError(e)}',
+        'Receiving: the connection ended during the transfer '
+            '(${explainErrorClass(classifyError(e))}).',
+      );
       job.finish(
         JobState.failed,
         state != null && !discardState
@@ -1203,6 +1260,41 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     }
   }
 
+  /// One-tap pairing: connect, then the other device shows one
+  /// "Accept NAME?" question. Both remember each other (trusted on first
+  /// use; "Verified" only with a matching QR code).
+  @override
+  Future<TrustedDevice> quickPair(
+    String host,
+    int port, {
+    String? expectFingerprint,
+  }) async {
+    final session = await beginPairing(
+      host,
+      port,
+      expectFingerprint: expectFingerprint,
+    );
+    return session.confirm();
+  }
+
+  /// One tap on a nearby device to send [files]. Already paired: sends.
+  /// Not paired: the other device gets ONE question ("NAME wants to send
+  /// you N files - Accept?"); yes pairs both devices and starts the send
+  /// without a second question. Throws [PairingException] if declined.
+  @override
+  Future<TransferJob> sendToNearby(
+    NearbyDevice n,
+    List<SendSource> files,
+  ) async {
+    final t = n.trusted;
+    if (t != null && t.isTrusted && !n.fingerprintMismatch) {
+      return send(t, files, host: n.host, port: n.port);
+    }
+    final session = await beginPairing(n.host, n.port);
+    final dev = await session.confirm(offer: files);
+    return send(dev, files, host: n.host, port: n.port);
+  }
+
   Future<PairingSession> _beginPairing(
     String host,
     int port, {
@@ -1241,7 +1333,11 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     );
   }
 
-  Future<TrustedDevice> _clientConfirmPairing(PairingSession p) async {
+  Future<TrustedDevice> _clientConfirmPairing(
+    PairingSession p, {
+    List<SendSource>? offer,
+    bool codeCompared = false,
+  }) async {
     final s = p._socket;
     final reader = FrameReader(s);
     try {
@@ -1254,6 +1350,13 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           'platform': platformName,
           'cert': identity.certPem,
           'port': _server?.port,
+          if (offer != null && offer.isNotEmpty)
+            'offer': {
+              'count': offer.length,
+              'bytes': offer.fold<int>(0, (a, f) => a + f.size),
+              'tid': transferIdFor(p.serverFp, offer),
+              'names': [for (final f in offer.take(3)) f.relativePath],
+            },
         }),
       );
       await s.flush();
@@ -1274,6 +1377,12 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         certPem: p.serverCertPem,
         host: p.host,
         port: (r['port'] as int?) ?? p.port,
+        // One tap = trusted on first use. "Verified" only after the code
+        // was compared or the QR code matched the key.
+        verified:
+            p.verifiedByQr ||
+            codeCompared ||
+            (trust.byFingerprint(p.serverFp)?.isVerified ?? false),
       );
       _refreshNearbyTrust();
       notifyListeners();
@@ -1392,21 +1501,47 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       _recordEnd(job);
       return;
     }
-    if (host == null) {
+    // 0.9.1: try every address we know (given, live announcement, last
+    // authenticated one) instead of failing on the first stale one.
+    final tries = _addressesFor(dev, host, port);
+    if (tries.isEmpty) {
       job.finish(
         JobState.failed,
-        'Address unknown. Make sure the other device is open nearby.',
+        'Address unknown. Open Isekai Drop on the other device, on the same Wi-Fi, and try again.',
       );
       _recordEnd(job);
       return;
     }
     SecureSocket? s;
     FrameReader? reader;
+    var stage = _SendStage.connect;
     try {
-      s = await _connectTrusted(dev, host, port ?? kDefaultPort);
+      Object? connectError;
+      String? usedHost;
+      var usedPort = kDefaultPort;
+      for (final (h, pt) in tries) {
+        try {
+          s = await _connectTrusted(dev, h, pt);
+          usedHost = h;
+          usedPort = pt;
+          break;
+        } on PairingException {
+          rethrow;
+        } catch (e) {
+          connectError = e;
+          final c = classifyError(e);
+          diagLog.add(
+            c.startsWith('connect_') ? 'send_$c' : 'send_connect_$c',
+            'Sending: connecting failed: ${explainErrorClass(c)}',
+          );
+          if (job.cancelRequested) break;
+        }
+      }
+      if (s == null) throw connectError ?? const SocketException('no address');
       final sock = s;
+      stage = _SendStage.answer;
       // Authenticated by TLS (key matched): now it is safe to remember.
-      _keep(trust.rememberAddress(dev.id, host, port ?? kDefaultPort));
+      _keep(trust.rememberAddress(dev.id, usedHost!, usedPort));
       reader = FrameReader(sock);
       job.onCancel = () {
         try {
@@ -1436,10 +1571,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       );
       if (answer['t'] == 'error') {
         job.refusedByPeer = true;
-        job.finish(
-          JobState.failed,
-          'The other device does not trust this device. Pair again.',
-        );
+        job.finish(JobState.failed, _peerErrorText(answer));
         return;
       }
       if (answer['t'] != 'accept') {
@@ -1473,6 +1605,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           }
         }
       }
+      stage = _SendStage.transfer;
       job.start();
       var resumed = 0;
       for (final i in skip) {
@@ -1504,7 +1637,11 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           final hasher = sendHasher = await fileHasher(f.size);
           var sent = 0;
           var sinceFlush = 0;
-          await for (final chunk in f.open()) {
+          await for (final chunk in f.open().handleError(
+            (Object e) => throw e is SourceReadException
+                ? e
+                : SourceReadException(classifyError(e)),
+          )) {
             if (job.paused) {
               await _flushOrClosed(sock);
               await job.waitIfPaused();
@@ -1552,7 +1689,9 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           if (r['t'] != 'file_ok') {
             job.finish(
               JobState.failed,
-              'The other device rejected the file: integrity check failed.',
+              r['t'] == 'file_bad'
+                  ? 'The other device rejected the file: integrity check failed. Tap Retry.'
+                  : _peerErrorText(r),
             );
             return;
           }
@@ -1568,18 +1707,26 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     } on PairingException catch (e) {
       job.finish(JobState.failed, e.message);
     } catch (e) {
+      final readFailed = e is SourceReadException || e is FileSystemException;
+      final cls = e is SourceReadException ? e.reason : classifyError(e);
+      final where = readFailed ? 'read_file' : stage.name;
       if (!job.cancelRequested) {
-        // Class only (no address); the job message below becomes Last error.
+        // Class only (no address or names); the job message becomes Last error.
         diagLog.add(
-          'send_${classifyError(e)}',
-          'Sending: ${explainErrorClass(classifyError(e))}',
+          cls.startsWith('${where}_') ? 'send_$cls' : 'send_${where}_$cls',
+          'Sending ($where): ${readFailed ? 'could not read the file on this device' : explainErrorClass(cls)}',
         );
       }
       job.finish(
         JobState.failed,
         job.cancelRequested
             ? 'Cancelled'
-            : 'Could not reach the other device, or the connection was lost.',
+            : readFailed
+            ? (e is FileSystemException && e.message.contains('changed')
+                  ? 'The file changed while it was being sent. Tap Retry.'
+                  : 'Could not read the file on this device ($cls). '
+                        'Pick the file again and send it again.')
+            : _sendFailureText(stage, cls, job),
       );
     } finally {
       for (final f in files) {
@@ -1591,6 +1738,72 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       await reader?.cancel();
       _recordEnd(job);
       notifyListeners();
+    }
+  }
+
+  List<(String, int)> _addressesFor(
+    TrustedDevice dev,
+    String? host,
+    int? port,
+  ) {
+    final out = <(String, int)>[];
+    void add(String? h, int? pt) {
+      if (h == null || h.isEmpty) return;
+      final e = (h, pt ?? kDefaultPort);
+      if (!out.contains(e)) out.add(e);
+    }
+
+    add(host, port);
+    for (final n in _nearby.values) {
+      if (n.deviceId == dev.deviceId && !n.fingerprintMismatch) {
+        add(n.host, n.port);
+      }
+    }
+    add(dev.lastHost, dev.lastPort);
+    return out;
+  }
+
+  String _peerErrorText(Map<String, dynamic> m) => switch (m['reason']) {
+    'write_failed' =>
+      'The other device could not save the file (its storage is full or failed). '
+          'Nothing unverified was kept there.',
+    'not_trusted' =>
+      'The other device does not trust this device any more. Pair again.',
+    _ => 'The other device stopped the transfer.',
+  };
+
+  String _sendFailureText(_SendStage stage, String cls, TransferJob job) {
+    switch (stage) {
+      case _SendStage.connect:
+        return switch (cls) {
+          'connect_refused' =>
+            'Could not connect: Isekai Drop is not open on the other device '
+                '(or it uses another port). Open it there and try again.',
+          'connect_timeout' || 'timeout' =>
+            'Could not connect: no answer. Check both devices are on the same '
+                'Wi-Fi (not guest Wi-Fi). A Windows PC must allow Isekai Drop in its firewall.',
+          'network_unreachable' =>
+            'Could not connect: this device has no route to the other one '
+                '(different network, or traffic goes over mobile data).',
+          'tls_handshake_failed' || 'tls_error' =>
+            'The other device refused the secure connection. It may not trust '
+                'this device any more (removed or reinstalled). Pair again.',
+          _ =>
+            'Could not connect to the other device (${explainErrorClass(cls)})',
+        };
+      case _SendStage.answer:
+        return switch (cls) {
+          'timeout' =>
+            'The other device did not answer in time (nobody accepted).',
+          _ =>
+            'The other device refused this device\'s secure certificate. '
+                'It may not trust this device any more, or one device\'s clock '
+                'is wrong. Check date and time on both, then pair again.',
+        };
+      case _SendStage.transfer:
+        return 'The connection was lost during the transfer '
+            '(${_mb(job.bytesDone)} of ${_mb(job.totalBytes)} MB). '
+            'Tap Retry to continue.';
     }
   }
 
@@ -1693,9 +1906,20 @@ class PairingSession {
   /// The other device's key matched the scanned QR code exactly.
   final bool verifiedByQr;
 
-  Future<TrustedDevice> confirm() async {
+  /// Sends the pairing request; the other device shows one
+  /// "Accept NAME?" question. With [offer], that question also says which
+  /// files are coming, and accepting it accepts them too (one-time).
+  /// [codeCompared]: this user compared [code] with the other screen.
+  Future<TrustedDevice> confirm({
+    List<SendSource>? offer,
+    bool codeCompared = false,
+  }) async {
     try {
-      return await _engine._clientConfirmPairing(this);
+      return await _engine._clientConfirmPairing(
+        this,
+        offer: offer,
+        codeCompared: codeCompared,
+      );
     } catch (e) {
       _engine.recordException('pair_confirm', e);
       rethrow;
@@ -1779,3 +2003,41 @@ Future<void> _flushOrClosed(Socket sock) => Future.any<void>([
     onError: (Object _) => throw const SocketException('Connection closed'),
   ),
 ]);
+
+enum _SendStage { connect, answer, transfer }
+
+/// Receiving: writing to this device's storage failed (not the network).
+class _WriteFailed implements Exception {
+  _WriteFailed(this.cause);
+  final Object cause;
+}
+
+/// One-time "this transfer is already accepted" from a one-tap pair+send.
+class _PreApproval {
+  _PreApproval(this.tid, this.until);
+  final String tid;
+  final DateTime until;
+}
+
+class _PairOffer {
+  _PairOffer(this.count, this.bytes, this.tid, this.names);
+  final int count;
+  final int bytes;
+  final String tid;
+  final List<String> names;
+
+  static _PairOffer? parse(Object? v) {
+    if (v is! Map) return null;
+    final c = v['count'];
+    final b = v['bytes'];
+    final t = v['tid'];
+    if (c is! int || c <= 0 || c > 10000 || b is! int || b < 0) return null;
+    if (t is! String || !RegExp(r'^[0-9a-f]{16,64}$').hasMatch(t)) return null;
+    final n = v['names'];
+    return _PairOffer(c, b, t, [
+      if (n is List)
+        for (final x in n.take(3))
+          if (x is String) sanitizeRelativePath(x),
+    ]);
+  }
+}

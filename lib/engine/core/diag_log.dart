@@ -102,6 +102,7 @@ String classifyError(Object e) {
         msg.contains('broken pipe')) {
       return 'connection_reset';
     }
+    if (msg.contains('connection closed')) return 'connection_closed';
     if (code == 13 ||
         code == 1 ||
         code == 10013 ||
@@ -109,6 +110,11 @@ String classifyError(Object e) {
       return 'permission_denied';
     }
     return 'socket_error';
+  }
+  if (e is FileSystemException) {
+    final code = e.osError?.errorCode;
+    if (code == 28 || code == 112) return 'disk_full';
+    return 'storage_error';
   }
   return e.runtimeType.toString();
 }
@@ -124,5 +130,8 @@ String explainErrorClass(String kind) => switch (kind) {
   'network_unreachable' => 'Network unreachable: this device has no route to that address (wrong network, or traffic goes over mobile data).',
   'connection_reset' => 'The other device closed the connection.',
   'permission_denied' => 'The system blocked the connection.',
+  'connection_closed' => 'The other device closed the connection.',
+  'disk_full' => 'The storage is full.',
+  'storage_error' => 'Storage error (no permission, or the file is gone).',
   _ => 'Connection error.',
 };

@@ -148,10 +148,20 @@ void main() {
   });
 
   group('trust states', () {
-    test('pairing makes both sides VERIFIED', () async {
+    test('one-tap pairing makes both sides TRUSTED (on first use), not '
+        'verified; comparing the code makes it VERIFIED', () async {
       await pair(a, b);
+      expect(a.engine.trustedDevices.single.status, TrustStatus.trusted);
+      expect(b.engine.trustedDevices.single.status, TrustStatus.trusted);
+      expect(
+        await a.engine.markDeviceVerified(a.engine.trustedDevices.single.id),
+        isTrue,
+      );
       expect(a.engine.trustedDevices.single.status, TrustStatus.verified);
-      expect(b.engine.trustedDevices.single.status, TrustStatus.verified);
+      // Pairing again with the same key keeps "Verified".
+      final again = await a.engine.beginPairing('127.0.0.1', b.port);
+      await again.confirm();
+      expect(a.engine.trustedDevices.single.status, TrustStatus.verified);
       expect(
         a.engine.codeFor(a.engine.trustedDevices.single),
         b.engine.codeFor(b.engine.trustedDevices.single),
@@ -223,7 +233,11 @@ void main() {
         reason: 'warned before approving',
       );
       expect(a.engine.trustedDevices, hasLength(1), reason: 'old key replaced');
-      expect(a.engine.trustedDevices.single.status, TrustStatus.verified);
+      expect(
+        a.engine.trustedDevices.single.status,
+        TrustStatus.trusted,
+        reason: 'new key: trusted again, not verified until code checked',
+      );
       expect(
         a.engine.trustedDevices.single.fingerprint,
         b2.identity.fingerprint,
@@ -311,7 +325,7 @@ void main() {
       expect(j.message, contains('different key'));
       expect(
         a.engine.trustedDevices.single.status,
-        TrustStatus.verified,
+        TrustStatus.trusted,
         reason: 'the real device must NOT be blocked by a spoofer',
       );
       expect(attacker.received(), isEmpty);
@@ -354,6 +368,7 @@ void main() {
   group('receive settings', () {
     test('auto-receive only for VERIFIED devices', () async {
       await pair(a, b);
+      await b.engine.markDeviceVerified(b.engine.trustedDevices.single.id);
       b.auto = true;
       final f = await rnd(src, 'v.bin', 2000);
       final dev = a.engine.trustedDevices.single;
