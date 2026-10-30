@@ -70,7 +70,12 @@ class SpeedSample {
 
 const Map<String, String> kSpeedLabels = {
   'raw_tcp': 'Network only (plain TCP, no encryption)',
-  'tls_lane': 'Encrypted, background thread (0.10.1 transfer path)',
+  'raw_tcp_4': 'Network only, 4 TCP streams',
+  'native_tcp': 'Network only, Android native code (no Dart)',
+  'native_tcp_4': 'Network only, Android native code, 4 streams',
+  'tls_lane': 'Encrypted, background thread, 1 stream (0.10.1 transfer path)',
+  'tls_lane_4':
+      'Encrypted, background thread, 4 streams (0.10.2 transfer path)',
   'tls_main': 'Encrypted, app main thread (old path)',
   'write_old': 'Write, 256 KiB pieces (old receive path)',
   'write_new': 'Write, 4 MiB blocks (0.10.1 receive path)',
@@ -80,13 +85,44 @@ const Map<String, String> kSpeedLabels = {
 };
 
 /// Platform hooks; the defaults work on every platform with plain Dart.
+/// 0.10.2: a TCP throughput probe outside Dart (Android: Java NIO).
+/// Only zeros travel; the receiving port takes [streams] connections that
+/// each start with the token (plus one index byte when streams > 1).
+abstract class NativeSpeedProbe {
+  /// Opens a receiving port. Returns (id, port).
+  Future<(int, int)> sinkStart(int streams, String token);
+
+  /// Waits until [expect] bytes arrived or all senders closed, then closes
+  /// the port. Note: receive buffer size when known.
+  Future<SpeedSample> sinkEnd(int id, String key, int expect, Duration wait);
+
+  Future<SpeedSample> send(
+    String host,
+    int port,
+    String token,
+    int streams,
+    int bytes,
+    Duration limit,
+    String key,
+  );
+}
+
 class SpeedProbes {
   const SpeedProbes({
     this.sourceFor,
     this.fileDigest,
     this.writeTarget,
     this.linkInfo,
+    this.awake,
+    this.native,
   });
+
+  /// 0.10.2: keeps Wi-Fi out of power save and the CPU awake while on
+  /// (Android). Returns a short note of what is held.
+  final Future<String?> Function(bool on)? awake;
+
+  /// 0.10.2: native TCP probe (Android), null elsewhere.
+  final NativeSpeedProbe? native;
 
   /// How a file is read when sending (Android: the native reader).
   final SendSource Function(File f)? sourceFor;
@@ -102,6 +138,85 @@ class SpeedProbes {
   /// Wi-Fi facts, no names or addresses: linkMbps, txMbps, rxMbps,
   /// frequencyMhz, transport, and direct* for a joined Fast direct link.
   final Future<Map<String, Object?>> Function()? linkInfo;
+}
+
+/// 0.10.2: what kind of network interface a name is (no addresses).
+String interfaceKind(String name) {
+  final n = name.toLowerCase();
+  if (n.startsWith('p2p')) return 'Wi-Fi Direct';
+  if (n.startsWith('ap') || n.startsWith('swlan') || n.contains('softap')) {
+    return 'hotspot';
+  }
+  if (n.startsWith('wlan') || n.startsWith('wlp') || n.startsWith('wl')) {
+    return 'Wi-Fi';
+  }
+  if (n.startsWith('rmnet') || n.startsWith('ccmni') || n.startsWith('wwan')) {
+    return 'mobile data';
+  }
+  if (n == 'lo' || n.startsWith('loopback')) return 'loopback';
+  if (n.startsWith('eth') || n.startsWith('en')) return 'Ethernet';
+  if (n.startsWith('tun') || n.startsWith('wg') || n.startsWith('ppp')) {
+    return 'VPN';
+  }
+  return 'other';
+}
+
+/// True for interfaces a Fast direct link uses (Wi-Fi Direct or hotspot).
+bool isDirectInterface(String name) {
+  final k = interfaceKind(name);
+  return k == 'Wi-Fi Direct' || k == 'hotspot';
+}
+
+/// Name of the local interface that owns [local] (the socket's own address),
+/// e.g. "p2p-wlan0-0" or "wlan0". Null when unknown. The address itself is
+/// never reported.
+Future<String?> interfaceNameFor(InternetAddress? local) async {
+  if (local == null) return null;
+  try {
+    if (local.isLoopback) return 'lo';
+    final list = await NetworkInterface.list(
+      includeLoopback: true,
+      includeLinkLocal: true,
+    );
+    for (final i in list) {
+      for (final a in i.addresses) {
+        if (a.address == local.address) return i.name;
+      }
+    }
+  } catch (_) {}
+  return null;
+}
+
+/// 0.10.2: warnings about one device's link facts (see [SpeedReport.linkText]).
+List<String> linkWarnings(
+  String who,
+  Map<String, Object?> l, {
+  required bool direct,
+}) {
+  final out = <String>[];
+  final iface = l['iface'];
+  if (direct && iface is String && !isDirectInterface(iface)) {
+    out.add(
+      '$who: the test connection used $iface (${interfaceKind(iface)}), '
+      'not the Fast direct link, so the data went through the router.',
+    );
+  }
+  final sta = l['frequencyMhz'] ?? l['staMhz'];
+  final dm = l['directMhz'];
+  if (direct &&
+      sta is num &&
+      dm is num &&
+      sta > 0 &&
+      dm > 0 &&
+      l['transport'] == 'wifi' &&
+      (sta - dm).abs() > 10) {
+    out.add(
+      '$who is on the router at $sta MHz and on the direct link at $dm MHz: '
+      'the Wi-Fi chip keeps switching between the two channels, which '
+      'often halves the speed or worse.',
+    );
+  }
+  return out;
 }
 
 Future<Map<String, Object?>> readLinkInfo(SpeedProbes p) async {
@@ -298,7 +413,10 @@ class SpeedReport {
   /// The slowest step of a real transfer from this device to the peer.
   String? get bottleneck {
     final steps = <(String, SpeedSample?)>[
-      ('the network/encryption', _find(network, 'tls_lane')),
+      (
+        'the network/encryption',
+        _find(network, 'tls_lane_4') ?? _find(network, 'tls_lane'),
+      ),
       ('reading on this device', _find(local, 'read_tx')),
       ('writing on the other device', _find(peerLocal, 'write_new')),
     ];
@@ -340,7 +458,14 @@ class SpeedReport {
       add('tx', l['directTxMbps']);
       add('rx', l['directRxMbps']);
       add('', l['directMhz'], 'MHz');
+      if (l['directRole'] is String) parts.add('${l['directRole']}');
+      if (l['directIface'] is String) parts.add('group ${l['directIface']}');
     }
+    final iface = l['iface'];
+    if (iface is String) {
+      parts.add('test connection on $iface (${interfaceKind(iface)})');
+    }
+    if (l['awake'] is String) parts.add('${l['awake']}');
     if (l['note'] is String) parts.add('(${l['note']})');
     return parts.isEmpty
         ? 'not available'

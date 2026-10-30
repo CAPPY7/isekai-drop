@@ -914,9 +914,40 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
 
   bool _speedBusy = false;
 
+  /// What the awake hook holds during a Speed test (shown in the report).
+  String? _speedAwake;
+
+  Future<void> _awake(bool on) async {
+    try {
+      final n = await speedProbes.awake?.call(on);
+      _speedAwake = on ? n : null;
+    } catch (_) {}
+  }
+
+  /// Tests: pretend to be an app without these Speed test features.
+  @visibleForTesting
+  List<String>? speedCapsForTest;
+
+  /// 0.10.2 Speed test features this app has; old apps send none.
+  List<String> get _speedCaps =>
+      speedCapsForTest ?? ['streams', if (speedProbes.native != null) 'native'];
+
+  static String _laneKey(bool raw, int streams) =>
+      '${raw ? 'raw_tcp' : 'tls_lane'}${streams > 1 ? '_$streams' : ''}';
+
   /// Live Wi-Fi facts for the Speed test (no names or addresses).
-  Future<Map<String, Object?>> _speedLink() async {
+  Future<Map<String, Object?>> _speedLink([Socket? sock]) async {
     final m = Map<String, Object?>.of(await readLinkInfo(speedProbes));
+    // 0.10.2: which interface the test connection really uses (name only).
+    if (sock != null) {
+      InternetAddress? local;
+      try {
+        local = sock.address;
+      } catch (_) {}
+      final name = await interfaceNameFor(local);
+      if (name != null) m['iface'] = name;
+    }
+    if (_speedAwake != null) m['awake'] = _speedAwake;
     final j = _joinedInfo;
     if (j != null) {
       m['directMbps'] ??= j.linkMbps;
@@ -925,7 +956,10 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       m['directMhz'] ??= j.frequencyMhz;
     }
     if (directHost?.active == true) {
-      m['note'] ??= 'this device hosts the Fast direct link; Android does not report its link speed';
+      m['directMhz'] ??= directHost?.current?.frequencyMhz;
+      if (m['directMbps'] == null) {
+        m['note'] ??= 'this device hosts the Fast direct link; Android does not report its link speed';
+      }
     }
     m.removeWhere((k, v) => v == null);
     return m;
@@ -951,6 +985,8 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     }
     _speedBusy = true;
     LaneServer? lane;
+    int? nativeId;
+    await _awake(true);
     try {
       final bytes = _clampInt(
         first['bytes'],
@@ -965,7 +1001,8 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         jsonFrame({
           't': 'speed_ok',
           'platform': platformName,
-          'link': await _speedLink(),
+          'link': await _speedLink(s),
+          'caps': _speedCaps,
         }),
       );
       await _flushOrClosed(s);
@@ -976,10 +1013,12 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         switch (m['t']) {
           case 'lane':
             final raw = m['raw'] == true;
-            final key = raw ? 'raw_tcp' : 'tls_lane';
+            final streams = _clampInt(m['streams'], 1, kLaneMaxStreams, 1);
+            final key = _laneKey(raw, streams);
             try {
               lane = await LaneServer.start(
                 raw: raw,
+                streams: streams,
                 bindAddress: bindAddress,
                 keys: raw
                     ? null
@@ -1016,12 +1055,56 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
               }
               ln.sinkEnd(n < 0 ? 0 : n);
               final r = await sinking.timeout(const Duration(seconds: 15));
-              res = SpeedSample(key, r.bytes, r.micros);
+              res = SpeedSample(
+                key,
+                r.bytes,
+                r.micros,
+                note: r.note == null ? null : 'receiver: ${r.note}',
+              );
             } catch (e) {
               res = SpeedSample.failed(key, 'failed (${classifyError(e)})');
             } finally {
               lane.close();
               lane = null;
+            }
+            s.add(jsonFrame({'t': 'result', 's': res.toJson()}));
+          case 'native':
+            // 0.10.2: the same zeros through native code (no Dart).
+            final streams = _clampInt(m['streams'], 1, kLaneMaxStreams, 1);
+            final key = 'native_tcp${streams > 1 ? '_$streams' : ''}';
+            final np = speedProbes.native;
+            final token = randomHex(16);
+            try {
+              if (np == null) throw const SpeedTestException('no_native');
+              final (id, port) = await np.sinkStart(streams, token);
+              nativeId = id;
+              s.add(
+                jsonFrame({'t': 'native_ready', 'port': port, 'token': token}),
+              );
+            } catch (_) {
+              s.add(jsonFrame({'t': 'native_ready', 'error': 'not_available'}));
+              break;
+            }
+            await _flushOrClosed(s);
+            SpeedSample res;
+            try {
+              final end = await reader.nextJson(
+                limit + const Duration(seconds: 25),
+              );
+              final n = end['n'];
+              if (end['t'] != 'native_end' || n is! int) {
+                throw const FormatException('Unexpected message');
+              }
+              res = await np.sinkEnd(
+                nativeId,
+                key,
+                n < 0 ? 0 : n,
+                const Duration(seconds: 15),
+              );
+            } catch (e) {
+              res = SpeedSample.failed(key, 'failed (${classifyError(e)})');
+            } finally {
+              nativeId = null;
             }
             s.add(jsonFrame({'t': 'result', 's': res.toJson()}));
           case 'main':
@@ -1055,7 +1138,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
               jsonFrame({
                 't': 'local_result',
                 's': [for (final x in list) x.toJson()],
-                'link': await _speedLink(),
+                'link': await _speedLink(s),
               }),
             );
           case 'bye':
@@ -1067,6 +1150,13 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       }
     } finally {
       lane?.close();
+      final id = nativeId;
+      if (id != null) {
+        speedProbes.native
+            ?.sinkEnd(id, 'native_tcp', 0, Duration.zero)
+            .ignore();
+      }
+      await _awake(false);
       _speedBusy = false;
     }
   }
@@ -1094,6 +1184,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     SecureSocket? s;
     FrameReader? reader;
     var route = LinkRoute.router;
+    await _awake(true);
     try {
       onStage?.call('connect');
       final tries = _addressesFor(dev, host, port);
@@ -1168,11 +1259,20 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       if (ok['link'] is Map) {
         peerLink = Map<String, Object?>.from(ok['link'] as Map);
       }
+      final caps = ok['caps'] is List ? (ok['caps'] as List) : const [];
+      final peerStreams = caps.contains('streams');
+      final peerNative = caps.contains('native');
       final peerHost = sock.remoteAddress.address;
-      Future<SpeedSample> laneStep(bool raw) async {
-        final key = raw ? 'raw_tcp' : 'tls_lane';
+      Future<SpeedSample> laneStep(bool raw, [int streams = 1]) async {
+        final key = _laneKey(raw, streams);
         onStage?.call(key);
-        sock.add(jsonFrame({'t': 'lane', 'raw': raw}));
+        sock.add(
+          jsonFrame({
+            't': 'lane',
+            'raw': raw,
+            if (streams > 1) 'streams': streams,
+          }),
+        );
         await _flushOrClosed(sock);
         final r = await rd.nextJson(const Duration(seconds: 20));
         if (r['t'] != 'lane_ready' ||
@@ -1184,12 +1284,14 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           );
         }
         LaneClient? c;
+        String? senderNote;
         var mine = SpeedSample.failed(key, 'could not connect');
         try {
           c = await LaneClient.connect(
             host: peerHost,
             port: r['port'] as int,
             token: r['token'] as String,
+            streams: streams,
             keys: raw
                 ? null
                 : LaneKeys(
@@ -1201,6 +1303,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           );
           final g = await c.generate(bytes, limit);
           mine = SpeedSample(key, g.bytes, g.micros);
+          senderNote = c.note;
         } catch (e) {
           mine = SpeedSample.failed(key, 'failed (${classifyError(e)})');
         }
@@ -1216,13 +1319,79 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         }
         final theirs = SpeedSample.fromJson(res['s']);
         // The receiver's count is what really arrived.
+        final note = [
+          ?theirs?.note,
+          if (senderNote != null) 'sender: $senderNote',
+        ].join('; ');
         return theirs != null && theirs.ok
-            ? SpeedSample(key, theirs.bytes, theirs.micros, note: theirs.note)
+            ? SpeedSample(
+                key,
+                theirs.bytes,
+                theirs.micros,
+                note: note.isEmpty ? null : note,
+              )
+            : (mine.ok ? mine : (theirs ?? mine));
+      }
+
+      // 0.10.2: the same zeros through native code on both ends.
+      Future<SpeedSample> nativeStep(int streams) async {
+        final key = 'native_tcp${streams > 1 ? '_$streams' : ''}';
+        onStage?.call(key);
+        final np = speedProbes.native!;
+        sock.add(jsonFrame({'t': 'native', 'streams': streams}));
+        await _flushOrClosed(sock);
+        final r = await rd.nextJson(const Duration(seconds: 20));
+        if (r['t'] != 'native_ready' ||
+            r['port'] is! int ||
+            r['token'] is! String) {
+          return SpeedSample.failed(
+            key,
+            'the other device could not open a test port',
+          );
+        }
+        SpeedSample mine;
+        try {
+          mine = await np.send(
+            peerHost,
+            r['port'] as int,
+            r['token'] as String,
+            streams,
+            bytes,
+            limit,
+            key,
+          );
+        } catch (e) {
+          mine = SpeedSample.failed(key, 'failed (${classifyError(e)})');
+        }
+        sock.add(jsonFrame({'t': 'native_end', 'n': mine.ok ? mine.bytes : 0}));
+        await _flushOrClosed(sock);
+        final res = await rd.nextJson(limit + const Duration(seconds: 40));
+        final theirs = SpeedSample.fromJson(res['s']);
+        return theirs != null && theirs.ok
+            ? theirs
             : (mine.ok ? mine : (theirs ?? mine));
       }
 
       network.add(await laneStep(true));
+      if (peerStreams) network.add(await laneStep(true, kLaneStreams));
+      if (speedProbes.native != null && peerNative) {
+        network.add(await nativeStep(1));
+        network.add(await nativeStep(kLaneStreams));
+      } else {
+        notes.add(
+          speedProbes.native == null
+              ? 'Native TCP rows run only when this device is an Android phone.'
+              : 'Native TCP rows skipped: the other device is not an Android phone with app 0.10.2 or newer.',
+        );
+      }
       network.add(await laneStep(false));
+      if (peerStreams) {
+        network.add(await laneStep(false, kLaneStreams));
+      } else {
+        notes.add(
+          'The other device has an app older than 0.10.2: 4-stream rows skipped.',
+        );
+      }
       onStage?.call('tls_main');
       sock.add(jsonFrame({'t': 'main'}));
       final zeros = Uint8List(kDataFrameBytes);
@@ -1274,6 +1443,12 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       notes.add(
         'Both devices ran their disk steps at the same time, as in a real transfer.',
       );
+      final myLink = await _speedLink(sock);
+      final isDirect = route != LinkRoute.router;
+      notes.addAll(linkWarnings('This device', myLink, direct: isDirect));
+      notes.addAll(
+        linkWarnings('The other device', peerLink, direct: isDirect),
+      );
       return SpeedReport(
         appVersion: appVersion,
         at: DateTime.now(),
@@ -1284,7 +1459,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         network: network,
         local: local,
         peerLocal: peerLocal,
-        link: await _speedLink(),
+        link: myLink,
         peerLink: peerLink,
         notes: notes,
       );
@@ -1292,6 +1467,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       s?.destroy();
       await reader?.cancel();
       await direct?.close(directLinks);
+      await _awake(false);
       _speedBusy = false;
     }
   }
