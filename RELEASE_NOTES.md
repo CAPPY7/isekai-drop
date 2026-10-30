@@ -1,4 +1,24 @@
-# Isekai Drop 0.9.0 (DRAFT release notes, test build)
+# Isekai Drop 0.9.1 (DRAFT release notes, test build)
+
+**Test build. Not a public release.** Real phones have NOT been tested by me (see "Not tested").
+
+## New in 0.9.1 (docs/AUDIT.md #31-#34)
+Report on 0.9.0: pairing is not user friendly, and sending failed at 0 B with "Could not reach the other device" even though the device showed Verified.
+- **Sending fixed (two causes).** (1) A new device key was valid only from the moment it was made; if the other phone's clock was a little behind, it refused the key when the send started. Keys made by 0.9.1 are valid from 2 days earlier. (2) On Android 11+ the app re-opened picked files in a way the system can refuse; it now reads them the official way (ContentResolver).
+- **Clear errors.** A failed send now says where it failed: could not connect (app closed / firewall / different network), the other device refused this device's key or a clock is wrong, could not read the file on this phone, the other device could not save it, or the connection was lost at X of Y MB. Diagnostics records the stage.
+- **One-tap pairing.** Tap the device; the other one asks once "Accept NAME?". Both remember each other. Comparing the code is optional (Trusted devices > Check code). See PRIVACY.md for the trade-off.
+- **Send without pairing first.** Pick files, choose a nearby device that is not paired; it asks once "NAME wants to send you N files - Accept?" and the files start right away. After that both are paired.
+- Sending tries every known address of the device.
+
+### Install note
+Install over 0.9.0 (same test key, higher version number): **no uninstall needed**, pairings are kept. Update **both** devices (a 0.9.0 device still works but asks twice for pair-and-send). If sending still fails, check Settings > Date & time is set to automatic on both phones, then send the Diagnostics report (it now says which stage failed).
+
+### Not tested (honest list)
+- Real phones (one-tap pairing, sending, the Android file-reading fix).
+- Windows PC, the Android emulator (box KVM fault).
+- What WAS tested: test/one_tap_test.dart (11 tests: one-tap pair, unpaired send with one accept, both directions >10 MB, expiry and scope of the pre-approval, read/write/clock errors) and a real two-network-stack e2e (netns): one-tap send to an unpaired device (13 MB, one question), reply 14.5 MB, then a normal send 12.1 MB; all sha256 identical.
+
+# Isekai Drop 0.9.0 (earlier draft notes)
 
 **Test build. Not a public release.** Nothing here has been benchmarked against LocalSend yet. Real phones and a real Windows PC have NOT been tested by me (see "Not tested" below).
 

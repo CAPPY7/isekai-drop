@@ -195,3 +195,11 @@ file before every phase. Stop after each phase and wait for "next".
   sudo ip netns del isekai-e2e
   ```
   Use `--no-pub` inside the namespace (no DNS there). The peer test can also serve an emulator (10.0.2.2:47820, `adb forward`).
+
+## Phase 7f notes (2026-10-30, 0.9.1)
+- "Sending fails at 0 B although Verified" (0.9.0): (1) Identity.generate used notBefore = now; a peer with a slower clock fails the mTLS client-cert check (reproduced: test/one_tap_test "clock skew"). Keep notBefore = now - 2 days. Existing identities are not regenerated. (2) Android read picked files via /proc/self/fd re-open; replaced by MainActivity openRead/readChunk/closeRead (ContentResolver stream, own single thread `readIo`) + send_source.dart chunkedPlatformRead. Never go back to fd paths.
+- Send errors are stage-specific (_SendStage connect/answer/transfer, read_file); diag kinds `send_<stage>_<class>`, `receive_write_<class>`; the receiver sends `{'t':'error','reason':'write_failed'}` when it cannot save. Never show the generic "could not reach" text again for a non-network failure.
+- _runSend tries all known addresses (given, live nearby with the same id, lastHost).
+- Pairing is TOFU: pairing gives TRUSTED on both sides; VERIFIED only via QR or code check. Never downgrade a Verified device on re-pair (done at the call sites, not in TrustStore.addTrusted). Auto-receive stays Verified-only.
+- `pair_req.offer` + `_preApproved` (one-time, fingerprint + tid, `preApprovalTtl` 3 min) = one question for "pair and send". engine.sendToNearby / quickPair; UI pairing_flow.dart sendToNearbyFlow / startPairingFlow(peerName:), shell.dart "Accept NAME?" dialog.
+- e2e: default client mode is one-tap (`sendToNearby` to the unpaired peer); `E2E_MODE=classic` for the old path; `E2E_SEND_FILE2` (client) + `E2E_EXPECT2` (peer) add a send after pairing.

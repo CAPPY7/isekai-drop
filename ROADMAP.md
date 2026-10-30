@@ -115,6 +115,15 @@ Owner: "This doesn't work... decide what's best, remove or add things and make t
 - [ ] Android emulator e2e (blocked: box KVM fault) - NOT TESTED
 - [ ] Owner tests on phones + Windows PC (NOT TESTED)
 
+## Phase 7f - Sending works, one-tap pairing (0.9.1)
+Owner on 0.9.0: "Matching the device is still buggy and not user friendly it should be one click pair... the sending is not working even if device is verified" (send failed at 0 B: "Could not reach the other device").
+- [x] Root cause 1 (reproduced): new certificates were valid only from "now"; a phone whose clock is a bit behind rejected them during the send handshake. Now valid from 2 days ago (AUDIT #31)
+- [x] Root cause 2 (code review, Android 11+): picked files were re-opened via /proc/self/fd, which scoped storage can refuse. Now read through ContentResolver (#32)
+- [x] Stage-specific send/receive errors in the screen and Diagnostics (#33)
+- [x] One-tap pairing (TOFU), optional code check, send to an unpaired nearby device with ONE accept (#34)
+- [x] Tests: test/one_tap_test.dart (11), netns e2e one-tap + both directions, 12-14.5 MB
+- [ ] Real phones (NOT TESTED)
+
 ## Phase 8 - Fix security, compatibility, performance, usability
 - [ ] Security tests for all acceptance tests
 - [ ] Real release key (never committed)

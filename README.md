@@ -20,7 +20,7 @@ Speed: no speed is promised. Shown speeds are measured live. Real results depend
 The repo is **private**, so other people can't open the release page. Choose one:
 1. **Send the file yourself** (easiest): download the APK (or the Windows/Mac/Linux zip) on your device, then share it with them through any messenger or cloud drive. They install it as in "Install on Android" from step 4.
 2. **Add them as GitHub collaborators** (Repo > Settings > Collaborators). They need a GitHub account. This is a repo settings change; only you can do it.
-Tell them: the app is a test version signed with a test key. They must pair with you by comparing the 16-digit code (or scanning your QR code) and should only accept files from people they know.
+Tell them: the app is a test version signed with a test key. Pairing is one tap: they tap your device and you tap Accept (comparing the 16-digit code or scanning the QR code is optional but safer on shared Wi-Fi, see PRIVACY.md). They should only accept files from people they know.
 When the real release key arrives (docs/RELEASE_SIGNING.md), everyone has to **uninstall the test app once** and install the new one. Pairings must then be made again.
 
 Earlier phases: Phase 3 had real, encrypted sending on the same Wi-Fi or hotspot with code pairing and approval; Phase 4 added folders, pause/resume, queue, QR and hotspot options.

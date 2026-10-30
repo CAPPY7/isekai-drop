@@ -18,6 +18,17 @@ fingerprint, so your other devices can find it. Files and file names are
 only ever sent, encrypted, to a device you paired and only after the receiver
 accepts. Logs contain no file names or contents.
 
+## Pairing: one tap, and what that means (0.9.1)
+Pairing is one tap: the other device asks "Accept NAME?" and both devices
+remember each other's key. Comparing the 16-digit code is **optional**.
+The trade-off, honestly: if you do not compare the code (or pair by QR
+code), someone on the same Wi-Fi who is actively attacking at the moment of
+that **first** pairing could pretend to be the other device. Later
+connections are safe from this because the keys are remembered and checked.
+Devices paired without the check show "Paired (code not checked)";
+Trusted devices > Check code makes them "Verified". Automatic receiving
+works only for Verified devices. On public or shared Wi-Fi, compare the code.
+
 ## QR scanning on Android (Google ML Kit)
 The QR scanner on Android uses Google's ML Kit (chosen by the owner). Images
 from the camera are processed only on the phone; ML Kit does not send them

@@ -37,16 +37,30 @@ No home-made cryptography: TLS is BoringSSL inside Flutter/Dart (`dart:io`
    time; a second one gets `pair_denied`/`busy`. Without `pair_hello` the
    10 s limit applies (0.8.0 and older could not pair if A's user needed
    more than 10 s). 0.8.0 servers reject `pair_hello`: update both devices.
-2. A shows a 16-digit code = SHA-256("isekai-drop-pairing-v1|fp1|fp2")
-   (fingerprints sorted) → first 8 bytes mod 10^16. A's user taps
-   "Codes match - pair"; B then shows the code and asks its user, who
-   approves only if it is the same.
-3. A sends `pair_req` with its certificate. B shows the same code
-   (computed from its own fingerprint and A's certificate) and asks its user.
-4. If B approves, B saves A as trusted and replies `pair_ok`; A saves B.
-5. A device in the middle would produce different codes on the two screens.
-   16 digits (~53 bits) make forcing a match impractical within the 2-minute
-   approval window.
+2. Both devices can compute a 16-digit code = SHA-256("isekai-drop-pairing-v1|fp1|fp2")
+   (fingerprints sorted) → first 8 bytes mod 10^16.
+3. 0.9.1 one-tap: A sends `pair_req` with its certificate AT ONCE (no
+   button on A). B asks its user ONE question, "Accept NAME?", and shows
+   the code small as an optional check. Older versions asked A's user to
+   tap "Codes match" first.
+   `pair_req` may carry `offer` = `{count, bytes, tid, names[<=3]}` when A
+   wants to send files right away ("send to a nearby device that is not
+   paired"). B then asks "NAME wants to send you N files (X MB) - Accept?".
+   If B accepts, B remembers a one-time pre-approval for A's key and that
+   exact transfer id `tid` (see transferIdFor) for 3 minutes; the following
+   `offer` with that tid starts without a second question. A different
+   tid, a second send, or a later send asks normally.
+4. If B approves, B saves A as **trusted** and replies `pair_ok`; A saves B
+   as trusted. **Verified** only if A scanned B's QR code (key matched) or
+   the user compared the code (Trusted devices > Check code). Re-pairing
+   never downgrades an already Verified device.
+5. Trust on first use (TOFU): if nobody compares the code, a device in the
+   middle on the same network during that FIRST pairing could pose as the
+   other device. After pairing the keys are pinned, so a later attacker is
+   refused. Comparing the code (or QR pairing) rules this out: a device in
+   the middle would produce different codes on the two screens; 16 digits
+   (~53 bits) make forcing a match impractical. Auto-receive works only
+   for Verified devices.
 
 ## Sessions (every connection after pairing)
 - Mutual TLS: A presents its certificate. B's TLS context trusts **only**
