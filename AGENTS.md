@@ -254,3 +254,14 @@ file before every phase. Stop after each phase and wait for "next".
 - CAPPY7/isekai-drop is public. Do not write "private repo / log in to download" in docs.
 - The committed dev keystore is therefore public (AUDIT #35): recommend release-key signing once the owner re-adds the 4 secrets; do not change signing without that.
 - Windows stays unsigned (no paid signing, Store or SignPath for now). Docs: SmartScreen > More info > Run anyway; Smart App Control may block it -> turn SAC off. Never add a SAC bypass.
+
+## Phase 7l notes (2026-10-30, 0.11.0 UI spec + Windows speed)
+- UI spec: docs/UI_SPEC_0.11.md. Tokens in lib/ui/theme/design_tokens.dart (IdSpacing, IdRadii, IdLayout.minTouchTarget/maxContentWidth, IdStatusColors). Empty states use `EmptyLine` (one row), not `StateMessage` cards.
+- Onboarding: `settings.onboardingDone` (pref `onboarding_done`); IsekaiDropApp(showOnboarding:) defaults to off under FLUTTER_TEST so old widget tests see the shell.
+- NetworkStatusLine does not load under FLUTTER_TEST unless `load:` is given (HomeScreen networkLoad).
+- FilesScreen(initialFiles:) is @visibleForTesting (pickers need a platform).
+- shell_nav.dart `shellTabRequest` switches tabs from pushed screens (Send more).
+- Transfer screen: tests must create the engine in setUp (real file IO inside testWidgets hangs).
+- Route modes: settings.routeMode 'auto' | 'router' | 'direct'; engine `routeMode` null = 0.10 behaviour. RouteStats (lib/engine/direct/route_choice.dart, route_stats.json) stores only MB/s per device id and route; decision in autoRouteSkip(); reasons 'auto_*' in explainDirectError.
+- Windows link: lib/engine/windows_link.dart parses netsh wlan show interfaces (never SSID/BSSID) and powercfg; read-only, nothing is changed on the PC.
+- PendingRequest has no device id, so per-device "Always allow" needs an engine change (not done).

@@ -2,7 +2,7 @@ import '../engine/transfer_engine.dart';
 
 /// App version shown in Diagnostics and the copied report. A test checks it
 /// matches pubspec.yaml.
-const kAppVersion = '0.10.3';
+const kAppVersion = '0.11.0';
 
 String _two(int v) => v.toString().padLeft(2, '0');
 

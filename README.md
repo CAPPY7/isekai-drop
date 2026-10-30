@@ -14,6 +14,8 @@ A free, private app for sending files **directly** between your own devices
 | macOS | Build from Actions (unsigned) | UDP + Bonjour | yes | Gatekeeper blocks the first start: right-click > Open, or System Settings > Privacy & Security > Open Anyway. Local Network permission on macOS 15+. NOT TESTED on a Mac. |
 | Linux x64 | tar.gz from Actions | UDP + Bonjour (browse) | UDP only | Needs GTK 3 and libsecret. Without an unlocked keyring the device key is stored in a private file (mode 600) instead. Open TCP 47820 and UDP 47821 in the firewall. Tested only headless on the build box. |
 
+0.11.0: simpler screens (3-step Send, QR first on Connect, short Settings, a first-start intro) and an **Auto (fastest)** route choice; see RELEASE_NOTES.md.
+
 Speed: no speed is promised. Shown speeds are measured live. Real results depend on your devices and Wi-Fi.
 
 ## Friends and family: how to give them the app
@@ -29,11 +31,11 @@ Earlier phases: Phase 3 had real, encrypted sending on the same Wi-Fi or hotspot
 
 ## Send a file between two devices (quick guide)
 1. Install and open Isekai Drop on both devices. Put both on the same Wi-Fi.
-2. On device A tap **Connect**. Device B should appear under "Found
-   automatically". Tap it. (If not: type B's address shown on B's Connect page.)
+2. On device A tap **Connect**. Scan B's QR code, or tap B when it appears
+   in the list. (Address and port are under **Advanced**.)
 3. Both screens show a 16-digit code. If they match, tap **Codes match** on A
    and **approve** on B.
-4. On A tap **Send**, **Pick files**, choose the files, tap **Send to B**.
+4. On A tap **Send**: 1 **Pick files**, 2 pick B, 3 tap **Send** at the bottom.
 5. On B tap **Accept**. (No router? See Connect > "No Wi-Fi router?".) Received files go to **Downloads/Isekai Drop** (Android)
    or **Downloads/Isekai Drop** folder (Windows/Mac/Linux).
 

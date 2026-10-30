@@ -1,3 +1,62 @@
+# Isekai Drop 0.11.0 (DRAFT release notes, test build)
+
+## What changed: easier screens (docs/UI_SPEC_0.11.md)
+- **First start:** 3 short slides (open on both devices, same Wi-Fi, pick
+  files and send). Skip any time; shown once (also once after updating).
+- **Home:** Wi-Fi status at the top ("Wi-Fi · 5 GHz", a warning on 2.4 GHz,
+  "Ethernet", "No network"). One big **Send** and one **Connect a device**
+  button. Empty sections take one line or are hidden.
+- **Searching:** a small radar pulse instead of a still icon. After 8 s a
+  hint with 3 steps and **Scan QR** / **Search again**.
+- **Send:** three steps: 1 pick files, 2 pick a device, 3 the **Send**
+  button, which stays at the bottom and works only when both are chosen.
+- **Connect:** QR code first. Address, port and key fingerprint are under
+  **Advanced** (closed).
+- **Settings:** groups (Appearance, This device, Receiving, Connection,
+  Security, Advanced). Each switch has one line; the rest is behind an (i)
+  button. Theme defaults to **System**. The device name defaults to the
+  phone model (e.g. "OnePlus 9").
+- **Fast direct:** the new default is **Auto (fastest)** (see below), with
+  **Allow** right next to it when a permission is missing. Choices: Auto,
+  Router only, Fast direct always.
+- **Transfer screen:** file name, big percentage, live speed, time left, a
+  small speed graph, a route chip ("Router · 5 GHz"), large **Pause** and
+  **Cancel** (Cancel asks first).
+- **Finished:** check mark, file names, average speed, **Open** / **Show in
+  folder** (PCs), **Share** (iPhone), **Send more**.
+- **Errors:** one plain sentence, one suggested fix, **Retry**; codes only
+  under **Details**.
+- **Receive prompt:** sender, file count and size, big **Accept** and
+  **Decline**.
+- **Accessibility:** 48 dp touch targets, text contrast at least 4.5:1 in
+  both themes, works at 200% text size on 320 dp phones, TalkBack labels
+  (progress, route, network, QR, steps), icons next to colours, "reduce
+  motion" turns off the pulse, chart animation and page fades. Max content
+  width 600 dp. Haptics on send, finish and error.
+
+## Speed: Windows -> Android (separate engine changes)
+- **Diagnostics on Windows** now shows the Wi-Fi link (standard, band,
+  channel, receive/send rate, signal; never the network name), whether the
+  PC uses Ethernet, and the adapter's power saving and roaming settings.
+  The Speed test report includes the same link line.
+- **Auto (fastest)** route for big sends to Android phones: the first big
+  send to a phone uses the router and measures it; Fast direct is tried
+  only if the router was slower than 20 MB/s and kept only if it was clearly
+  faster. The reason is shown on the transfer and in Diagnostics. Only
+  speeds are stored (route_stats.json, this device only).
+- A PC still cannot join a phone's Fast direct link by itself (needs the
+  manual "Join from a PC" steps). See docs/SPEED.md.
+
+## Known limits / NOT TESTED
+- NOT TESTED on real phones or PCs: every screen above, haptics, TalkBack,
+  the Windows link report, Open / Show in folder, the Auto route.
+- Not done: "Always allow this device" on the receive prompt (needs an
+  engine change; use Settings > Auto-receive from verified devices), Open /
+  Show in folder on Android, list-item appear animations, automatic Fast
+  direct from Windows.
+- Windows still not code-signed; Android APKs are signed with the public test
+  key (README "Security note").
+
 # Isekai Drop 0.10.3 (DRAFT release notes, test build)
 
 ## What changed

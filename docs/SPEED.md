@@ -118,3 +118,42 @@ lane only after the server reports its result. 40 runs in a row passed.
 ## NOT TESTED
 Everything on phones: the lane on ARM, the MediaStore test write, link speed
 readings, Fast direct during the test, and any real-world gain.
+
+## 0.11.0: Windows -> Android at 6-8 MB/s (investigation)
+Owner report: Windows PC on 5 GHz Wi-Fi -> Android phone, 6-8 MB/s. The PC
+and the phone both talk to the router, so every byte crosses the air twice
+on the same channel ("2 hops"). Android -> Android over the router measured
+~6.9 MB/s plain TCP in 0.10.2, so the same ceiling is expected here.
+
+What the code does on Windows (checked, not changed): 64 KiB reads, 4 TLS
+lane streams, tcpNoDelay on, socket buffers left to Windows autotuning.
+Windows Defender scans writes only on a PC that receives, so it does not
+slow a PC that sends.
+
+What 0.11.0 adds to find the cause (read-only, nothing is changed on the PC):
+- Diagnostics on Windows: Wi-Fi standard, band, channel, receive/send rate,
+  signal (`netsh wlan show interfaces`, never the network name), Ethernet or
+  not, and the adapter power saving mode and roaming aggressiveness
+  (`powercfg` / adapter settings, when Windows reports them).
+- The Speed test (Diagnostics > Speed test, from the PC to the phone) prints
+  the same link line, so a low number can be matched to the link.
+- Auto (fastest) route: measured per device, see RELEASE_NOTES. On Windows it
+  changes nothing yet, because a PC cannot join a phone's Fast direct link
+  automatically (Android-only API). Doing that would drop the PC's internet
+  and the control connection while joined and needs a protocol change, so it
+  is not in 0.11.0.
+
+Likely bottleneck: the phone's Wi-Fi link to the router plus 2-hop
+same-channel airtime. What helps, best first:
+1. PC on **Ethernet** to the router (one Wi-Fi hop instead of two).
+2. Manual Fast direct (one hop, no router): on the phone Connect > Fast
+   direct > Start fast link; on the PC Connect > Fast direct > "Join a
+   phone's fast link" (or "Let a phone join this PC" with Windows Mobile
+   Hotspot). The PC's internet may be off while joined.
+3. Phone close to the router on 5 GHz; adapter power saving "Maximum
+   performance" on the PC (shown in Diagnostics).
+
+Windows in another language: netsh/powercfg labels are matched in English,
+so the values then show "not available".
+
+NOT TESTED: all of this on a real PC and phone. No new Windows numbers yet.

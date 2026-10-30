@@ -164,6 +164,15 @@ Owner on 0.10.1: plain TCP 6.9, TLS 7.1/8.8 MB/s; disk/hash 121-312 MB/s -> netw
 - [x] Stays unsigned (owner decision); Smart App Control documented (docs/WINDOWS_INSTALL.md)
 - [ ] Install on a real Windows 11 PC (NOT TESTED)
 
+## Phase 7l - Easier screens + Windows speed findings (0.11.0)
+- [x] UI spec docs/UI_SPEC_0.11.md items 1-26 (see RELEASE_NOTES for the list and what was not done)
+- [x] Tests: onboarding, empty states, Send steps, 200% text at 320 dp, TalkBack labels, contrast, transfer/finished/error views
+- [x] Windows Wi-Fi link + Ethernet + adapter power saving / roaming in Diagnostics and the Speed test
+- [x] Auto (fastest) route from measured per-device speeds; route shown on the transfer
+- [ ] "Always allow this device" on the receive prompt (engine change)
+- [ ] Open / Show in folder on Android (native intent + FileProvider)
+- [ ] Owner Speed test Windows -> Android with the new link line (NOT TESTED)
+
 ## Phase 8 - Fix security, compatibility, performance, usability
 - [ ] Security tests for all acceptance tests
 - [ ] Real release key (never committed). URGENT since the repo became PUBLIC (2026-10-30): the committed dev keystore `android/app/isekai-drop-dev.jks` is public, so dev-signed APKs can be imitated. Move CI to the release key once the owner re-adds the 4 signing secrets (docs/RELEASE_SIGNING.md).
