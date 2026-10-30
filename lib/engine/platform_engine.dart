@@ -278,6 +278,8 @@ Future<IsekaiEngine> createPlatformEngine(
             fileDigest: androidFileSha256,
             writeTarget: _androidSpeedWrite,
             linkInfo: () => _androidLinkInfo(directLinks),
+            awake: _androidAwake,
+            native: const _AndroidNativeSpeed(),
           )
         : const SpeedProbes(linkInfo: _desktopLinkInfo),
     secureStorageNote: note,
@@ -461,7 +463,88 @@ Future<Map<String, Object?>> _androidLinkInfo(AndroidDirectLinks? d) async {
   if (j['txMbps'] != null) out['directTxMbps'] = j['txMbps'];
   if (j['rxMbps'] != null) out['directRxMbps'] = j['rxMbps'];
   if (j['mhz'] != null) out['directMhz'] = j['mhz'];
+  if (j['staMhz'] != null) out['staMhz'] = j['staMhz'];
+  if (j['role'] != null) out['directRole'] = j['role'];
+  if (j['iface'] != null) out['directIface'] = j['iface'];
   return out;
+}
+
+/// 0.10.2: Wi-Fi lock + CPU wake lock for the Speed test.
+Future<String?> _androidAwake(bool on) async {
+  try {
+    return await _android.invokeMethod<String>('transferAwake', {
+      'on': on,
+      'reason': 'speed',
+    });
+  } catch (_) {
+    return null;
+  }
+}
+
+/// 0.10.2: Java NIO TCP probe (MainActivity / NativeSpeed.kt).
+class _AndroidNativeSpeed implements NativeSpeedProbe {
+  const _AndroidNativeSpeed();
+
+  static String _kib(Object? v) =>
+      v is num && v > 0 ? '${(v / 1024).round()} KiB' : 'unknown';
+
+  @override
+  Future<(int, int)> sinkStart(int streams, String token) async {
+    final m = await _android.invokeMapMethod<String, Object?>(
+      'nativeSinkStart',
+      {'streams': streams, 'token': token},
+    );
+    final id = m?['id'], port = m?['port'];
+    if (id is! int || port is! int) throw const FormatException('no port');
+    return (id, port);
+  }
+
+  @override
+  Future<SpeedSample> sinkEnd(
+    int id,
+    String key,
+    int expect,
+    Duration wait,
+  ) async {
+    final m = await _android.invokeMapMethod<String, Object?>('nativeSinkEnd', {
+      'id': id,
+      'expect': expect,
+      'waitMs': wait.inMilliseconds,
+    });
+    return SpeedSample(
+      key,
+      (m?['bytes'] as num?)?.toInt() ?? 0,
+      (m?['micros'] as num?)?.toInt() ?? 0,
+      note:
+          'receiver: ${m?['streams'] ?? '?'} streams, receive buffer ${_kib(m?['rcvBuf'])}',
+    );
+  }
+
+  @override
+  Future<SpeedSample> send(
+    String host,
+    int port,
+    String token,
+    int streams,
+    int bytes,
+    Duration limit,
+    String key,
+  ) async {
+    final m = await _android.invokeMapMethod<String, Object?>('nativeSend', {
+      'host': host,
+      'port': port,
+      'token': token,
+      'streams': streams,
+      'bytes': bytes,
+      'limitMs': limit.inMilliseconds,
+    });
+    return SpeedSample(
+      key,
+      (m?['bytes'] as num?)?.toInt() ?? 0,
+      (m?['micros'] as num?)?.toInt() ?? 0,
+      note: 'sender buffer ${_kib(m?['sndBuf'])}',
+    );
+  }
 }
 
 Future<Map<String, Object?>> _desktopLinkInfo() async {

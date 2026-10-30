@@ -66,12 +66,16 @@ class AndroidDirectLinks implements DirectLinkPlatform {
 
   /// 0.10.1 Speed test: speeds of the joined Fast direct link right now
   /// (Android 12+; empty when not joined or not reported).
-  Future<Map<String, int>> linkNow() async {
+  /// Speeds/channels (positive ints) plus 0.10.2 "role" and "iface"
+  /// (group interface name). No names of networks, no addresses.
+  Future<Map<String, Object>> linkNow() async {
     try {
       final m = await _ch.invokeMapMethod<String, Object?>('linkNow') ?? {};
       return {
         for (final e in m.entries)
-          if (e.value is int && (e.value as int) > 0) e.key: e.value as int,
+          if ((e.value is int && (e.value as int) > 0) ||
+              ((e.key == 'role' || e.key == 'iface') && e.value is String))
+            e.key: e.value!,
       };
     } catch (_) {
       return const {};
