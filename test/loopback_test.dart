@@ -25,6 +25,7 @@ class Node {
     String name, {
     Identity? identity,
     ReceiveFinalizer? finalizer,
+    Future<String> Function(File f)? fileDigest,
   }) async {
     final root = await Directory.systemTemp.createTemp('isekai_$name');
     final inbox = Directory(p.join(root.path, 'inbox'));
@@ -38,6 +39,7 @@ class Node {
       platformName: 'linux',
       tempDir: inbox,
       finalizer: finalizer ?? directoryFinalizer(inbox),
+      fileDigest: fileDigest,
       port: 0,
       bindAddress: InternetAddress.loopbackIPv4,
       enableDiscovery: false,

@@ -213,10 +213,20 @@ class TransferJob extends ChangeNotifier {
     bytesDone += n;
     final now = _clock.elapsedMilliseconds;
     _lastProgressMs = now;
+    // 0.9.2: at most one speed sample per 50 ms (was one per chunk, which
+    // at high speed meant thousands of list shifts per second).
+    if (_samples.isNotEmpty && now - _samples.last.$1 < 50) {
+      _samples[_samples.length - 1] = (_samples.last.$1, bytesDone);
+      return _maybeNotify();
+    }
     _samples.add((now, bytesDone));
     while (_samples.length > 2 && now - _samples.first.$1 > 2000) {
       _samples.removeAt(0);
     }
+    _maybeNotify();
+  }
+
+  void _maybeNotify() {
     final t = DateTime.now();
     if (t.difference(_lastNotify).inMilliseconds >= 150) {
       _lastNotify = t;

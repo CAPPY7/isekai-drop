@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
@@ -62,6 +63,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     required this.platformName,
     required this.tempDir,
     required this.finalizer,
+    this.fileDigest,
     this.port = kDefaultPort,
     this.bindAddress,
     this.enableDiscovery = true,
@@ -187,6 +189,11 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   final String platformName;
   final Directory tempDir;
   final ReceiveFinalizer finalizer;
+
+  /// 0.9.2: if set, received files are checked by hashing the finished
+  /// temp file with this (Android: native SHA-256, far faster than the
+  /// pure-Dart one) instead of hashing in Dart while receiving.
+  final Future<String> Function(File file)? fileDigest;
   final int port;
   final InternetAddress? bindAddress;
   final bool enableDiscovery;
@@ -1072,6 +1079,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     final batch = state != null ? store!.batchFor(state) : ReceiveBatch();
     File? temp;
     RandomAccessFile? out;
+    _OverlapWriter? sink;
     FileHasher? hasher;
     var keepPartial = false;
     try {
@@ -1091,18 +1099,26 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           throw const FormatException('Unexpected message');
         }
         hasher?.dispose();
-        hasher = await fileHasher(sizes[i]);
+        final digestFile = fileDigest;
+        hasher = digestFile != null ? _NoHasher() : await fileHasher(sizes[i]);
         if (state != null) {
           temp = store!.partFile(state.key);
           if (offset > 0) {
             // Re-hash what is already on disk; the final check covers the
-            // whole file from byte 0.
-            var n = 0;
-            await for (final c in temp.openRead(0, offset)) {
-              await hasher.add(c);
-              n += c.length;
+            // whole file from byte 0. (With [fileDigest] the whole file is
+            // hashed at the end instead.)
+            if (digestFile == null) {
+              var n = 0;
+              await for (final c in temp.openRead(0, offset)) {
+                await hasher.add(c);
+                n += c.length;
+              }
+              if (n != offset) {
+                throw const FileSystemException('Partial changed');
+              }
+            } else if (await temp.length() != offset) {
+              throw const FileSystemException('Partial changed');
             }
-            if (n != offset) throw const FileSystemException('Partial changed');
             out = await temp.open(mode: FileMode.append);
           } else {
             await store.dir.create(recursive: true);
@@ -1120,6 +1136,9 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           }
         }
         var got = offset;
+        // 0.9.2: disk writes overlap with reading the next frames and are
+        // grouped into 1 MiB writes (was: wait for every 64 KiB write).
+        final w = sink = _OverlapWriter(out);
         while (got < sizes[i]) {
           // Pausing here stops reading; TCP then makes the sender wait.
           await job.waitIfPaused();
@@ -1145,19 +1164,26 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           if (got + fr.payload.length > sizes[i]) {
             throw const FormatException('More data than announced');
           }
-          try {
-            await out.writeFrom(fr.payload);
-          } catch (e) {
-            throw _WriteFailed(e);
-          }
+          await w.add(fr.payload);
           await hasher.add(fr.payload);
           got += fr.payload.length;
           job.addBytes(fr.payload.length);
         }
+        await w.finish();
+        sink = null;
         final end = await _nextControl(reader, job);
         await out.close();
         out = null;
-        final actual = await hasher.close();
+        final String actual;
+        if (digestFile != null) {
+          try {
+            actual = await digestFile(temp);
+          } catch (e) {
+            throw _WriteFailed(e);
+          }
+        } else {
+          actual = await hasher.close();
+        }
         hasher = null;
         if (end['t'] != 'file_end' ||
             end['i'] != i ||
@@ -1229,6 +1255,10 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       );
     } finally {
       hasher?.dispose();
+      try {
+        // Keep what was received (resume continues after it).
+        await sink?.finish();
+      } catch (_) {}
       try {
         await out?.close();
       } catch (_) {}
@@ -1638,7 +1668,11 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
               if (offset > 0) 'offset': offset,
             }),
           );
-          final hasher = sendHasher = await fileHasher(f.size);
+          // 0.9.2: a source that hashes natively while reading (Android)
+          // needs no Dart hashing here.
+          final hasher = sendHasher = f.hashesItself
+              ? _NoHasher()
+              : await fileHasher(f.size);
           var sent = 0;
           var sinceFlush = 0;
           await for (final chunk in f.open().handleError(
@@ -1667,7 +1701,21 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
               sent += chunk.length;
             }
             final wire = debugTamper != null ? debugTamper!(part) : part;
-            sock.add(encodeFrame(frameData, wire));
+            // 0.9.2: sources may deliver big chunks (Android: 4 MiB);
+            // frames stay at most [kDataFrameBytes] (receivers accept 2 MiB).
+            if (wire.length <= kDataFrameBytes) {
+              sock.add(encodeFrame(frameData, wire));
+            } else {
+              final view = wire is Uint8List ? wire : Uint8List.fromList(wire);
+              for (var o = 0; o < view.length; o += kDataFrameBytes) {
+                final e = o + kDataFrameBytes < view.length
+                    ? o + kDataFrameBytes
+                    : view.length;
+                sock.add(
+                  encodeFrame(frameData, Uint8List.sublistView(view, o, e)),
+                );
+              }
+            }
             sinceFlush += part.length;
             sentThisAttempt += part.length;
             job.addBytes(part.length);
@@ -1682,11 +1730,23 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
               await _flushOrClosed(sock);
             }
           }
-          await f.close();
-          if (sent != f.size) {
-            throw const FileSystemException('File size changed');
+          final String digest;
+          try {
+            if (sent != f.size) {
+              throw const FileSystemException('File size changed');
+            }
+            if (f.hashesItself) {
+              final d = await f.readDigest();
+              if (d.bytes != f.size) {
+                throw const FileSystemException('File size changed');
+              }
+              digest = d.sha256;
+            } else {
+              digest = await hasher.close();
+            }
+          } finally {
+            await f.close();
           }
-          final digest = await hasher.close();
           sock.add(jsonFrame({'t': 'file_end', 'i': i, 'sha256': digest}));
           await _flushOrClosed(sock);
           final r = await _nextControl(reader, job);
@@ -2045,3 +2105,63 @@ class _PairOffer {
     ]);
   }
 }
+
+/// 0.9.2: DATA frames are at most this big. Sources may hand over larger
+/// chunks; they are split (no copy) before framing.
+const int kDataFrameBytes = 256 * 1024;
+
+/// Used when the file is hashed elsewhere (natively).
+class _NoHasher implements FileHasher {
+  @override
+  Future<void> add(List<int> chunk) async {}
+  @override
+  Future<String> close() async => '';
+  @override
+  void dispose() {}
+}
+
+/// 0.9.2: receive-side writer. Groups incoming frames into writes of
+/// [kWriteBatchBytes] and lets one write run while the next frames are
+/// read from the network (at most one write in flight, because a
+/// RandomAccessFile allows only one operation at a time). Write errors
+/// surface as [_WriteFailed] on the next [add] or on [finish].
+class _OverlapWriter {
+  _OverlapWriter(this._out);
+
+  final RandomAccessFile _out;
+  final BytesBuilder _buf = BytesBuilder(copy: false);
+  Future<void>? _pending;
+
+  Future<void> _waitPending() async {
+    final p = _pending;
+    _pending = null;
+    if (p == null) return;
+    try {
+      await p;
+    } catch (e) {
+      throw _WriteFailed(e);
+    }
+  }
+
+  Future<void> add(Uint8List data) async {
+    _buf.add(data);
+    if (_buf.length < kWriteBatchBytes) return;
+    await _waitPending();
+    final p = _out.writeFrom(_buf.takeBytes());
+    p.ignore(); // awaited in [_waitPending]
+    _pending = p;
+  }
+
+  /// Writes what is left and waits for every write.
+  Future<void> finish() async {
+    await _waitPending();
+    if (_buf.isEmpty) return;
+    try {
+      await _out.writeFrom(_buf.takeBytes());
+    } catch (e) {
+      throw _WriteFailed(e);
+    }
+  }
+}
+
+const int kWriteBatchBytes = 1024 * 1024;

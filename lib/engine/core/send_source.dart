@@ -17,6 +17,16 @@ abstract class SendSource {
   /// modification time), so a different file with the same name and size
   /// gets a different resume id. Null if the source cannot tell.
   String? get versionTag => null;
+
+  /// 0.9.2: true when the source computes the SHA-256 of what it read
+  /// itself (Android: natively, much faster than Dart). Then the engine
+  /// skips its own hashing and asks [readDigest] after the last chunk.
+  bool get hashesItself => false;
+
+  /// SHA-256 (lowercase hex) and length of everything [open] delivered.
+  /// Only when [hashesItself]; call after the stream has ended.
+  Future<({String sha256, int bytes})> readDigest() =>
+      throw UnsupportedError('readDigest');
 }
 
 class FileSendSource extends SendSource {
@@ -85,13 +95,15 @@ class SourceReadException implements Exception {
 }
 
 /// Streams a file from a platform reader in chunks: [openId] opens it,
-/// [read] returns the next chunk (empty = end). One read is always in
-/// flight ahead, so the network is not idle while the next chunk loads.
+/// [read] returns the next chunk (empty = end). [ahead] reads are kept in
+/// flight (0.9.2: 2 instead of 1), so the network is not idle while the
+/// next chunk loads. The platform side handles them in order.
 /// Every failure is reported as [SourceReadException].
 Stream<List<int>> chunkedPlatformRead({
   required Future<int> Function() openId,
   required Future<List<int>?> Function(int id) read,
   required void Function(int id) onOpened,
+  int ahead = 2,
 }) async* {
   int id;
   try {
@@ -103,16 +115,16 @@ Stream<List<int>> chunkedPlatformRead({
   }
   onOpened(id);
   Future<List<int>?> next() => read(id)..ignore();
-  var pending = next();
+  final pending = [for (var i = 0; i < ahead; i++) next()];
   while (true) {
     List<int>? chunk;
     try {
-      chunk = await pending;
+      chunk = await pending.removeAt(0);
     } catch (e) {
       throw SourceReadException(_reasonOf(e));
     }
     if (chunk == null || chunk.isEmpty) return;
-    pending = next();
+    pending.add(next());
     yield chunk;
   }
 }
