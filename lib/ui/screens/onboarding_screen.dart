@@ -11,21 +11,20 @@ class _Slide {
 
 const _slides = [
   _Slide(
+    Icons.devices,
+    'Open Isekai Drop on both devices',
+    'Phones and PCs. No account and no cloud.',
+  ),
+  _Slide(
+    Icons.wifi,
+    'Use the same Wi-Fi',
+    'Both devices on one network (or one shares a hotspot). The first '
+        'time, connect them once with a QR code.',
+  ),
+  _Slide(
     Icons.send_rounded,
-    'Send files to nearby devices',
-    'Phones and PCs on the same Wi-Fi. No account and no cloud.',
-  ),
-  _Slide(
-    Icons.qr_code_2,
-    'Connect once with a QR code',
-    'Scan the code shown on the other device. After that they find '
-        'each other by themselves.',
-  ),
-  _Slide(
-    Icons.verified_user_outlined,
-    'Private and checked',
-    'Files go straight between your devices, encrypted and verified. '
-        'You are always asked before anything is received.',
+    'Pick files and send',
+    'Files go straight between your devices, encrypted and checked.',
   ),
 ];
 

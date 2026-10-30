@@ -111,10 +111,10 @@ void main() {
     testWidgets('3 slides, Next, Get started, shown once', (t) async {
       _size(t, const Size(420, 900));
       final s = await _app(t, _empty, onboarding: true);
-      expect(find.text('Send files to nearby devices'), findsOneWidget);
+      expect(find.text('Open Isekai Drop on both devices'), findsOneWidget);
       await t.tap(find.byKey(const ValueKey('onboarding-next')));
       await t.pumpAndSettle();
-      expect(find.text('Connect once with a QR code'), findsOneWidget);
+      expect(find.text('Use the same Wi-Fi'), findsOneWidget);
       await t.tap(find.byKey(const ValueKey('onboarding-next')));
       await t.pumpAndSettle();
       expect(find.text('Get started'), findsOneWidget);
@@ -131,7 +131,7 @@ void main() {
       await t.pumpAndSettle();
       expect(find.byType(NavigationBar), findsOneWidget);
       await _app(t, _empty, onboarding: true, prefs: {'onboarding_done': true});
-      expect(find.text('Send files to nearby devices'), findsNothing);
+      expect(find.text('Open Isekai Drop on both devices'), findsNothing);
     });
   });
 

@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 
 import 'design_tokens.dart';
@@ -59,6 +60,17 @@ class AppTheme {
       brightness: brightness,
       colorScheme: scheme,
       scaffoldBackgroundColor: background,
+      // 0.11.0 (spec E24/D20): one subtle fade transition between screens
+      // everywhere; none when the system asks to reduce motion.
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: IdPageTransitions(),
+          TargetPlatform.windows: IdPageTransitions(),
+          TargetPlatform.linux: IdPageTransitions(),
+          TargetPlatform.macOS: IdPageTransitions(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        },
+      ),
       extensions: [
         brightness == Brightness.dark
             ? IdStatusColors.dark
@@ -91,6 +103,31 @@ class AppTheme {
         bodySmall: TextStyle(fontSize: IdTypeSizes.caption, color: muted),
         bodyLarge: TextStyle(fontSize: IdTypeSizes.body, color: onSurface),
       ),
+    );
+  }
+}
+
+/// Fade-forwards page transition, or none when animations are disabled.
+class IdPageTransitions extends PageTransitionsBuilder {
+  const IdPageTransitions();
+
+  static const _fade = FadeForwardsPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) return child;
+    return _fade.buildTransitions(
+      route,
+      context,
+      animation,
+      secondaryAnimation,
+      child,
     );
   }
 }
