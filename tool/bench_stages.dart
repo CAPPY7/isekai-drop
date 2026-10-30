@@ -105,6 +105,58 @@ Future<void> main(List<String> args) async {
       _report(stage, chunk, n, sw);
       c.destroy();
       await server.close();
+    case 'pipeline':
+      // Mimics the engine: sender hashes + frames + flushes, receiver
+      // parses frames, writes to disk and hashes. PIPE_NOHASH=1,
+      // PIPE_NOWRITE=1 switch parts off to find the slow one.
+      final noHash = Platform.environment['PIPE_NOHASH'] == '1';
+      final noWrite = Platform.environment['PIPE_NOWRITE'] == '1';
+      final ctx = SecurityContext()
+        ..useCertificateChain('$certDir/cert.pem')
+        ..usePrivateKey('$certDir/key.pem');
+      final server = await SecureServerSocket.bind('127.0.0.1', 0, ctx);
+      final got = Completer<int>();
+      server.listen((s) async {
+        var n = 0;
+        final r = FrameReader(s);
+        final h = await BgHasher.start();
+        final out = await File('${file.path}.rx').open(mode: FileMode.write);
+        while (n < size) {
+          final f = await r.next();
+          if (!noWrite) await out.writeFrom(f.payload);
+          if (!noHash) await h.add(f.payload);
+          n += f.payload.length;
+        }
+        await out.close();
+        await h.close();
+        await File('${file.path}.rx').delete();
+        got.complete(n);
+        s.destroy();
+      });
+      final c = await SecureSocket.connect(
+        '127.0.0.1',
+        server.port,
+        onBadCertificate: (_) => true,
+      );
+      c.setOption(SocketOption.tcpNoDelay, true);
+      sw.reset();
+      final h = await BgHasher.start();
+      var since = 0;
+      await for (final b in _read(file, chunk)) {
+        if (!noHash) await h.add(b);
+        c.add(encodeFrame(frameData, b));
+        since += b.length;
+        if (since >= _flushEvery) {
+          since = 0;
+          await c.flush();
+        }
+      }
+      await c.flush();
+      await h.close();
+      final n = await got.future;
+      _report(stage, chunk, n, sw);
+      c.destroy();
+      await server.close();
     default:
       throw ArgumentError(stage);
   }

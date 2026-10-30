@@ -61,11 +61,14 @@ void main() {
         final s = await e.beginPairing(peer.host, peer.port);
         await s.confirm();
         say('PAIRED ${e.trustedDevices.map((d) => d.name)}');
+        // E2E_VIA=host:port sends through a proxy (for example one that
+        // adds network delay); pairing above still goes direct.
+        final via = env['E2E_VIA']?.split(':');
         job = await e.send(
           e.trustedDevices.single,
           [FileSendSource(src)],
-          host: peer.host,
-          port: peer.port,
+          host: via?[0] ?? peer.host,
+          port: via == null ? peer.port : int.parse(via[1]),
         );
       } else {
         // 0.9.1 one tap: send to the UNPAIRED device; it asks once.
@@ -79,6 +82,10 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 100));
       }
       say('SEND RESULT ${job.state.name} ${job.message ?? ''}');
+      say(
+        'SPEED avg=${((job.averageSpeed ?? 0) / 1048576).toStringAsFixed(1)}'
+        'MB/s bytes=${job.totalBytes} time=${job.elapsed.inMilliseconds}ms',
+      );
       for (final d in e.diagLog.entries) {
         say('DIAG ${d.kind}: ${d.message}');
       }
