@@ -1,3 +1,39 @@
+# Isekai Drop 0.10.0 (DRAFT release notes, test build)
+
+## New: Fast direct (no router in the middle)
+- **Android ↔ Android:** big files (64 MB and up) between paired phones now
+  go over a direct Wi-Fi link automatically (Wi-Fi Direct, 5 GHz asked
+  first). If that does not work the app quietly uses your router like before
+  and says why on the transfer card. Turn it on once in Settings >
+  "Fast direct when possible" (Android asks for "Nearby devices", or
+  "Location" on Android 12 and older - the app explains first).
+- **No router at all:** Connect > Fast direct > Start fast link on one phone,
+  scan the code with the other phone.
+- **Android -> PC:** start the fast link on the phone, then on the PC open
+  Connect > Fast direct, enter (or paste) the network and password, Join.
+- **Android -> iPhone:** iPhone Camera scans the "PC / iPhone camera" code to
+  join the Wi-Fi, then Isekai Drop on the iPhone scans the "Isekai Drop" code.
+- **Windows as host:** Connect > Fast direct > Start Windows hotspot (or open
+  Mobile hotspot settings, pick 5 GHz there); phones scan the Wi-Fi code.
+- Transfer card and Diagnostics show the route (Router / Fast direct) and the
+  last Fast direct problem.
+
+## Honest speed note
+Nothing measured on real radios yet. Estimate only: a direct link removes one
+of the two Wi-Fi hops, so on Wi-Fi 6 phones (OnePlus 8/9) up to ~70 MB/s may
+be possible and ~50 MB/s on Wi-Fi 5, versus ~36 MB/s best case through a
+router. Real Wi-Fi is usually 50% or less of the link speed (Cisco Meraki).
+
+## Install note
+CI builds are signed with the dev key (same as 0.9.x), so this installs over
+0.9.x without uninstalling.
+
+## Not tested
+- Every real-radio path: Wi-Fi Direct groups/5 GHz, local-only hotspot
+  fallback, joining with the system approval dialog, PCs/iPhone joining.
+- netsh / nmcli / networksetup join commands and the Windows hotspot script.
+- The new screens on real devices.
+
 # Isekai Drop 0.9.2 (DRAFT release notes, test build)
 
 **Test build. Not a public release.** Real phones have NOT been tested by me (see "Not tested").

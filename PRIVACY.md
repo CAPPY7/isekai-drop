@@ -46,10 +46,26 @@ On iPhone/iPad and Mac, QR scanning uses Apple's built-in frameworks.
 Used only while the scan screen is open, only to read the pairing QR code.
 Nothing is recorded or saved.
 
-## App-made hotspot (Android)
-Android requires "Nearby devices" (Android 13+, declared never used for
-location) or "Location" (Android 12 and older) to create a hotspot. Isekai
-Drop never reads or stores your location.
+## Fast direct (0.10.0)
+- **Permissions (Android):** "Nearby devices" on Android 13+ (declared
+  `neverForLocation`: never used to find your location) or "Location" on
+  Android 12 and older (Android requires it for Wi-Fi Direct and app-made
+  hotspots; Location must be switched on). Isekai Drop never reads or stores
+  your location. The app explains this before Android asks, and you can turn
+  Fast direct off in Settings.
+- **The link's Wi-Fi password** is random, made new for each link, and only
+  shown in the Fast direct QR codes on your screen or sent to an already
+  paired device inside the encrypted connection. It is not saved and not
+  logged.
+- **PCs joining a link:** Windows gets a temporary Wi-Fi profile file with the
+  password that is deleted right after `netsh` reads it. On Linux (`nmcli`)
+  and macOS (`networksetup`) the password is briefly on the command line of
+  the system tool (visible to other programs of the same computer while it
+  runs). Diagnostics stores the commands with the password replaced by ***.
+- **Windows hotspot:** starting it uses PowerShell and Windows' own
+  tethering settings; the name/password come from Windows.
+- While a phone or PC is on a fast link it may have no internet; nothing is
+  sent anywhere else.
 
 ## Bonjour / mDNS (all platforms, Phase 5)
 While the app is open it advertises a `_isekaidrop._tcp` service on your local network (not on Windows/Linux, which only look). The service carries: device name, a random device id, your certificate fingerprint, platform name and protocol version. Nothing leaves your local network. On iPhone/iPad, iOS asks for Local Network permission first.

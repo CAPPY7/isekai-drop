@@ -132,7 +132,16 @@ Owner on 0.9.1: "Speed is only 6-10 MB/s mostly 6 I said I wanted 60-70" (OnePlu
 - [x] Wi-Fi band + link speed in Transfer/Diagnostics, "Use 5 GHz" hint on 2.4 GHz
 - [x] Rejected by measurement: overlapped receive writer (slower)
 - [ ] Measure on the real phones (5 GHz vs 2.4 GHz) (NOT TESTED)
-- [ ] Direct link for >36 MB/s: Wi-Fi Direct or local-only hotspot (one air hop instead of two) - idea, not started
+- [x] Direct link for >36 MB/s: built in 0.10.0 (Phase 7h)
+
+## Phase 7h - Fast direct for every device pair (0.10.0)
+Owner on 0.9.2: "What about other devices? Phone to phone works more speed then what about other speed build this".
+- [x] Engine: direct_req/direct_ok/direct_no/direct_end over the trusted session, automatic for Android<->Android 64 MiB+, router fallback with reason (docs/CONNECTION_OPTIONS.md)
+- [x] Android native: Wi-Fi Direct group (5 GHz first, then any band), LocalOnlyHotspot fallback, join by P2P connect or WifiNetworkSpecifier, link-lost events
+- [x] UI: Connect > Fast direct (host QR codes, PC join form, Windows hotspot, iPhone steps), scanner reads Fast direct and Wi-Fi codes, Settings switch with permission explanation, route + band on Transfer and Diagnostics
+- [x] Tests: test/direct_test.dart, direct_unit_test.dart, android_direct_test.dart, fast_direct_ui_test.dart
+- [ ] Real radios: Wi-Fi Direct 5 GHz, LOHS, specifier join, PCs/iPhone joining, Windows hotspot script (NOT TESTED)
+- [ ] Measure the direct speed on the OnePlus 8 + 9 (NOT TESTED)
 
 ## Phase 8 - Fix security, compatibility, performance, usability
 - [ ] Security tests for all acceptance tests

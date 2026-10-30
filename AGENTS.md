@@ -210,3 +210,13 @@ file before every phase. Stop after each phase and wait for "next".
 - Receive writes stay direct (`await out.writeFrom`): an overlapped writer was measured slower; do not re-add without a new measurement.
 - WifiLock HIGH_PERF only on SDK < 34 (API 34+ maps it to LOW_LATENCY, which may reduce throughput), held while keepScreenOn is on.
 - Bench: tool/bench_stages.dart, tool/bench/netns_run.sh (REPO=, E2E_NATIVE_HASH=1, delay arg), tool/bench/delay_proxy.py. The box is shared: interleave A/B runs.
+
+## Phase 7h notes (2026-10-30, 0.10.0 Fast direct)
+- Engine (lib/engine/direct/, engine.dart): over the trusted session `direct_req` -> `direct_ok{link, port}` / `direct_no{reason}` -> `direct_end`. Automatic only Android<->Android and >= kDirectMinBytes (64 MiB). Every failure falls back to the router path with job.routeNote and diag `direct_<stage>_<code>`. Never make the router path depend on Fast direct.
+- The direct address is NEVER saved as lastHost. A link joined from a Fast direct QR records `_directPeer` (host, port, fingerprint), tried first in _addressesFor for that device, cleared on leave/join_lost.
+- Android: DirectLinks.kt on channel "isekai_drop/direct" (caps, permissionState, requestPermission, host, stopHost, join, leave, openAppSettings; events host_stopped / join_lost). File-level @Suppress("DEPRECATION"); guard API 26 (LOHS) / 29 (P2P config, specifier). MainActivity.evaluateBinding must not rebind while Fast direct owns the process network.
+- Manifest: NEARBY_WIFI_DEVICES neverForLocation; FINE/COARSE location maxSdkVersion 32; wifi.direct feature not required.
+- PCs join with system tools (wifi_join.dart: netsh temp profile deleted after use, nmcli, networksetup); log lines are redacted (password -> ***). Windows hotspot via PowerShell + WinRT tethering manager (windowsHotspotScript) - NOT TESTED on a real PC.
+- DirectQr is `isekaidrop:direct?v=1&k&s&w&h&p&f&n[&m]` (no "//"). Scanner accepts PairingQr, DirectQr, WIFI: codes.
+- UI tests must create the engine inside `tester.runAsync` (real file IO), and must not pumpAndSettle while a spinner is showing.
+- Local checks that work on the box: `flutter build apk --debug --target-platform android-arm64`, `./gradlew :app:lintDebug` (JDK17 + SDK in /home/box/ls-tools). No emulator (no /dev/kvm access).
