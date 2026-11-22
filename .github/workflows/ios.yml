@@ -13,6 +13,13 @@ on:
 permissions: {}
 
 jobs:
+  # B2 (0.11.3): analyze + test for this same commit; publishing waits for it.
+  ci:
+    name: CI (analyze + test)
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
   build:
     runs-on: macos-latest
     permissions:
@@ -42,7 +49,7 @@ jobs:
 
   publish:
     name: Publish UNSIGNED .ipa to release "latest-build"
-    needs: build
+    needs: [build, ci]
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:

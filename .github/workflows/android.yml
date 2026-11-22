@@ -12,6 +12,13 @@ env:
   FLUTTER_VERSION: "3.47.7"
 
 jobs:
+  # B2 (0.11.3): analyze + test for this same commit; publishing waits for it.
+  ci:
+    name: CI (analyze + test)
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
   build:
     name: Build signed APK (release key if secrets exist, else dev key)
     runs-on: ubuntu-latest
@@ -30,8 +37,7 @@ jobs:
           cache: true
       - run: flutter --version
       - run: flutter pub get
-      - run: flutter analyze
-      - run: flutter test
+      # analyze + test run once per workflow, in the ci job (ci.yml).
       # RELEASE KEY (0.11.1): if the 4 ISEKAI_RELEASE_* secrets exist, the
       # APKs are signed with the owner's release key. Otherwise (forks, or
       # the secrets were removed) they fall back to the public DEV key with
@@ -130,7 +136,7 @@ jobs:
 
   publish:
     name: Publish to release "latest-build"
-    needs: build
+    needs: [build, ci]
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
