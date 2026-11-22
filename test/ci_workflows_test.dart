@@ -178,4 +178,8 @@ void main() {
     // The check name in the doc must be the real job name in ci.yml.
     expect(wf('ci.yml'), contains('name: flutter analyze + flutter test'));
   });
+
+  test('B6 CONNECTION_TEST.txt is gone', () {
+    expect(File('CONNECTION_TEST.txt').existsSync(), isFalse);
+  });
 }
