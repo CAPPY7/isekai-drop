@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import '../core/error_note.dart';
+
 /// 0.11.0 "Auto (fastest)" route choice for big sends to an Android phone.
 ///
 /// Remembers the measured average speed of earlier big sends per trusted
@@ -52,7 +54,9 @@ class RouteStats {
     if (f == null) return;
     try {
       await f.writeAsString(jsonEncode(_by), flush: true);
-    } catch (_) {}
+    } catch (e) {
+      noteError('route_stats_save', e);
+    }
   }
 
   /// Null = try Fast direct; else a reason code ('auto_*') to use the router.

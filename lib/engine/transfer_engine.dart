@@ -175,7 +175,7 @@ abstract class TransferEngine implements Listenable {
   /// the other device ONE question (pair + these files) and sends.
   /// Throws [PairingException] if it is not nearby or declines.
   /// Notes a problem (class only, no names) in Diagnostics.
-  void recordException(String what, Object e);
+  void recordException(String what, Object e, {bool quiet = false});
 
   /// C2: [confirmCode] as in [sendToNearby].
   Future<TransferJob> forgetAndPairAgain(

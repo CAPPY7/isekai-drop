@@ -443,10 +443,15 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   /// Like [recordProblem] for an exception: the class comes from
   /// [classifyError]; [what] says what was being done.
   @override
-  void recordException(String what, Object e) {
+  /// C6: [quiet] only writes Diagnostics (no "last problem" on screen).
+  void recordException(String what, Object e, {bool quiet = false}) {
     final kind = e is PairingException ? 'pair_refused' : classifyError(e);
     final words = e is PairingException ? e.message : explainErrorClass(kind);
-    recordProblem('${what}_$kind', '$what: $words');
+    if (quiet) {
+      diagLog.add('${what}_$kind', '$what: $words');
+    } else {
+      recordProblem('${what}_$kind', '$what: $words');
+    }
   }
 
   /// Last problem, in plain words. Never contains file names,

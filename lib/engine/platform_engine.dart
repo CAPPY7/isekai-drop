@@ -36,6 +36,7 @@ import 'core/send_source.dart';
 import 'core/speed_test.dart';
 import 'core/trust_store.dart';
 import 'direct/route_choice.dart';
+import 'core/error_note.dart';
 
 const _android = MethodChannel('isekai_drop/android');
 // 0.9.2: background (non-UI-thread) channels for reading and hashing.
@@ -252,6 +253,12 @@ Future<IsekaiEngine> createPlatformEngine(
   // A6: the app-wide log, so uncaught errors show in Diagnostics.
   DiagLog? diagLog,
 }) async {
+  // C6: problems that used to be swallowed go to Diagnostics (class only).
+  final log = diagLog ??= DiagLog();
+  errorSink = (what, e) {
+    final k = classifyError(e);
+    log.add('${what}_$k', '$what: ${explainErrorClass(k)}');
+  };
   final support = await getApplicationSupportDirectory();
   final idFile = File(p.join(support.path, 'identity_fingerprint.txt'));
   var (identity, note, upgraded) = await _loadIdentity(support);
@@ -285,7 +292,9 @@ Future<IsekaiEngine> createPlatformEngine(
   if (lastFp != identity.fingerprint) {
     try {
       await idFile.writeAsString(identity.fingerprint, flush: true);
-    } catch (_) {}
+    } catch (e) {
+      noteError('identity_note', e);
+    }
   }
   final benchmarks = BenchmarkStore(
     File(p.join(support.path, 'benchmarks.json')),
@@ -316,7 +325,9 @@ Future<IsekaiEngine> createPlatformEngine(
     String? noBackup;
     try {
       noBackup = await _android.invokeMethod<String>('noBackupDir');
-    } catch (_) {}
+    } catch (e) {
+      noteError('no_backup_dir', e);
+    }
     tempDir = androidIncomingDir(noBackup: noBackup, support: support);
     finalizer = (temp, rel, batch) async {
       final sub = await androidSubFolder(rel, batch, _exporter.folderExists);
@@ -326,7 +337,7 @@ Future<IsekaiEngine> createPlatformEngine(
     try {
       mediaOk = await _androidMedia.invokeMethod<bool>('available') ?? false;
     } catch (e) {
-      diagLog?.add('direct_save_off', 'Saving straight into Downloads is off.');
+      diagLog.add('direct_save_off', 'Saving straight into Downloads is off.');
     }
     directSaver = AndroidMediaSaver(
       _androidMedia,
@@ -360,7 +371,9 @@ Future<IsekaiEngine> createPlatformEngine(
           f.path.endsWith('.part')) {
         try {
           await f.delete();
-        } catch (_) {}
+        } catch (e) {
+          noteError('incoming_cleanup', e);
+        }
       }
     }
   }
@@ -450,6 +463,7 @@ Future<IsekaiEngine> createPlatformEngine(
   await engine.start();
   _bonjour = BonjourBridge(engine);
   if (visible?.call() ?? true) await _bonjour!.start();
+  errorSink = (what, e) => engine.recordException(what, e, quiet: true);
   return engine;
 }
 
@@ -541,7 +555,9 @@ class AndroidUriSource extends SendSource {
     if (id != null) {
       try {
         await _androidRead.invokeMethod('closeRead', {'id': id});
-      } catch (_) {}
+      } catch (e) {
+        noteError('close_read', e);
+      }
     }
   }
 }
@@ -583,7 +599,9 @@ Future<Map<String, Object?>> _androidLinkInfo(AndroidDirectLinks? d) async {
     ]) {
       if (m[k] != null) out[k] = m[k];
     }
-  } catch (_) {}
+  } catch (e) {
+    noteError('network_info', e);
+  }
   final j = await d?.linkNow() ?? const {};
   if (j['mbps'] != null) out['directMbps'] = j['mbps'];
   if (j['txMbps'] != null) out['directTxMbps'] = j['txMbps'];
@@ -782,7 +800,9 @@ Future<void> setKeepScreenOn(bool on) async {
       // Also asks iOS for a short background grace period.
       await _apple.invokeMethod('keepAwake', {'on': on});
     }
-  } catch (_) {}
+  } catch (e) {
+    noteError('keep_screen_on', e);
+  }
 }
 
 /// iPhone/iPad only: system share sheet (Save to Files, AirDrop, ...).
@@ -792,7 +812,9 @@ Future<void> shareFiles(List<String> paths) async {
   if (!Platform.isIOS || paths.isEmpty) return;
   try {
     await _apple.invokeMethod('share', {'paths': paths});
-  } catch (_) {}
+  } catch (e) {
+    noteError('share', e);
+  }
 }
 
 /// Folder picking: not offered by the iOS file picker plugin we use.
@@ -833,7 +855,9 @@ Future<ConnectionInfo> readConnectionInfo() async {
     Map<String, dynamic> m = {};
     try {
       m = await _android.invokeMapMethod<String, dynamic>('networkInfo') ?? {};
-    } catch (_) {}
+    } catch (e) {
+      noteError('network_info', e);
+    }
     // Interfaces used when this phone itself hosts a hotspot.
     final hosting = has(
       (i, _) => RegExp(r'^(ap|swlan|softap|wlan1)').hasMatch(i.name),
@@ -897,10 +921,14 @@ Future<Directory> _desktopReceiveBase(Directory support) async {
   try {
     final d = await getDownloadsDirectory();
     if (d != null) return d;
-  } catch (_) {}
+  } catch (e) {
+    noteError('downloads_dir', e);
+  }
   try {
     return await getApplicationDocumentsDirectory();
-  } catch (_) {}
+  } catch (e) {
+    noteError('documents_dir', e);
+  }
   final home =
       Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
   if (home != null && home.isNotEmpty) {

@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'error_note.dart';
+
 /// A5 (0.11.2): writes a secret (the key fallback file) so it is never
 /// readable by others, not even for a moment: create the file EMPTY, set
 /// mode 600 (not on Windows, where the app folder is per-user), and only
@@ -18,7 +20,9 @@ Future<void> writePrivateFile(
     // file is inside the app's private folder anyway.
     try {
       await Process.run('chmod', ['600', f.path]);
-    } catch (_) {}
+    } catch (e) {
+      noteError('private_file_mode', e);
+    }
   }
   await afterCreate?.call(f);
   await f.writeAsString(content, flush: true);

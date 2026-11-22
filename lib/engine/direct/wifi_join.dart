@@ -7,6 +7,8 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../core/error_note.dart';
+
 /// One program call.
 class WifiCommand {
   const WifiCommand(this.exe, this.args, {this.secretArgs = const {}});
@@ -183,7 +185,9 @@ Future<PcJoinResult> joinWifiFromPc(
     } finally {
       try {
         await dir.delete(recursive: true);
-      } catch (_) {}
+      } catch (e) {
+        noteError('wifi_profile_cleanup', e);
+      }
     }
   }
   if (Platform.isLinux) {
@@ -202,7 +206,9 @@ Future<PcJoinResult> joinWifiFromPc(
     try {
       final r = await run('networksetup', ['-listallhardwareports']);
       dev = macWifiDevice('${r.stdout}');
-    } catch (_) {}
+    } catch (e) {
+      noteError('wifi_mac_device', e);
+    }
     final ok = dev != null && await all(macJoinCommands(dev, ssid, passphrase));
     return PcJoinResult(
       ok,
@@ -226,7 +232,9 @@ Future<void> leaveWifiFromPc(String ssid, {ProcessRunner run = _run}) async {
   for (final c in cmds) {
     try {
       await run(c.exe, c.args);
-    } catch (_) {}
+    } catch (e) {
+      noteError('wifi_forget', e);
+    }
   }
 }
 
@@ -337,5 +345,7 @@ Future<WindowsHotspot> startWindowsHotspot({ProcessRunner run = _run}) async {
 Future<void> openWindowsHotspotSettings({ProcessRunner run = _run}) async {
   try {
     await run('explorer.exe', ['ms-settings:network-mobilehotspot']);
-  } catch (_) {}
+  } catch (e) {
+    noteError('hotspot_settings', e);
+  }
 }

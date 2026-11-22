@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 
 import 'direct/direct_link.dart';
+import 'core/error_note.dart';
 
 /// 0.10.0 Fast direct on Android: the Dart side of `DirectLinks.kt`.
 ///
@@ -105,7 +106,9 @@ class AndroidDirectLinks implements DirectLinkPlatform {
   Future<void> openAppSettings() async {
     try {
       await _call<bool>('openAppSettings');
-    } catch (_) {}
+    } catch (e) {
+      noteError('direct_settings', e);
+    }
   }
 
   @override
@@ -120,7 +123,9 @@ class AndroidDirectLinks implements DirectLinkPlatform {
   Future<void> stopHost() async {
     try {
       await _call<bool>('stopHost');
-    } catch (_) {}
+    } catch (e) {
+      noteError('direct_stop_host', e);
+    }
   }
 
   @override
@@ -151,6 +156,8 @@ class AndroidDirectLinks implements DirectLinkPlatform {
   Future<void> leave() async {
     try {
       await _call<bool>('leave');
-    } catch (_) {}
+    } catch (e) {
+      noteError('direct_leave', e);
+    }
   }
 }

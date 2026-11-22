@@ -11,6 +11,7 @@ import 'package:path/path.dart' as p;
 import 'bg_hasher.dart';
 import 'identity.dart';
 import 'send_source.dart';
+import 'error_note.dart';
 
 /// Default amount per step. Each step also stops after [kSpeedStepLimit].
 const int kSpeedTestBytes = 200 * 1000 * 1000;
@@ -246,7 +247,9 @@ Future<List<SpeedSample>> runLocalSpeedTests(
     out.add(await _guard('write_old', () => _writeOld(a, bytes, limit)));
     try {
       await a.delete();
-    } catch (_) {}
+    } catch (e) {
+      noteError('speed_cleanup', e);
+    }
     onStep?.call('write_new');
     final w = await _guard('write_new', () => _writeNew(b, bytes, limit));
     out.add(w);
@@ -321,7 +324,9 @@ Future<List<SpeedSample>> runLocalSpeedTests(
     for (final f in [a, b]) {
       try {
         if (await f.exists()) await f.delete();
-      } catch (_) {}
+      } catch (e) {
+        noteError('speed_cleanup', e);
+      }
     }
   }
   return out;

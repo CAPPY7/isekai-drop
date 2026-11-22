@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:ffi/ffi.dart';
 import 'package:flutter/services.dart';
 
+import 'core/error_note.dart';
+
 const _android = MethodChannel('isekai_drop/android');
 const _apple = MethodChannel('isekai_drop/apple');
 
@@ -20,7 +22,9 @@ Future<int?> freeBytesFor(Directory dir) async {
     }
     if (Platform.isLinux) return await linuxFreeBytes(dir.path);
     if (Platform.isWindows) return _windowsFreeBytes(dir.path);
-  } catch (_) {}
+  } catch (e) {
+    noteError('free_space', e);
+  }
   return null;
 }
 

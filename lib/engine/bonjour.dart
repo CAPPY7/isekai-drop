@@ -8,6 +8,7 @@ import 'package:multicast_dns/multicast_dns.dart';
 import 'core/diag_log.dart';
 import 'core/discovery.dart';
 import 'core/engine.dart';
+import 'core/error_note.dart';
 
 /// Bonjour / mDNS service type for Isekai Drop. Listed in iOS/macOS
 /// Info.plist NSBonjourServices.
@@ -95,7 +96,9 @@ class BonjourBridge {
       } else if (_android_) {
         await _android.invokeMethod('nsdStop');
       }
-    } catch (_) {}
+    } catch (e) {
+      noteError('bonjour_stop', e);
+    }
   }
 
   Future<dynamic> _onNative(MethodCall call) async {

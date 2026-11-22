@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
 import 'safe_files.dart';
+import 'error_note.dart';
 
 /// Receiver-side state of an interrupted transfer, so it can continue after
 /// a network drop or after the app was closed/killed.
@@ -209,7 +210,9 @@ class ResumeStore {
     ]) {
       try {
         if (await f.exists()) await f.delete();
-      } catch (_) {}
+      } catch (e) {
+        noteError('resume_delete', e);
+      }
     }
   }
 
@@ -223,7 +226,9 @@ class ResumeStore {
         if (!await meta.exists()) {
           try {
             await e.delete();
-          } catch (_) {}
+          } catch (e) {
+            noteError('resume_cleanup', e);
+          }
         }
         continue;
       }
