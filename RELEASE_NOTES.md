@@ -1,3 +1,28 @@
+# Isekai Drop 0.11.3 (DRAFT release notes, test build)
+
+No change in the app itself; this release is about the build system.
+
+## Safer builds
+- **Every build is tested first.** A new test workflow (CI) runs the code
+  check and all tests for every change and every pull request. The
+  Android, Windows, Mac and iPhone files on the download page are only
+  replaced when those tests passed for the same change.
+- **Build tools are locked to exact versions.** Each GitHub build tool is
+  pinned to one exact, checked version, so a tampered tool update cannot
+  slip into the builds.
+- **Update reminders.** Dependabot checks once a week for updates to the
+  build tools and app libraries and opens a pull request; nothing is
+  merged by itself.
+- **For you:** docs/BRANCH_PROTECTION.md shows how to make GitHub refuse
+  changes to `main` that did not pass the tests (one-time setting only you
+  can turn on).
+- Removed the old `CONNECTION_TEST.txt` file.
+
+## NOT TESTED
+- No app change, so nothing new to test on phones. The branch protection
+  steps were not tried (owner setting). Dependabot's first pull requests
+  will appear on GitHub within about a week (not seen yet).
+
 # Isekai Drop 0.11.2 (DRAFT release notes, test build)
 
 ## Fixed: phone to phone failed ("refused this device's secure certificate")

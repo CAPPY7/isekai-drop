@@ -294,3 +294,10 @@ file before every phase. Stop after each phase and wait for "next".
 - Pairing (A3): `kPairHelloWait` 45 s, `kMaxPairHelloWaits` 2 (one per source address), `kPairCooldown` 60 s by key fingerprint (reason "cooldown"). Blocked keys: `BlockedStore` (`blocked_devices.json`, schema_version 1, atomic), refused with reason "declined" before any dialog. kMaxHandshakes/kMaxSessions unchanged.
 - Key files (A4/A5): `secureDelete` overwrites then truncates; `writePrivateFile` (core/private_file.dart) for every fallback write.
 - Errors (A6): `lib/startup_guard.dart`; entries `uncaught_<plainErrorClass>`, never the error message or stack. Engine takes `diagLog:` so app and engine share one log.
+
+## Phase B / 0.11.3 CI decisions (2026-11-22)
+- `.github/workflows/ci.yml` is the one test job (flutter analyze + flutter test, ubuntu, Flutter 3.47.7). Triggers: push main, pull_request, workflow_dispatch, workflow_call. Job name `flutter analyze + flutter test` = the required status check in docs/BRANCH_PROTECTION.md (do not rename it without updating that doc).
+- Every platform workflow has job `ci: uses: ./.github/workflows/ci.yml` (permissions contents: read). Publish jobs: `needs: [build, ci]`. linux.yml build: `needs: ci`. android.yml build has NO analyze/test steps any more (they run in ci); its signing steps are unchanged and hash-checked by test/ci_workflows_test.dart.
+- All remote actions are pinned `owner/name@<40-hex SHA> # vX.Y.Z`. New or updated actions: look up the SHA from the action's own tag (git ref API, dereference annotated tags; cross-check with the commits API) and update the expected table in test/ci_workflows_test.dart. Dependabot (weekly, minor/patch grouped) keeps pins and comments updated via PRs; never auto-merge.
+- Repo settings (branch protection) are the owner's; the builder never changes them.
+- Local workflow lint: actionlint binary in build/tools (git-ignored), run with `-shellcheck= -pyflakes=`.

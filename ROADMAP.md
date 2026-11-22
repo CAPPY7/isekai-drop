@@ -201,7 +201,16 @@ Owner on 0.10.1: plain TCP 6.9, TLS 7.1/8.8 MB/s; disk/hash 121-312 MB/s -> netw
 - [x] A5 Fallback key file: create empty, mode 600, then write
 - [x] A6 runZonedGuarded + FlutterError/PlatformDispatcher handlers -> Diagnostics; Copy details on the start error screen
 - [ ] On real devices (owner): backup/restore, Keystore hiccup, pairing cooldown/block, error screen (NOT TESTED)
-- [ ] Next: Phase B (CI for every platform) - only after the owner says "next"
+
+## Phase B (0.11.3) - CI for every platform
+- [x] B1 .github/workflows/ci.yml (push main, pull_request, by hand, workflow_call): analyze + test
+- [x] B2 android/windows/macos/ios publish jobs need ci; linux build needs ci; Android tests run once
+- [x] B3 every action pinned to a full commit SHA (version in a comment)
+- [x] B4 .github/dependabot.yml (github-actions + pub, weekly, minor/patch grouped)
+- [x] B5 docs/BRANCH_PROTECTION.md
+- [ ] Owner: turn on the ruleset from docs/BRANCH_PROTECTION.md (NOT DONE)
+- [x] B6 CONNECTION_TEST.txt removed
+- [ ] Next: Phase C (send and receive quality) - only after the owner says "next"
 
 ## Phase 8 - Fix security, compatibility, performance, usability
 - [ ] Security tests for all acceptance tests
