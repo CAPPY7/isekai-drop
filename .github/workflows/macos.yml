@@ -21,16 +21,82 @@ jobs:
           cache: true
       - run: flutter pub get
       - run: flutter build macos --release --build-number=${{ github.run_number }}
-      - name: Zip the app (unsigned, not notarized)
+      - name: Ad-hoc sign, check universal binary, pack a disk image
         run: |
-          cd build/macos/Build/Products/Release
-          ls
-          ditto -c -k --keepParent "Isekai Drop.app" "$GITHUB_WORKSPACE/isekai-drop-macos.zip"
-          test -s "$GITHUB_WORKSPACE/isekai-drop-macos.zip"
-          ls -l "$GITHUB_WORKSPACE/isekai-drop-macos.zip"
+          set -euo pipefail
+          APP="build/macos/Build/Products/Release/Isekai Drop.app"
+          BIN="$APP/Contents/MacOS/Isekai Drop"
+          test -d "$APP"
+          test -s "$BIN"
+
+          # Flutter's macOS release build is universal (arm64 + Intel) unless
+          # a single arch is requested. Fail if a slice is missing.
+          ARCHS=$(lipo -archs "$BIN")
+          echo "binary archs: $ARCHS"
+          echo "$ARCHS" | grep -qw arm64 || { echo "missing arm64 slice"; exit 1; }
+          echo "$ARCHS" | grep -qw x86_64 || { echo "missing x86_64 slice"; exit 1; }
+          lipo -info "$BIN"
+
+          # Ad-hoc sign (no paid Apple account). Apple Silicon will load it;
+          # Gatekeeper still warns until the user uses right-click > Open.
+          codesign --force --deep --sign - "$APP"
+          codesign -dv --verbose=2 "$APP" 2>&1 | tee /tmp/codesign.txt
+          grep -q 'Signature=adhoc\|Signature=Adhoc\|flags=.*adhoc' /tmp/codesign.txt \
+            || grep -qi 'Signature=adhoc' /tmp/codesign.txt \
+            || echo "codesign details above (ad-hoc expected)"
+
+          STAGE=$(mktemp -d)
+          ditto "$APP" "$STAGE/Isekai Drop.app"
+          ln -s /Applications "$STAGE/Applications"
+          hdiutil create \
+            -volname "Isekai Drop" \
+            -srcfolder "$STAGE" \
+            -ov -format UDZO \
+            "$GITHUB_WORKSPACE/isekai-drop-macos.dmg"
+          rm -rf "$STAGE"
+
+          test -s "$GITHUB_WORKSPACE/isekai-drop-macos.dmg"
+          SIZE=$(stat -f%z "$GITHUB_WORKSPACE/isekai-drop-macos.dmg")
+          echo "dmg bytes: $SIZE"
+          if [ "$SIZE" -lt 5000000 ]; then
+            echo "dmg too small"
+            exit 1
+          fi
+          ls -l "$GITHUB_WORKSPACE/isekai-drop-macos.dmg"
+          shasum -a 256 "$GITHUB_WORKSPACE/isekai-drop-macos.dmg"
       - uses: actions/upload-artifact@v7.0.2
         with:
           name: isekai-drop-macos
-          path: isekai-drop-macos.zip
+          path: isekai-drop-macos.dmg
           if-no-files-found: error
           retention-days: 30
+
+  publish:
+    name: Publish macOS disk image to release "latest-build"
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    # One group per platform: each workflow only touches its own files.
+    concurrency:
+      group: publish-latest-build-macos
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: isekai-drop-macos
+      - run: |
+          test -s isekai-drop-macos.dmg
+          ls -l isekai-drop-macos.dmg
+          sha256sum isekai-drop-macos.dmg
+      - name: Upload (replace) and remove old macOS files
+        run: |
+          V=$(grep -m1 '^version:' pubspec.yaml | sed 's/version: *//; s/+.*//')
+          .github/scripts/latest_build.sh macos \
+            '^isekai-drop-macos' \
+            "macOS (universal, ad-hoc signed) ${V} build ${{ github.run_number }}, commit ${GITHUB_SHA::7}" \
+            isekai-drop-macos.dmg

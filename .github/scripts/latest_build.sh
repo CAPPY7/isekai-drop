@@ -28,6 +28,7 @@ Each new build replaces the files below (no build number in the file names; the 
 - isekai-drop-android-arm64.apk: smaller file for most phones from about 2017 on.
 - isekai-drop-android-universal.apk: works on all Android phones.
 - isekai-drop-windows-setup.exe: Windows 10/11 installer (one file, no admin needed). NOT code-signed: on SmartScreen click More info > Run anyway; Windows 11 Smart App Control may block it (then turn Smart App Control off). See docs/WINDOWS_INSTALL.md.
+- isekai-drop-macos.dmg: Mac disk image (Apple Silicon including M5, and Intel). Ad-hoc signed, not notarized. First open: right-click the app > Open, or System Settings > Privacy & Security > Open Anyway. If macOS says it is damaged, in Terminal run: xattr -cr "/Applications/Isekai Drop.app". See docs/MAC_INSTALL.md.
 - isekai-drop-ios-unsigned.ipa: UNSIGNED. Needs sideloading (AltStore/Sideloadly with your own free Apple ID) and expires after 7 days. See README.
 
 Builds:
@@ -72,7 +73,7 @@ lines.append(f"- {os.environ['LINE']} {tag}")
 lines.sort()
 open(f"{tmp}/new.txt", "w").write(base + "\n" + "\n".join(lines) + "\n")
 PY
-  gh release edit "$TAG" -R "$R" --notes-file "$RUNNER_TEMP/new.txt" >/dev/null
+  gh release edit "$TAG" -R "$R" --title "$TITLE" --notes-file "$RUNNER_TEMP/new.txt" >/dev/null
   sleep $((RANDOM % 5 + 3))
   # Another platform's read-modify-write can still overwrite our line a few
   # seconds later (seen on build 16), so check again after a pause.

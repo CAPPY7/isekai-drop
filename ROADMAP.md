@@ -180,6 +180,12 @@ Owner on 0.10.1: plain TCP 6.9, TLS 7.1/8.8 MB/s; disk/hash 121-312 MB/s -> netw
 - [ ] Owner saved the key backup (then the build-box copy is deleted)
 - [ ] One-time uninstall + reinstall on the owner's phones (NOT TESTED)
 
+## Phase 7n - macOS disk image on latest-build
+- [x] CI builds a universal (arm64+x86_64) release app, ad-hoc signs it, packs `isekai-drop-macos.dmg`, and publishes it to latest-build with the same replace-by-stable-name logic as the other platforms
+- [x] Entitlements: network client/server, user-selected read-write, Downloads read-write; Bonjour and Local Network keys already in Info.plist
+- [x] docs/MAC_INSTALL.md (right-click Open / Open Anyway / `xattr -cr` fallback), README and release notes
+- [ ] Running on a real Mac: NOT TESTED
+
 ## Phase 8 - Fix security, compatibility, performance, usability
 - [ ] Security tests for all acceptance tests
 - [x] Real release key (never committed): new key in 0.11.1 (old backup lost), CI signs main builds when the 4 secrets exist (Phase 7m).

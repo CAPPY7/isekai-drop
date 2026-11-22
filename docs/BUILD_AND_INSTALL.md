@@ -9,7 +9,7 @@ monthly minutes allowance where macOS counts 10x and Windows 2x).
 |---|---|---|---|---|
 | Android | ubuntu runner | Signed `.apk` | **Yes**, after allowing "Install unknown apps" | Free |
 | Windows | windows runner | Single installer `isekai-drop-windows-setup.exe` (Inno Setup, per-user, no admin); app folder as CI artifact | Yes, unsigned: SmartScreen warns ("More info → Run anyway"); Windows 11 Smart App Control blocks unsigned apps (see WINDOWS_INSTALL.md) | Free (code-signing certificate optional, paid) |
-| macOS | macOS runner | Zip of `Isekai Drop.app`, unsigned, not notarized | Yes with a workaround: right-click → Open, or System Settings → Privacy & Security → "Open Anyway" | Free; proper signing needs the $99/yr Apple program |
+| macOS | macOS runner | `isekai-drop-macos.dmg` on latest-build (universal arm64+x86_64, ad-hoc signed, not notarized) | Yes with a workaround: right-click → Open, or System Settings → Privacy & Security → "Open Anyway"; see MAC_INSTALL.md | Free; proper signing/notarizing needs the $99/yr Apple program |
 | Linux | ubuntu runner | `.tar.gz` with the app bundle | Yes: unpack, run `isekaidrop` | Free |
 | iOS / iPadOS | macOS runner | **Unsigned** build | **No.** Proves the code compiles only | See below |
 

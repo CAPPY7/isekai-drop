@@ -37,14 +37,18 @@ file before every phase. Stop after each phase and wait for "next".
   `isekai-drop-windows-setup.exe` (0.10.3+: Inno Setup installer from
   `windows/installer/isekai-drop.iss`, built by ISCC on the Windows job;
   the old `isekai-drop-windows-x64.zip` is removed by the stale pattern
-  `^isekai-drop-windows-.*$`; the plain folder is a CI artifact only). Unsigned:
+  `^isekai-drop-windows-.*$`; the plain folder is a CI artifact only),
+  `isekai-drop-macos.dmg` (universal arm64+x86_64, ad-hoc signed with
+  `codesign --force --deep -s -`, packed with hdiutil, not notarized;
+  Gatekeeper needs right-click > Open, docs/MAC_INSTALL.md; stale pattern
+  `^isekai-drop-macos`). Unsigned Windows:
   Smart App Control blocks it; never add a SAC bypass (docs/WINDOWS_INSTALL.md). Build numbers go into the release text, one
   line per platform (`<!--android-->` etc. markers). Concurrency group per
   platform (`publish-latest-build-<platform>`); never one shared group (a
   newer pending job cancels an older pending one).
 - Workflows: `permissions: {}` at top; build jobs `contents: read`; only the
-  `publish` jobs (Android, iOS, Windows) have `contents: write`, publishing to
-  prerelease tag `latest-build`.
+  `publish` jobs (Android, iOS, Windows, macOS) have `contents: write`, publishing to
+  prerelease tag `latest-build`. Release title is `Latest test build (not a real release)` (no "DEV-signed").
 - Action versions pinned: checkout v7.0.1, setup-java v6.1.0,
   flutter-action v2.23.0, upload-artifact v7.0.2, download-artifact v8.0.2,
   action-gh-release v3.0.3.
@@ -81,7 +85,7 @@ file before every phase. Stop after each phase and wait for "next".
 - iOS: NSLocalNetworkUsageDescription added; received files in
   Documents/Received (Files app). Multicast on iOS needs an Apple entitlement
   (paid account) - discovery likely does not work on iOS; typed IP does.
-- macOS: sandbox entitlements network.client/server + user-selected read.
+- macOS: sandbox entitlements network.client/server, user-selected read-write, downloads read-write (received files go to Downloads/Isekai Drop). Info.plist already has NSBonjourServices `_isekaidrop._tcp` and NSLocalNetworkUsageDescription.
 - Linux CI needs libsecret-1-dev for flutter_secure_storage.
 - History stays DEMO (DemoHistory). Pause/resume/folders/auto-receive later.
 - QR: NOT done. Options for owner: mobile_scanner (BSD, but Android uses
@@ -273,3 +277,7 @@ file before every phase. Stop after each phase and wait for "next".
 - android.yml signs main builds + latest-build with the release key when all 4 secrets exist (step "Check which key signed the APKs" fails on a mismatch), else falls back to the DEV key with a `::warning`. The latest-build Android line says "release key" / "dev key".
 - Dev key (5b36eeb0...b257c1) = local/debug and fallback only. Upgrading from a dev-signed build needs ONE uninstall.
 - AUDIT #35 is resolved for anyone who has installed a 0.11.1+ release-signed APK.
+
+## macOS latest-build dmg (2026-11-22)
+- macos.yml now ad-hoc signs the release .app, checks `lipo` for arm64+x86_64, packs `isekai-drop-macos.dmg`, and the publish job uploads it to latest-build on main pushes only (stable name, clobber + stale-pattern cleanup).
+- No paid Apple account and no notarization. Running on a real Mac: NOT TESTED.

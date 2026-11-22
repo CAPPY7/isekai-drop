@@ -13,6 +13,11 @@
   update the app.
 - No app changes otherwise (same as 0.11.0). Windows/iOS: nothing to do
   (Windows still unsigned, iOS still unsigned).
+- The latest-build release now also has **`isekai-drop-macos.dmg`**
+  (universal: Apple Silicon including M5, and Intel). Ad-hoc signed, not
+  notarized. First open: right-click > Open, or System Settings >
+  Privacy & Security > Open Anyway. See docs/MAC_INSTALL.md. Running on a
+  real Mac: **NOT TESTED**.
 
 # Isekai Drop 0.11.0 (DRAFT release notes, test build)
 

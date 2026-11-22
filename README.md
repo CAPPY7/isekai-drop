@@ -11,7 +11,7 @@ A free, private app for sending files **directly** between your own devices
 | Android 8+ | APK from the release (test key) | UDP + Bonjour | yes | Use the phone's normal hotspot when there is no router (Connect > No Wi-Fi router?). Android 9 and older save to the app's own folder (audit #6). Keep the app open while transferring. |
 | iPhone / iPad | UNSIGNED .ipa, sideloaded with **your own** Apple ID (AltStore/Sideloadly). Free Apple ID = 7-day expiry, 3 devices. NOT TESTED | Bonjour only | yes (Bonjour) | Must allow Local Network. **Foreground only**: transfers stop in the background. Windows/Linux PCs don't appear: scan their QR code or type their address. No folder picking. |
 | Windows 10/11 | `isekai-drop-windows-setup.exe` on latest-build (unsigned) | UDP + Bonjour (browse) | UDP only | SmartScreen warns (More info > Run anyway); Smart App Control (if On) blocks it, see docs/WINDOWS_INSTALL.md. Allow it in the firewall prompt. iPhones can't find it automatically. |
-| macOS | Build from Actions (unsigned) | UDP + Bonjour | yes | Gatekeeper blocks the first start: right-click > Open, or System Settings > Privacy & Security > Open Anyway. Local Network permission on macOS 15+. NOT TESTED on a Mac. |
+| macOS 12+ (Apple Silicon including M5, and Intel) | `isekai-drop-macos.dmg` on latest-build (ad-hoc signed, not notarized) | UDP + Bonjour | yes | First open: right-click > Open, or System Settings > Privacy & Security > Open Anyway. See docs/MAC_INSTALL.md. Local Network permission on macOS 15+. NOT TESTED on a Mac. |
 | Linux x64 | tar.gz from Actions | UDP + Bonjour (browse) | UDP only | Needs GTK 3 and libsecret. Without an unlocked keyring the device key is stored in a private file (mode 600) instead. Open TCP 47820 and UDP 47821 in the firewall. Tested only headless on the build box. |
 
 0.11.0: simpler screens (3-step Send, QR first on Connect, short Settings, a first-start intro) and an **Auto (fastest)** route choice; see RELEASE_NOTES.md.
@@ -23,7 +23,7 @@ Speed: no speed is promised. Shown speeds are measured live. Real results depend
 The repo is **public**: send them the link
 `https://github.com/CAPPY7/isekai-drop/releases/tag/latest-build` (no GitHub
 account needed), or send them the file yourself through any messenger or
-cloud drive. They install it as in "Install on Android" from step 3 (Windows:
+cloud drive. They install it as in "Install on Android" from step 3 (Windows or Mac:
 see "Other platforms").
 Tell them: the app is a test version signed with a test key. Pairing is one tap: they tap your device and you tap Accept (comparing the 16-digit code or scanning the QR code is optional but safer on shared Wi-Fi, see PRIVACY.md). They should only accept files from people they know.
 When the real release key arrives (docs/RELEASE_SIGNING.md), everyone has to **uninstall the test app once** and install the new one. Pairings must then be made again.
@@ -43,12 +43,14 @@ Earlier phases: Phase 3 had real, encrypted sending on the same Wi-Fi or hotspot
 ## How it works (no computer needed by you)
 1. Code changes are pushed to this public GitHub repo.
 2. GitHub Actions (GitHub's free build computers) automatically builds the apps.
-3. The Android app (APK, the Android install file), the Windows installer and the
-   unsigned iPhone file are published to the release called **latest-build**.
+3. The Android app (APK, the Android install file), the Windows installer, the
+   Mac disk image and the unsigned iPhone file are published to the release
+   called **latest-build**.
 
 > The repo is **public**: the release page and downloads work without a
-> GitHub account. These are TEST builds (Android: signed with a public test
-> key, see "Security note" below; Windows: not code-signed).
+> GitHub account. These are TEST builds (Android: signed with the owner's
+> release key, see "Security note" below; Windows and Mac: not
+> Microsoft/Apple-signed).
 
 ## Install on Android (first time)
 1. On your phone, open Chrome.
@@ -125,13 +127,21 @@ missing, and then says so in the run.
      control > Smart App Control settings; your choice, it lowers
      protection). Details: `docs/WINDOWS_INSTALL.md`.
 
-macOS and Linux builds are downloadable from the **Actions** tab (open the newest green run > Artifacts: `isekai-drop-macos`, `isekai-drop-linux`; the plain Windows folder is `isekai-drop-windows`). You must be logged into GitHub.
-2. macOS: unzip, right-click the app > Open > Open.
-3. Linux: `tar xzf isekai-drop-linux-x64.tar.gz`, then run `./isekaidrop` inside the folder.
+2. **macOS 12+** (MacBook Air M5 and other Apple Silicon or Intel Macs):
+   download **`isekai-drop-macos.dmg`** from the **latest-build** release
+   (no GitHub account needed), open it, drag **Isekai Drop** to
+   **Applications**, then **right-click the app > Open** the first time
+   (or System Settings > Privacy & Security > **Open Anyway**). If Mac
+   says the app is damaged, see `docs/MAC_INSTALL.md`. NOT TESTED on a
+   real Mac. Allow Local Network if asked.
+3. Linux: the Linux build is a CI artifact only (Actions tab, newest green
+   run > `isekai-drop-linux`; you must be logged into GitHub).
+   `tar xzf isekai-drop-linux-x64.tar.gz`, then run `./isekaidrop` inside
+   the folder.
 iPhone: see "Install on iPhone" above.
 
 ## Documents
 - `docs/SPECIFICATION.txt`: what the app must do
-- `docs/TECH_CHOICE.md`, `docs/ARCHITECTURE.md`, `docs/CONNECTION_OPTIONS.md`, `docs/BUILD_AND_INSTALL.md`, `docs/WINDOWS_INSTALL.md`
+- `docs/TECH_CHOICE.md`, `docs/ARCHITECTURE.md`, `docs/CONNECTION_OPTIONS.md`, `docs/BUILD_AND_INSTALL.md`, `docs/WINDOWS_INSTALL.md`, `docs/MAC_INSTALL.md`
 - `ROADMAP.md`, `AGENTS.md`, `PRIVACY.md`, `THIRD_PARTY_NOTICES.md`, `RELEASE_NOTES.md`
 - `docs/AUDIT.md` (bug list), `docs/ACCEPTANCE.md`, `docs/BENCHMARK_PLAN.md`, `docs/BENCHMARK_STEPS.md`, `docs/BENCHMARK_RESULTS_TEMPLATE.md`, `docs/RELEASE_SIGNING.md`, `docs/IOS_NOTES.md`
