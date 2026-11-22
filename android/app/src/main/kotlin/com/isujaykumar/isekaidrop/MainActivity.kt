@@ -61,6 +61,36 @@ class MainActivity : FlutterFragmentActivity() {
     private val sharedFiles = mutableListOf<Map<String, Any?>>()
     private var sharedUnreadable = 0
 
+    // D2: the "incoming request" notification is only shown when the app
+    // is not on screen (the Accept question is visible otherwise).
+    private var visible = false
+
+    override fun onResume() {
+        super.onResume()
+        visible = true
+        TransferService.requestNotice(this, false)
+    }
+
+    override fun onPause() {
+        visible = false
+        super.onPause()
+    }
+
+    private val notifyRequest = 4716
+    private var pendingNotify: MethodChannel.Result? = null
+
+    private fun askNotifications(result: MethodChannel.Result) {
+        if (Build.VERSION.SDK_INT < 33 ||
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        ) {
+            result.success(true)
+            return
+        }
+        if (pendingNotify != null) { result.error("busy", "Already asking", null); return }
+        pendingNotify = result
+        requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), notifyRequest)
+    }
+
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
         // After a recreation the same intent comes back: already taken.
@@ -179,6 +209,27 @@ class MainActivity : FlutterFragmentActivity() {
             StandardMethodCodec.INSTANCE,
             messenger.makeBackgroundTaskQueue(),
         ).setMethodCallHandler { call, result -> media.handle(call, result) }
+        // D2 (0.12.0): foreground service + notifications.
+        val service = MethodChannel(messenger, "isekai_drop/service")
+        TransferService.onCancel = { runOnUiThread { service.invokeMethod("cancel", null) } }
+        service.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "update" -> {
+                    val s = mutableMapOf<String, Int>()
+                    for (k in listOf("sending", "receiving", "requests", "done", "total")) {
+                        s[k] = (call.argument<Number>(k) ?: 0).let { n ->
+                            n.toLong().coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
+                        }
+                    }
+                    result.success(TransferService.update(this, s, visible))
+                }
+                "stop" -> {
+                    TransferService.stop(this)
+                    result.success(null)
+                }
+                else -> result.notImplemented()
+            }
+        }
         val directChannel = MethodChannel(messenger, "isekai_drop/direct")
         val dl = DirectLinks(this, directChannel) {
             boundTo = null
@@ -199,6 +250,9 @@ class MainActivity : FlutterFragmentActivity() {
                     "ensureLegacyStorage" -> ensureLegacyStorage(result)
                     // C6: a picker result that arrived after the app was
                     // recreated (null when there is none).
+                    // D2: Android 13+ notification permission (asked once,
+                    // after the app explained why).
+                    "askNotifications" -> askNotifications(result)
                     "takeShared" -> {
                         if (sharedFiles.isEmpty() && sharedUnreadable == 0) {
                             result.success(null)
@@ -423,6 +477,12 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     override fun onDestroy() {
+        // D2: transfers run in this activity's Flutter engine; when it is
+        // closed for good they stop, so the service and notice go too.
+        if (isFinishing) {
+            TransferService.onCancel = null
+            TransferService.stop(this)
+        }
         try {
             direct?.dispose()
         } catch (_: Exception) {
@@ -957,6 +1017,12 @@ class MainActivity : FlutterFragmentActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == DirectLinks.PERMISSION_REQUEST) {
             direct?.onPermissionResult()
+            return
+        }
+        if (requestCode == notifyRequest) {
+            val r = pendingNotify ?: return
+            pendingNotify = null
+            r.success(grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED)
             return
         }
         if (requestCode == legacyRequest) {

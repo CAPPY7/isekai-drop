@@ -10,6 +10,15 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Scanning pairing QR codes only. Asked the first time you tap Scan. -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- D2 (0.12.0): a foreground service (type "data sync") keeps a
+         running transfer, or a request waiting for your answer, going when
+         you switch to another app. No prompt. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- D2: Android 13+ asks before showing the progress and "incoming
+         request" notifications. Asked at the first transfer, after the app
+         explains why. No file or device names are shown in them. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Audit #6: only Android 9 and older (no MediaStore.Downloads there);
          needed to save into the public Downloads/Isekai Drop folder. -->
     <uses-permission
@@ -79,6 +88,11 @@
                 <data android:mimeType="*/*" />
             </intent-filter>
         </activity>
+        <!-- D2: see TransferService.kt. Not usable by other apps. -->
+        <service
+            android:name=".TransferService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

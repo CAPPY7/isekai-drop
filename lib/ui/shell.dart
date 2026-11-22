@@ -1,12 +1,16 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 
-import '../engine/platform_engine.dart' show setKeepScreenOn, takeSharedFiles;
+import '../engine/platform_engine.dart'
+    show askNotificationPermission, setKeepScreenOn, takeSharedFiles;
 import '../engine/pick_result.dart';
 
 import '../engine/transfer_engine.dart';
 import 'app_scope.dart';
+import 'notification_ask.dart';
+import 'ui_env.dart';
 import 'shell_nav.dart';
 import 'screens/connect_screen.dart';
 import 'screens/transfer_screen.dart';
@@ -104,6 +108,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (active != _screenOn) {
       _screenOn = active;
       unawaited(setKeepScreenOn(active));
+      if (active) _askNotifications();
     }
     if (_showing != null) return;
     PendingRequest? next;
@@ -342,6 +347,21 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     } else {
       r.decline();
     }
+  }
+
+  /// D2: Android 13+ needs permission for the progress notification.
+  /// Asked once, at the first transfer, after our own explanation.
+  void _askNotifications() {
+    if (!Platform.isAndroid || !UiEnv.of(context).readPlatform) return;
+    final settings = AppScope.of(context).settings;
+    unawaited(
+      maybeAskNotifications(
+        context,
+        alreadyAsked: () => settings.notificationsAsked,
+        markAsked: settings.markNotificationsAsked,
+        askSystem: askNotificationPermission,
+      ),
+    );
   }
 
   void _go(int i) => setState(() => _index = i);

@@ -30,6 +30,9 @@ class SettingsController extends ChangeNotifier {
   static const _kNameByUser = 'device_name_by_user';
   static const _kRoute = 'route_mode';
   static const _kOnboarding = 'onboarding_done';
+  // D2: the notification question was shown (no schema change: the
+  // default "not yet" is safe).
+  static const _kNotifAsked = 'notifications_asked';
 
   /// Route choices (0.11.0).
   static const routeAuto = 'auto';
@@ -98,6 +101,11 @@ class SettingsController extends ChangeNotifier {
 
   /// 0.11.0 (spec A8): the 3-slide intro was seen or skipped.
   bool get onboardingDone => _prefs.getBool(_kOnboarding) ?? false;
+
+  /// D2: the "Show transfer notifications?" question was shown.
+  bool get notificationsAsked => _prefs.getBool(_kNotifAsked) ?? false;
+
+  Future<void> markNotificationsAsked() => _prefs.setBool(_kNotifAsked, true);
 
   Future<void> markOnboardingDone() async {
     await _prefs.setBool(_kOnboarding, true);

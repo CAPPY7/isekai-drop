@@ -17,6 +17,7 @@ import 'bonjour.dart';
 import 'free_space.dart';
 import 'pick_result.dart';
 import 'share_intake.dart';
+import 'transfer_service.dart';
 
 export 'pick_result.dart' show PickResult, SkippedFiles;
 import 'core/benchmark_store.dart';
@@ -454,6 +455,12 @@ Future<IsekaiEngine> createPlatformEngine(
   );
   engine.diagCounters.multicastLock = multicastLock;
   if (Platform.isAndroid) {
+    // D2: foreground service + notification while something is going on.
+    TransferServiceBridge(
+      listenable: engine,
+      jobs: () => engine.jobs,
+      pending: () => engine.pending,
+    ).attach();
     // Exact prefixes (for subnet broadcast) and the Wi-Fi binding state.
     engine.nativeNets = () async {
       final r = parseNativeNets(
@@ -799,6 +806,17 @@ Future<PickResult> takeLostPickedFiles() async {
   return parseLostPick(
     await _android.invokeMapMethod<Object?, Object?>('takeLostPick'),
   );
+}
+
+/// D2: Android 13+ notification permission. True when allowed.
+Future<bool> askNotificationPermission() async {
+  if (!Platform.isAndroid) return true;
+  try {
+    return await _android.invokeMethod<bool>('askNotifications') ?? false;
+  } catch (e) {
+    noteError('ask_notifications', e);
+    return false;
+  }
 }
 
 /// D1: files shared from another Android app since the last call.
