@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- D4 (0.12.0): the only folders whose files "Open" may hand to another
+     app (read only, one file at a time): received files on Android 9 and
+     older. Android 10+ opens the Downloads item directly. -->
+<paths>
+    <external-path name="downloads" path="Download/Isekai Drop/" />
+    <external-files-path name="own_downloads" path="Download/Isekai Drop/" />
+</paths>

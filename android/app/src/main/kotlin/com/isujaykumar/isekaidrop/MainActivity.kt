@@ -253,6 +253,9 @@ class MainActivity : FlutterFragmentActivity() {
                     // D2: Android 13+ notification permission (asked once,
                     // after the app explained why).
                     "askNotifications" -> askNotifications(result)
+                    // D4: "Open" / "Show in folder" after receiving.
+                    "openReceived" -> result.success(openReceived(call.argument<String>("path") ?: ""))
+                    "openReceiveFolder" -> result.success(openReceiveFolder())
                     "takeShared" -> {
                         if (sharedFiles.isEmpty() && sharedUnreadable == 0) {
                             result.success(null)
@@ -544,6 +547,76 @@ class MainActivity : FlutterFragmentActivity() {
         for (uri in uris) keepAccess(uri)
         val out = uris.map { describe(it) }
         if (result != null) result.success(out) else lostPick = mapOf("files" to out)
+    }
+
+    // ------------------------------------------------- D4: open received
+
+    /** Opens a file this app saved, with the app the user picks. Only
+     *  "Downloads/Isekai Drop/..." items (Android 10+) or files inside the
+     *  legacy "Isekai Drop" folder (Android 9-). Read access only. */
+    private fun openReceived(path: String): Boolean {
+        try {
+            val uri: Uri = if (path.startsWith("Downloads/Isekai Drop/") && Build.VERSION.SDK_INT >= 29) {
+                val rel = path.removePrefix("Downloads/")
+                if (rel.split('/').any { it == ".." || it == "." || it.isEmpty() }) return false
+                val name = rel.substringAfterLast('/')
+                val dir = Environment.DIRECTORY_DOWNLOADS + "/" + rel.substringBeforeLast('/') + "/"
+                var found: Uri? = null
+                contentResolver.query(
+                    MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                    arrayOf(MediaStore.Downloads._ID),
+                    "${MediaStore.Downloads.RELATIVE_PATH}=? AND ${MediaStore.Downloads.DISPLAY_NAME}=?",
+                    arrayOf(dir, name),
+                    "${MediaStore.Downloads.DATE_ADDED} DESC",
+                )?.use { c ->
+                    if (c.moveToFirst()) {
+                        found = android.content.ContentUris.withAppendedId(
+                            MediaStore.Downloads.EXTERNAL_CONTENT_URI, c.getLong(0),
+                        )
+                    }
+                }
+                found ?: return false
+            } else if (path.startsWith("/")) {
+                val f = File(path).canonicalFile
+                val base = legacyBase().canonicalPath
+                if (!f.path.startsWith(base + File.separator) || !f.isFile) return false
+                androidx.core.content.FileProvider.getUriForFile(this, "$packageName.files", f)
+            } else {
+                return false
+            }
+            val type = contentResolver.getType(uri) ?: "*/*"
+            startActivity(
+                Intent(Intent.ACTION_VIEW)
+                    .setDataAndType(uri, type)
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+            return true
+        } catch (_: Exception) {
+            return false // no app for this type, or not found
+        }
+    }
+
+    /** Downloads/Isekai Drop in the Files app; the Downloads list when the
+     *  phone's file manager cannot open a folder directly. */
+    private fun openReceiveFolder(): Boolean {
+        try {
+            val doc = DocumentsContract.buildDocumentUri(
+                "com.android.externalstorage.documents", "primary:Download/Isekai Drop",
+            )
+            startActivity(
+                Intent(Intent.ACTION_VIEW)
+                    .setDataAndType(doc, DocumentsContract.Document.MIME_TYPE_DIR)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+            return true
+        } catch (_: Exception) {
+        }
+        return try {
+            startActivity(Intent(android.app.DownloadManager.ACTION_VIEW_DOWNLOADS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            true
+        } catch (_: Exception) {
+            false
+        }
     }
 
     /** Name and size of a picked or shared file (size -1 = unknown). */

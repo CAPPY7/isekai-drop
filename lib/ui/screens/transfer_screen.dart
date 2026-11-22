@@ -423,8 +423,8 @@ class _TransferScreenState extends State<TransferScreen> {
     final names = job.fileNames.isNotEmpty
         ? job.fileNames
         : [for (final s in job.savedTo) s.split(RegExp(r'[\\/]')).last];
-    final desktopFiles =
-        !sending && canOpenSavedFiles && job.savedTo.isNotEmpty;
+    // D4: desktops and Android (iPhone: the share sheet below).
+    final openable = !sending && canOpenSavedFiles && job.savedTo.isNotEmpty;
     final chip = _chip();
     return [
       Card(
@@ -489,17 +489,18 @@ class _TransferScreenState extends State<TransferScreen> {
                 runSpacing: IdSpacing.sm,
                 alignment: WrapAlignment.center,
                 children: [
-                  if (desktopFiles && job.savedTo.length == 1)
+                  if (openable && job.savedTo.length == 1)
                     _btn(
                       'Open',
                       Icons.open_in_new,
-                      () => openSavedFile(job.savedTo.first),
+                      () => _tell(context, openSavedFile(job.savedTo.first)),
                     ),
-                  if (desktopFiles)
+                  if (openable)
                     _btn(
                       'Show in folder',
                       Icons.folder_open,
-                      () => showSavedInFolder(job.savedTo.first),
+                      () =>
+                          _tell(context, showSavedInFolder(job.savedTo.first)),
                     ),
                   if (canShareFiles && job.savedTo.isNotEmpty)
                     _btn(
@@ -536,6 +537,20 @@ class _TransferScreenState extends State<TransferScreen> {
           textAlign: TextAlign.center,
         ),
     ];
+  }
+
+  /// D4: a plain message when the file or folder could not be opened.
+  static Future<void> _tell(BuildContext context, Future<bool> f) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (!await f) {
+      messenger?.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'It could not be opened. It is saved at the place shown above.',
+          ),
+        ),
+      );
+    }
   }
 
   Widget _btn(String label, IconData icon, VoidCallback onTap, {Key? key}) =>

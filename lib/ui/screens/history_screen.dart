@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../engine/transfer_engine.dart';
 import '../app_scope.dart';
+import '../file_actions.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
 
@@ -108,6 +109,34 @@ class HistoryScreen extends StatelessWidget {
                       if (t.fileNames.length > 20)
                         Text('...and ${t.fileNames.length - 20} more'),
                     ],
+                    // D4: the folder received files went to.
+                    if (t.direction == HistoryDirection.received &&
+                        t.destination != null &&
+                        savedFileActions.canOpen)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          style: TextButton.styleFrom(
+                            minimumSize: const Size(0, IdLayout.minTouchTarget),
+                          ),
+                          onPressed: () async {
+                            final messenger = ScaffoldMessenger.of(context);
+                            if (!await savedFileActions.openFolder(
+                              t.destination!,
+                            )) {
+                              messenger.showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'The folder could not be opened.',
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.folder_open),
+                          label: const Text('Show folder'),
+                        ),
+                      ),
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton.icon(
