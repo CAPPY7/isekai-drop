@@ -14,6 +14,7 @@ import 'android_export.dart';
 import 'bonjour.dart';
 import 'free_space.dart';
 import 'core/benchmark_store.dart';
+import 'core/blocked_store.dart';
 import 'core/engine.dart';
 import 'core/history_store.dart';
 import 'core/identity.dart';
@@ -254,6 +255,13 @@ Future<IsekaiEngine> createPlatformEngine(
   } catch (_) {
     // A damaged database must not stop the app; start empty.
   }
+  // A3: keys blocked from pairing.
+  final blocked = BlockedStore(
+    File(p.join(support.path, 'blocked_devices.json')),
+  );
+  try {
+    await blocked.load();
+  } catch (_) {}
   // 0.11.2: say so when this device's key is new but paired devices were
   // kept (key store reset, or data restored from a backup): those devices
   // will refuse it until paired again.
@@ -365,6 +373,7 @@ Future<IsekaiEngine> createPlatformEngine(
     routeMode: routeMode,
     routeStats: routeStats,
     trust: trust,
+    blocked: blocked,
     deviceName: deviceName,
     platformName: Platform.operatingSystem,
     tempDir: tempDir,

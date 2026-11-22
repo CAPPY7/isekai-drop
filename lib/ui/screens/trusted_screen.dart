@@ -125,6 +125,47 @@ class TrustedDevicesScreen extends StatelessWidget {
     }
   }
 
+  /// A3: asks first, then removes the device from the blocked list.
+  Future<void> _unblock(BuildContext context, BlockedDevice d) async {
+    final engine = AppScope.of(context).engine;
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text('Unblock "${d.name}"?'),
+        content: const Text(
+          'It can ask to pair with this device again. You still decide '
+          'with Accept or Decline.',
+        ),
+        actions: [
+          TextButton(
+            style: TextButton.styleFrom(
+              minimumSize: const Size(0, IdLayout.minTouchTarget),
+            ),
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(0, IdLayout.minTouchTarget),
+            ),
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Unblock'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await engine.unblockDevice(d.fingerprint);
+      messenger.showSnackBar(const SnackBar(content: Text('Unblocked')));
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Could not unblock. Please try again.')),
+      );
+    }
+  }
+
   /// Re-verify without the network: both devices compute the same code from
   /// the two saved keys. The user compares it on both screens.
   Future<void> _verify(BuildContext context, TrustedDevice d) async {
@@ -340,6 +381,34 @@ class TrustedDevicesScreen extends StatelessWidget {
                   ),
                 ),
               ),
+            // A3: devices blocked from the pairing question.
+            if (engine.blockedDevices.isNotEmpty) ...[
+              const SizedBox(height: IdSpacing.md),
+              Text('Blocked', style: Theme.of(context).textTheme.titleMedium),
+              const Text('These devices cannot ask to pair with this one.'),
+              for (final b in engine.blockedDevices)
+                Card(
+                  child: ListTile(
+                    minVerticalPadding: IdSpacing.sm,
+                    leading: Icon(platformIcon(b.platform)),
+                    title: Text(b.name),
+                    subtitle: Text(
+                      'Key: ${shortFingerprint(b.fingerprint)}\n'
+                      'Blocked: ${formatTime(b.blockedAt.toLocal())}',
+                    ),
+                    trailing: TextButton(
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(0, IdLayout.minTouchTarget),
+                      ),
+                      onPressed: () => _unblock(context, b),
+                      child: Text(
+                        'Unblock',
+                        semanticsLabel: 'Unblock ${b.name}',
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ],
         ),
       ),

@@ -8,6 +8,7 @@ library;
 import 'package:flutter/foundation.dart';
 
 import 'core/engine.dart';
+import 'core/blocked_store.dart';
 import 'core/benchmark_store.dart';
 import 'core/history_store.dart';
 import 'core/diag_log.dart';
@@ -31,6 +32,7 @@ export 'core/pending_send_store.dart' show PendingSend;
 export 'core/send_source.dart';
 export 'core/speed_test.dart'
     show SpeedReport, SpeedSample, SpeedTestException, kSpeedLabels;
+export 'core/blocked_store.dart' show BlockedDevice;
 export 'core/trust_store.dart' show TrustedDevice, TrustStatus;
 export 'models.dart';
 export 'direct/direct_link.dart';
@@ -141,6 +143,10 @@ abstract class TransferEngine implements Listenable {
     void Function(String stage)? onStage,
     String appVersion = '',
   });
+
+  /// A3: devices blocked from pairing (Settings > Trusted devices).
+  List<BlockedDevice> get blockedDevices;
+  Future<void> unblockDevice(String fingerprint);
 
   Future<void> renameTrustedDevice(String id, String newName);
   Future<void> revokeTrustedDevice(String id);

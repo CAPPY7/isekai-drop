@@ -341,6 +341,16 @@ class PendingRequest {
     if (!decided) _decision.complete(false);
   }
 
+  /// A3: "Block this device" in the pairing question: declines, and the
+  /// engine adds the key to the blocked list.
+  bool blockRequested = false;
+
+  void block() {
+    if (decided) return;
+    blockRequested = true;
+    _decision.complete(false);
+  }
+
   /// Audit #7: true when nobody answered in time. The dialog closes itself.
   bool expired = false;
 

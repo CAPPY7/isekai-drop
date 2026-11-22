@@ -142,7 +142,7 @@ class _AppShellState extends State<AppShell> {
         if (open && c != null && c.mounted) Navigator.of(c).pop();
       }),
     );
-    final ok = await showDialog<bool>(
+    final answer = await showDialog<Object>(
       context: context,
       barrierDismissible: false,
       builder: (c) {
@@ -267,11 +267,27 @@ class _AppShellState extends State<AppShell> {
                 ),
               ],
             ),
+            // A3: refuse this key from now on, without asking again.
+            if (pairing)
+              Align(
+                alignment: Alignment.center,
+                child: TextButton.icon(
+                  key: const ValueKey('request-block'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: idStatus(context).danger,
+                    minimumSize: const Size(0, IdLayout.minTouchTarget),
+                  ),
+                  onPressed: () => Navigator.pop(c, 'block'),
+                  icon: const Icon(Icons.block),
+                  label: const Text('Block this device'),
+                ),
+              ),
           ],
         );
       },
     );
     open = false;
+    final ok = answer == true;
     if (r.decided) {
       if (r.expired && mounted) {
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
@@ -291,6 +307,15 @@ class _AppShellState extends State<AppShell> {
         unawaited(
           nav.push(
             MaterialPageRoute<void>(builder: (_) => TransferScreen(job: job)),
+          ),
+        );
+      }
+    } else if (answer == 'block') {
+      r.block();
+      if (mounted) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          const SnackBar(
+            content: Text('Blocked. Unblock it in Settings > Trusted devices.'),
           ),
         );
       }

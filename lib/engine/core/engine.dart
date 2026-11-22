@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 
 import '../transfer_engine.dart';
 import 'bg_hasher.dart';
+import 'blocked_store.dart';
 import 'discovery.dart';
 import 'names.dart';
 import 'frames.dart';
@@ -35,6 +36,17 @@ const int kProtocolVersion = 1;
 const Duration kApprovalTimeout = Duration(minutes: 2);
 
 /// Audit #4: limits against connection floods from the local network.
+/// A3: how long a pairing client may take to compare the code after
+/// `pair_hello` (was 2 minutes).
+const Duration kPairHelloWait = Duration(seconds: 45);
+
+/// A3: at most this many `pair_hello` waits at the same time overall
+/// (one per source address).
+const int kMaxPairHelloWaits = 2;
+
+/// A3: after a Decline or an unanswered question, the same key gets
+/// `pair_denied` "cooldown" without a dialog for this long.
+const Duration kPairCooldown = Duration(seconds: 60);
 const int kMaxHandshakes = 8; // TLS handshakes + first message at once
 const int kMaxSessions = 32; // all incoming connections at once
 const Duration kHandshakeTimeout = Duration(seconds: 10);
@@ -104,7 +116,9 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     this.useLanes = true,
     this.laneStreams = kLaneStreams,
     this.speedProbes = const SpeedProbes(),
-  }) : acceptingFiles = acceptingFiles ?? _yes,
+    BlockedStore? blocked,
+  }) : blocked = blocked ?? BlockedStore(),
+       acceptingFiles = acceptingFiles ?? _yes,
        fastDirect = fastDirect ?? _yes,
        autoAccept = autoAccept ?? _no,
        saveFileNames = saveFileNames ?? _yes,
@@ -130,6 +144,19 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
 
   /// 0.10.0 Fast direct: platform part (Android) or null (not available).
   final DirectLinkPlatform? directLinks;
+
+  /// A3: keys the user blocked from pairing.
+  final BlockedStore blocked;
+
+  @override
+  List<BlockedDevice> get blockedDevices => blocked.devices;
+
+  @override
+  Future<void> unblockDevice(String fingerprint) async {
+    await blocked.unblock(fingerprint);
+    _pairDeclinedAt.remove(fingerprint);
+    notifyListeners();
+  }
 
   /// Smallest transfer for which a Fast direct link is tried.
   final int directMinBytes;
@@ -817,7 +844,11 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   /// Time a pairing client (after `pair_hello`) has for its user to compare
   /// the code before sending `pair_req`. Changeable only for tests.
   @visibleForTesting
-  Duration pairCompareTimeout = kApprovalTimeout;
+  Duration pairCompareTimeout = kPairHelloWait;
+
+  /// A3: see [kPairCooldown]. Changeable only for tests.
+  @visibleForTesting
+  Duration pairCooldown = kPairCooldown;
 
   @visibleForTesting
   Future<bool> debugAsk(PendingRequest r) => _ask(r);
@@ -951,18 +982,22 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         return;
       }
       // Pairing: the client says hello at once, then its user compares the
-      // code (can take a while). Only one such slow wait at a time.
+      // code (can take a while). A3: one such wait per source address and
+      // at most kMaxPairHelloWaits overall, so one person on the network
+      // cannot block pairing for everyone.
       if (peerCert == null && first['t'] == 'pair_hello') {
-        if (_pairHelloOpen) {
+        final from = fromAddr ?? '';
+        if (_pairHelloFrom.contains(from) ||
+            _pairHelloFrom.length >= kMaxPairHelloWaits) {
           s.add(jsonFrame({'t': 'pair_denied', 'reason': 'busy'}));
           return;
         }
-        _pairHelloOpen = true;
+        _pairHelloFrom.add(from);
         stage = 'incoming_pair_wait';
         try {
           first = await reader.nextJson(pairCompareTimeout);
         } finally {
-          _pairHelloOpen = false;
+          _pairHelloFrom.remove(from);
         }
       }
       if (peerCert == null) {
@@ -979,8 +1014,9 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         }
         return;
       }
-      final dev = trust.byFingerprint(fingerprintOfDer(peerCert.der));
-      if (dev == null || !dev.isTrusted) {
+      final peerFp = fingerprintOfDer(peerCert.der);
+      final dev = trust.byFingerprint(peerFp);
+      if (dev == null || !dev.isTrusted || blocked.isBlocked(peerFp)) {
         recordProblem(
           'incoming_not_trusted',
           'A device that is no longer trusted tried to connect.',
@@ -1728,6 +1764,16 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       s.add(jsonFrame({'t': 'pair_denied', 'reason': 'same_device'}));
       return;
     }
+    // A3: blocked keys and keys declined a moment ago get no dialog.
+    if (blocked.isBlocked(peerFp)) {
+      diagLog.add('pair_blocked', 'A blocked device asked to pair (refused).');
+      s.add(jsonFrame({'t': 'pair_denied', 'reason': 'declined'}));
+      return;
+    }
+    if (_inPairCooldown(peerFp)) {
+      s.add(jsonFrame({'t': 'pair_denied', 'reason': 'cooldown'}));
+      return;
+    }
     // One pairing question at a time: a flood of requests from the network
     // must not fill the screen with prompts.
     if (_pairingOpen) {
@@ -1796,7 +1842,18 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   @visibleForTesting
   Duration preApprovalTtl = const Duration(minutes: 3);
   final Map<String, _PreApproval> _preApproved = {};
-  bool _pairHelloOpen = false;
+
+  /// A3: source addresses with an open `pair_hello` wait.
+  final Set<String> _pairHelloFrom = {};
+
+  /// A3: key fingerprint -> when it was declined (or the question expired).
+  final Map<String, DateTime> _pairDeclinedAt = {};
+
+  bool _inPairCooldown(String fp) {
+    final now = DateTime.now();
+    _pairDeclinedAt.removeWhere((_, at) => now.difference(at) >= pairCooldown);
+    return _pairDeclinedAt.containsKey(fp);
+  }
 
   Future<void> _serverPairingAsk(
     SecureSocket s,
@@ -1829,6 +1886,14 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     );
     final ok = await _ask(req);
     if (!ok) {
+      if (req.blockRequested) {
+        await blocked.block(peerFp, name: name, platform: platform);
+        diagLog.add('pair_blocked', 'You blocked a device from pairing.');
+        notifyListeners();
+      } else {
+        if (_pairDeclinedAt.length > 256) _pairDeclinedAt.clear();
+        _pairDeclinedAt[peerFp] = DateTime.now();
+      }
       s.add(jsonFrame({'t': 'pair_denied', 'reason': 'declined'}));
       return;
     }
@@ -2543,6 +2608,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         throw PairingException(switch (r['reason']) {
           'declined' => 'The other device declined.',
           'busy' => 'The other device is already answering another pairing request. Try again in a moment.',
+          'cooldown' => 'The other device said no a moment ago. Wait a minute, then try again.',
           _ => 'Pairing was refused.',
         });
       }
