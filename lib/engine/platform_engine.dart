@@ -12,6 +12,7 @@ import 'package:path_provider/path_provider.dart';
 import 'android_direct.dart';
 import 'android_export.dart';
 import 'android_media.dart';
+import 'android_uri_grants.dart';
 import 'bonjour.dart';
 import 'free_space.dart';
 import 'pick_result.dart';
@@ -414,6 +415,9 @@ Future<IsekaiEngine> createPlatformEngine(
     ),
     directSaver: directSaver,
     finalizeCopies: Platform.isAndroid,
+    releaseSourceGrants: Platform.isAndroid
+        ? AndroidUriGrants(_android).release
+        : null,
     pendingSends: pendingSends,
     freeSpace: freeBytesFor,
     sourceCodec: const _PlatformSourceCodec(),

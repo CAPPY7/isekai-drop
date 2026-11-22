@@ -105,6 +105,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     this.freeSpace,
     this.directSaver,
     this.finalizeCopies = false,
+    this.releaseSourceGrants,
     this.sourceCodec = const SendSourceCodec(),
     bool Function()? acceptingFiles,
     bool Function(TrustedDevice device)? autoAccept,
@@ -220,6 +221,35 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   final PendingSendStore? pendingSends;
   final SendSourceCodec sourceCodec;
 
+  /// C4: gives back access to picked files (Android persistable URI
+  /// permissions) that no saved or running send needs any more.
+  /// [release] and [keep] are encoded sources ([sourceCodec]).
+  final Future<void> Function(
+    List<Map<String, dynamic>> release,
+    List<Map<String, dynamic>> keep,
+  )?
+  releaseSourceGrants;
+
+  /// C4: everything a saved send (other than [exceptId]) or a running send
+  /// still needs.
+  List<Map<String, dynamic>> _stillNeeded({String? exceptId}) => [
+    for (final p in pendingSends?.items ?? const <PendingSend>[])
+      if (p.id != exceptId) ...p.sources,
+    for (final j in _jobs)
+      if (j.isActive && j.direction == JobDirection.sending)
+        for (final s in j.sources) ?sourceCodec.encode(s),
+  ];
+
+  Future<void> _releaseGrants(List<Map<String, dynamic>> sources) async {
+    final f = releaseSourceGrants;
+    if (f == null || sources.isEmpty) return;
+    try {
+      await f(sources, _stillNeeded());
+    } catch (e) {
+      recordException('release_grants', e);
+    }
+  }
+
   @override
   List<PendingSend> get interruptedSends => pendingSends?.items ?? const [];
 
@@ -244,7 +274,9 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
 
   @override
   Future<void> removeSaved(String id) async {
+    final p = pendingSends?.items.where((e) => e.id == id).firstOrNull;
     await pendingSends?.remove(id);
+    if (p != null) await _releaseGrants(p.sources);
     notifyListeners();
   }
 
@@ -255,7 +287,15 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     if (dev == null || job.sources.isEmpty) return;
     final id = transferIdFor(dev.fingerprint, job.sources);
     if (job.state != JobState.failed || job.refusedByPeer) {
-      _keep(store.remove(id));
+      _keep(
+        store
+            .remove(id)
+            .then(
+              (_) => _releaseGrants([
+                for (final s in job.sources) ?sourceCodec.encode(s),
+              ]),
+            ),
+      );
       return;
     }
     final enc = <Map<String, dynamic>>[];

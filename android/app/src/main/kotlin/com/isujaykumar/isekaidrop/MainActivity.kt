@@ -138,6 +138,13 @@ class MainActivity : FlutterActivity() {
                     // (0.9.2: openRead/readChunk/closeRead moved to the
                     // "isekai_drop/android_read" background channel.)
                     "ensureLegacyStorage" -> ensureLegacyStorage(result)
+                    "releaseUris" -> {
+                        releaseUris(
+                            call.argument<List<String>>("release") ?: emptyList(),
+                            call.argument<List<String>>("keep") ?: emptyList(),
+                        )
+                        result.success(null)
+                    }
                     // Audit #15: partial files live here (not cache: the
                     // system may clear it; not backed up to the cloud).
                     "noBackupDir" -> result.success(noBackupFilesDir.absolutePath)
@@ -373,6 +380,8 @@ class MainActivity : FlutterActivity() {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = "*/*"
             putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+            // C4: read access that survives an app restart (Retry).
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
         }
         @Suppress("DEPRECATION")
         startActivityForResult(intent, pickRequest)
@@ -397,6 +406,7 @@ class MainActivity : FlutterActivity() {
         data.clipData?.let { clip ->
             for (i in 0 until clip.itemCount) uris.add(clip.getItemAt(i).uri)
         } ?: data.data?.let { uris.add(it) }
+        for (uri in uris) keepAccess(uri)
         val out = uris.map { uri ->
             var name = "file"
             var size: Long = -1
@@ -411,6 +421,44 @@ class MainActivity : FlutterActivity() {
             mapOf("uri" to uri.toString(), "name" to name, "size" to size)
         }
         result.success(out)
+    }
+
+    // ------------------------------------------------- C4: lasting access
+
+    /** C4: keep read access to a picked file or folder after a restart.
+     *  Providers that do not allow it are ignored (Retry then reports it). */
+    private fun keepAccess(uri: Uri) {
+        try {
+            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        } catch (_: SecurityException) {
+        } catch (_: IllegalArgumentException) {
+        }
+    }
+
+    /** The URI the permission was granted for: a file inside a picked
+     *  folder maps to that folder (tree). */
+    private fun grantKey(u: Uri): Uri = try {
+        if (DocumentsContract.isTreeUri(u)) {
+            DocumentsContract.buildTreeDocumentUri(u.authority, DocumentsContract.getTreeDocumentId(u))
+        } else {
+            u
+        }
+    } catch (_: Exception) {
+        u
+    }
+
+    /** C4: give back access no saved or running send needs any more. */
+    private fun releaseUris(release: List<String>, keep: List<String>) {
+        val keepKeys = keep.map { grantKey(Uri.parse(it)) }.toSet()
+        val held = contentResolver.persistedUriPermissions.map { it.uri }.toSet()
+        for (s in release) {
+            val k = grantKey(Uri.parse(s))
+            if (k in keepKeys || k !in held) continue
+            try {
+                contentResolver.releasePersistableUriPermission(k, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            } catch (_: SecurityException) {
+            }
+        }
     }
 
     private fun onReadCall(call: MethodCall, result: MethodChannel.Result) {
@@ -670,7 +718,12 @@ class MainActivity : FlutterActivity() {
         }
         pendingFolder = result
         @Suppress("DEPRECATION")
-        startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE), folderRequest)
+        startActivityForResult(
+            Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).addFlags(
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION,
+            ),
+            folderRequest,
+        )
     }
 
     private fun onFolderResult(resultCode: Int, data: Intent?) {
@@ -681,6 +734,7 @@ class MainActivity : FlutterActivity() {
             result.success(null)
             return
         }
+        keepAccess(tree)
         io.execute {
             try {
                 val out = mutableListOf<Map<String, Any?>>()
