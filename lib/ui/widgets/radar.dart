@@ -1,7 +1,8 @@
-import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+
+import '../ui_env.dart';
 
 /// 0.11.0: pulsing radar shown while looking for devices. Static icon when
 /// the system asks for less motion (MediaQuery.disableAnimations, e.g.
@@ -11,15 +12,13 @@ class SearchingRadar extends StatefulWidget {
 
   final double size;
 
-  /// Null = animate unless reduced motion is on (and not under
-  /// `flutter test`, where an endless animation would stop pumpAndSettle).
+  /// Null = animate unless reduced motion is on or [UiEnv.animations] is
+  /// off (widget tests: an endless animation would stop pumpAndSettle).
   final bool? animate;
 
   @override
   State<SearchingRadar> createState() => _SearchingRadarState();
 }
-
-final bool _underTest = Platform.environment.containsKey('FLUTTER_TEST');
 
 class _SearchingRadarState extends State<SearchingRadar>
     with SingleTickerProviderStateMixin {
@@ -30,7 +29,7 @@ class _SearchingRadarState extends State<SearchingRadar>
 
   bool _wanted(BuildContext context) {
     final reduce = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
-    return !reduce && (widget.animate ?? !_underTest);
+    return !reduce && (widget.animate ?? UiEnv.of(context).animations);
   }
 
   @override

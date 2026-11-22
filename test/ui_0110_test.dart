@@ -6,6 +6,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:isekaidrop/ui/ui_env.dart';
 import 'package:isekaidrop/app.dart';
 import 'package:isekaidrop/engine/core/engine.dart';
 import 'package:isekaidrop/engine/core/history_store.dart';
@@ -71,7 +72,13 @@ Future<SettingsController> _app(
   SharedPreferences.setMockInitialValues(prefs);
   final s = await SettingsController.load();
   await t.pumpWidget(
-    IsekaiDropApp(engine: e, settings: s, showOnboarding: onboarding),
+    IsekaiDropApp(
+      engine: e,
+      settings: s,
+      showOnboarding: onboarding,
+      animations: false,
+      readPlatform: false,
+    ),
   );
   await t.pumpAndSettle();
   return s;
@@ -243,15 +250,19 @@ void main() {
       AppScope(
         engine: _paired,
         settings: s,
-        child: MaterialApp(
-          theme: AppTheme.light(),
-          home: Scaffold(
-            body: HomeScreen(
-              onSend: () {},
-              onConnect: () {},
-              onTrusted: () {},
-              networkLoad: () async =>
-                  ConnectionInfo(method: 'Wi-Fi network', frequencyMhz: 5180),
+        child: UiEnv(
+          animations: false,
+          readPlatform: false,
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: Scaffold(
+              body: HomeScreen(
+                onSend: () {},
+                onConnect: () {},
+                onTrusted: () {},
+                networkLoad: () async =>
+                    ConnectionInfo(method: 'Wi-Fi network', frequencyMhz: 5180),
+              ),
             ),
           ),
         ),

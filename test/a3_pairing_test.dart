@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:isekaidrop/ui/ui_env.dart';
 import 'package:isekaidrop/engine/core/blocked_store.dart';
 import 'package:isekaidrop/engine/core/engine.dart';
 import 'package:isekaidrop/engine/core/frames.dart';
@@ -230,7 +231,11 @@ void main() {
         AppScope(
           engine: e,
           settings: s,
-          child: const MaterialApp(home: AppShell()),
+          child: const UiEnv(
+            animations: false,
+            readPlatform: false,
+            child: MaterialApp(home: AppShell()),
+          ),
         ),
       );
       final r = PendingRequest(

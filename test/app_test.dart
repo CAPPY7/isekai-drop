@@ -26,7 +26,15 @@ Future<SettingsController> _pump(
   addTearDown(tester.view.reset);
   SharedPreferences.setMockInitialValues({});
   final settings = await SettingsController.load();
-  await tester.pumpWidget(IsekaiDropApp(engine: _engine, settings: settings));
+  await tester.pumpWidget(
+    IsekaiDropApp(
+      engine: _engine,
+      settings: settings,
+      showOnboarding: false,
+      animations: false,
+      readPlatform: false,
+    ),
+  );
   await tester.pumpAndSettle();
   return settings;
 }

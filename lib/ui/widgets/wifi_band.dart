@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../engine/platform_engine.dart'
     show ConnectionInfo, readConnectionInfo;
 import '../theme/design_tokens.dart';
+import '../ui_env.dart';
 
 /// Wi-Fi band from the channel frequency the system reports, or null.
 String? wifiBandLabel(int? mhz) {
@@ -116,10 +117,18 @@ class _WifiBandLineState extends State<WifiBandLine> {
 }
 
 class NetworkStatusLine extends StatefulWidget {
-  const NetworkStatusLine({super.key, this.load});
+  const NetworkStatusLine({
+    super.key,
+    this.load,
+    this.platformLoad = readConnectionInfo,
+  });
 
-  /// For tests. Null: the platform (not read under `flutter test`).
+  /// For tests: always used when set.
   final Future<ConnectionInfo> Function()? load;
+
+  /// The platform reader, used when [load] is null and
+  /// [UiEnv.readPlatform] is on (C6: no environment check).
+  final Future<ConnectionInfo> Function() platformLoad;
 
   @override
   State<NetworkStatusLine> createState() => _NetworkStatusLineState();
@@ -128,14 +137,16 @@ class NetworkStatusLine extends StatefulWidget {
 class _NetworkStatusLineState extends State<NetworkStatusLine> {
   ConnectionInfo? _info;
 
+  bool _started = false;
+
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
     final load =
         widget.load ??
-        (Platform.environment.containsKey('FLUTTER_TEST')
-            ? null
-            : readConnectionInfo);
+        (UiEnv.of(context).readPlatform ? widget.platformLoad : null);
     load?.call().then((i) {
       if (mounted) setState(() => _info = i);
     }, onError: (_) {});

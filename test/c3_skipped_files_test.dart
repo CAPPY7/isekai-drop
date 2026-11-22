@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:isekaidrop/ui/ui_env.dart';
 import 'package:isekaidrop/engine/core/engine.dart';
 import 'package:isekaidrop/engine/core/identity.dart';
 import 'package:isekaidrop/engine/core/trust_store.dart';
@@ -111,15 +112,19 @@ void main() {
         AppScope(
           engine: engine,
           settings: s,
-          child: MaterialApp(
-            home: Scaffold(
-              body: FilesScreen(
-                isDesktop: false,
-                pickFiles: () async => parseAndroidPicked([
-                  {'uri': 'content://a/1', 'name': 'a.jpg', 'size': 10},
-                  {'uri': 'content://a/2', 'name': 'b.jpg', 'size': -1},
-                  {'uri': 'content://a/3', 'name': 'c.jpg', 'size': -1},
-                ]),
+          child: UiEnv(
+            animations: false,
+            readPlatform: false,
+            child: MaterialApp(
+              home: Scaffold(
+                body: FilesScreen(
+                  isDesktop: false,
+                  pickFiles: () async => parseAndroidPicked([
+                    {'uri': 'content://a/1', 'name': 'a.jpg', 'size': 10},
+                    {'uri': 'content://a/2', 'name': 'b.jpg', 'size': -1},
+                    {'uri': 'content://a/3', 'name': 'c.jpg', 'size': -1},
+                  ]),
+                ),
               ),
             ),
           ),

@@ -11,41 +11,49 @@ import 'ui/diag_report.dart' show kAppVersion;
 import 'ui/screens/onboarding_screen.dart';
 import 'ui/shell.dart';
 import 'ui/theme/app_theme.dart';
+import 'ui/ui_env.dart';
 
 class IsekaiDropApp extends StatelessWidget {
   const IsekaiDropApp({
     super.key,
     required this.engine,
     required this.settings,
-    this.showOnboarding,
+    this.showOnboarding = true,
+    this.animations = true,
+    this.readPlatform = true,
   });
 
   final TransferEngine engine;
   final SettingsController settings;
 
-  /// Show the first-run intro (spec A8) until it was seen once. Off in
-  /// widget tests unless a test asks for it.
-  final bool? showOnboarding;
+  /// Show the first-run intro (spec A8) until it was seen once. C6: a
+  /// parameter (tests pass false), no environment check.
+  final bool showOnboarding;
+
+  /// C6: see [UiEnv].
+  final bool animations;
+  final bool readPlatform;
 
   @override
   Widget build(BuildContext context) {
     return AppScope(
       engine: engine,
       settings: settings,
-      child: ListenableBuilder(
-        listenable: settings,
-        builder: (context, _) => MaterialApp(
-          title: 'Isekai Drop',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.light(),
-          darkTheme: AppTheme.dark(),
-          themeMode: settings.themeMode,
-          home:
-              (showOnboarding ??
-                      !Platform.environment.containsKey('FLUTTER_TEST')) &&
-                  !settings.onboardingDone
-              ? OnboardingScreen(onDone: settings.markOnboardingDone)
-              : const AppShell(),
+      child: UiEnv(
+        animations: animations,
+        readPlatform: readPlatform,
+        child: ListenableBuilder(
+          listenable: settings,
+          builder: (context, _) => MaterialApp(
+            title: 'Isekai Drop',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.light(),
+            darkTheme: AppTheme.dark(),
+            themeMode: settings.themeMode,
+            home: showOnboarding && !settings.onboardingDone
+                ? OnboardingScreen(onDone: settings.markOnboardingDone)
+                : const AppShell(),
+          ),
         ),
       ),
     );
