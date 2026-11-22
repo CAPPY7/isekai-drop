@@ -226,7 +226,16 @@ Owner on 0.10.1: plain TCP 6.9, TLS 7.1/8.8 MB/s; disk/hash 121-312 MB/s -> netw
 - [x] D3 "Always allow this device" (verified only), trusted_devices.json schema 3, turn off in Trusted devices
 - [x] D4 Open / Show in folder after receiving on Android (FileProvider / Downloads item) and desktops; Show folder in History
 - [ ] On real phones (owner): share from Gallery/Files, notification + Cancel, app in the background during a transfer, Open on Android 9 and 10+ (NOT TESTED)
-- [ ] Next: Phase E - only after the owner says "next"
+- [x] Phase E started after the owner said "next"
+
+## Phase E (0.12.1) - text, languages, About
+- [x] E1 Send a text or link (max 8 KB, `{"t":"text"}`, protocol v1); receiver asks, Copy / Open link (never automatic); old apps -> "Update the other app"; History "Text received" only
+- [x] E2 flutter_localizations + intl; English / Hindi / Kannada .arb; language setting (settings schema 4); main screens moved (Home, Send, History, Settings, About, receive question, intro); English fallback
+- [ ] E2 rest: Connect / QR / pairing, Trusted devices, transfer details, Diagnostics, Benchmark, guides, engine messages still English
+- [ ] Hindi and Kannada: native-speaker review (assistant translations, NOT reviewed)
+- [x] E3 Settings > About: version + build, key, latest-build link, how to update, Licences
+- [ ] On real devices (owner): text between devices, Open link, languages, About (NOT TESTED)
+- [ ] Next: Phase F - only after the owner says "next"
 
 ## Phase 8 - Fix security, compatibility, performance, usability
 - [ ] Security tests for all acceptance tests

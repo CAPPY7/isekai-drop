@@ -158,3 +158,16 @@ Service type `_isekaidrop._tcp`, port = the TLS port (47820). TXT keys: `id` (de
 - Local file `trusted_devices.json` schema 3: each device gets
   `"always_allow": false` on migration; a non-verified device is always
   read as false.
+
+## 0.12.1 (Phase E, still protocol version 1, backward compatible)
+- New control message on a trusted session (after the session hello, like
+  `offer`): `{"t":"text","v":1,"body":"..."}`. `body` is 1 to 8192 bytes of
+  UTF-8 (after encoding). Only to devices that are already paired.
+- The receiver always asks its user (no auto-accept), then answers
+  `{"t":"text_ok"}` or `{"t":"decline","reason":"declined"|"expired"|"too_long"|"empty"}`.
+  The receiver checks the size again; an oversize or empty body is
+  declined without asking.
+- An older app answers `{"t":"error","reason":"unknown_message"}`; the
+  sender then shows "Update the other app". Nothing else changes.
+- The text is never written to logs or History (History: "Text received",
+  0 files). A link inside it is never opened automatically.

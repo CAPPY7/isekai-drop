@@ -1,3 +1,30 @@
+# Isekai Drop 0.12.1 (DRAFT release notes, test build)
+
+## New
+- **Send a text or link.** On the Send screen pick "Text", type or paste
+  (up to 8 KB) and send it to a paired device. The other device asks
+  first and shows the text only after you accept, with Copy, and "Open
+  link" for a web link. Links are never opened by themselves. History
+  only notes "Text received", never the text. If the other device has an
+  older Isekai Drop, you are told to update it.
+- **Hindi and Kannada screens.** Settings > Appearance > Language: Same as
+  device / English / हिन्दी / ಕನ್ನಡ. The main screens are translated (Home,
+  Send, History, Settings, About, the receive question, the first-run
+  intro). Connect, Trusted devices, the transfer details screen,
+  Diagnostics, guides and error details are still in English for now.
+  **The Hindi and Kannada texts are machine/assistant translations and
+  have not been checked by a native speaker yet** - please report
+  anything that reads wrong.
+- **Settings > About Isekai Drop.** Version and build number, this
+  device's key, a link to the latest test build, how to update, and the
+  open-source licences.
+
+## NOT TESTED
+- Tested only with automatic tests on the build box. Not tried on real
+  devices: sending text between two devices, "Open link", the Hindi and
+  Kannada screens on a phone, and the About screen. Translation quality
+  needs a native-speaker check.
+
 # Isekai Drop 0.12.0 (DRAFT release notes, test build)
 
 ## New

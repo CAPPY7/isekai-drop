@@ -90,6 +90,12 @@ First start on iPhone: allow "Local Network" when asked. Keep the app open while
 ## Update
 Repeat the same steps with the newer APK. It installs over the old one and
 keeps your data, because every test build is signed with the same key.
+In the app, Settings > About Isekai Drop shows the version, build number
+and a link to the latest test build (0.12.1).
+
+Languages (0.12.1): English, Hindi and Kannada (Settings > Appearance >
+Language). Hindi and Kannada are machine/assistant translations that have
+not been checked by a native speaker yet; some screens are still English.
 
 ## Troubleshooting
 | Problem | Fix |

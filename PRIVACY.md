@@ -120,6 +120,11 @@ data.
 - **Always allow this device:** an option on the receive question, only for devices whose code you compared (Verified). Files from that device are then received without asking. Saved only in trusted_devices.json on this device; turn it off in Settings > Trusted devices.
 - **Open / Show in folder:** opens a received file with the app you choose. That app gets read access to that one file only. On Android 9 and older this goes through a private file link (FileProvider) limited to the "Isekai Drop" download folder.
 
+## 0.12.1: texts, language, About
+- **Text or link (E1):** sent only to a paired device, over the same encrypted connection as files. The other device shows it only after its user accepts. The text is kept only in memory while the dialog is open: it is **not** saved in History (only "Text received"), not written to any log or the support report, and a link is never opened by itself.
+- **Language (E2):** the chosen language (System / English / Hindi / Kannada) is saved in the app's settings on this device only.
+- **About (E3):** shows this device's public key fingerprint (the same one other devices see when pairing). The "latest build" link opens GitHub only when you tap it.
+
 ## Android permissions (what each one is for)
 | Permission | Why | Asked? |
 |---|---|---|
