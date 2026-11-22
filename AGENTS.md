@@ -74,7 +74,7 @@ file before every phase. Stop after each phase and wait for "next".
 - Pairing code: 16 digits from SHA-256 of both fingerprints (see PROTOCOL.md).
 - Ports: TCP 47820 (falls back to a random port if busy), UDP 47821
   discovery, multicast group 239.255.42.99.
-- Trust DB: `trusted_devices.json` in app support dir, schema_version 1,
+- Trust DB: `trusted_devices.json` in app support dir, schema_version 3 (2: verified/revoked; 3 (0.12.0): `always_allow`),
   migrations in `TrustStore.migrate`, atomic writes.
 - Android: `file_selector_android` reads WHOLE files into memory, so Android
   uses our own picker in MainActivity.kt (content URIs streamed through
@@ -310,3 +310,9 @@ file before every phase. Stop after each phase and wait for "next".
 - C5: `offerSizesOk` (8 TiB / 16 TiB, no overflow); `ResumeStore.create(..., freeBytes:)` keeps <= 5 states per device and partial data <= free/2.
 - C6: `UiEnv` + `IsekaiDropApp(showOnboarding/animations/readPlatform)` replace FLUTTER_TEST checks (tests pass them). `requirePeerCertificate`. `kMaxPeerPause` 30 min (`TransferJob.peerPauseLimit`, engine `peerPauseLimit` for tests). MainActivity is a `FlutterFragmentActivity` using the Activity Result API; a picker result that arrives after recreation is kept (`takeLostPick`). Empty `catch (_) {}` only for pure cleanup; file/channel work calls `noteError` (core/error_note.dart -> engine.recordException(quiet: true)); test/c6_empty_catch_test.dart enforces it.
 - Local Android compile check: `.tools/kbuild.sh` (SDK, Gradle cache in .tools/, git-excluded).
+
+## Phase D / 0.12.0 daily-use decisions (2026-11-22)
+- D1: MainActivity intent-filters ACTION_SEND / ACTION_SEND_MULTIPLE (*/*). Shared URIs are kept in MainActivity until Dart calls `takeShared` on `isekai_drop/android` (AppShell checks at start and on every resume; no push from Kotlin because bonjour.dart owns that channel's Dart handler). Only `content://` links from OTHER apps are accepted (file:// and our own `com.isujaykumar.isekaidrop.*` authority are refused, in Kotlin and in `parseSharedFiles`). `sharedFilesInbox` + `deliverShared` (shell_nav.dart) hand them to FilesScreen ("Shared from another app").
+- D2: `TransferService.kt` (foreground service, type dataSync, not exported, START_NOT_STICKY, no locks of its own) driven by `TransferServiceBridge` (lib/engine/transfer_service.dart) on channel `isekai_drop/service` ("update" {sending, receiving, requests, done, total} / "stop"; native -> Dart "cancel"). Counts and measured bytes only, never names. Progress updates at most 1/s. Incoming-request notice only while the app is not on screen. If Android refuses the start (background start on 12+) the app goes on without it. POST_NOTIFICATIONS asked once at the first transfer after our own dialog (`maybeAskNotifications`, settings key `notifications_asked`, no settings schema change).
+- D3: `PendingRequest.deviceId/peerVerified/alwaysAllow`; `TrustedDevice.alwaysAllow` is forced false unless status is verified (also when read from the file); `TrustStore.setAlwaysAllow`, engine `setAlwaysAllow`. Auto-receive = one-tap pre-approval, or VERIFIED and (always_allow or the global auto-receive switch).
+- D4: `file_actions.dart` builds commands with pure functions (`openFileCommand`, `showInFolderCommand`, `openFolderCommand`; absolute paths only, never through a shell). `savedFileActions` is the instance screens use (tests replace it). Android: `openReceived` finds the MediaStore item by RELATIVE_PATH + DISPLAY_NAME (Android 10+) or uses `androidx.core.content.FileProvider` (`${applicationId}.files`, res/xml/file_paths.xml, Android 9-); `openReceiveFolder` opens Download/Isekai Drop in the Files app, else the Downloads list.

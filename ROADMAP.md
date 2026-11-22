@@ -219,7 +219,14 @@ Owner on 0.10.1: plain TCP 6.9, TLS 7.1/8.8 MB/s; disk/hash 121-312 MB/s -> netw
 - [x] C5 Offer limits 8 TiB/file, 16 TiB total; max 5 resume states per device, partial data <= half the free space
 - [x] C6 Path check with separator, peerCertificate guard, UiEnv instead of FLUTTER_TEST, Activity Result API, 30 min peer-pause cap, empty catch blocks reviewed
 - [ ] On real phones (owner): C1 direct save, C2 dialog, C3 picker counts, C4 Retry after restart, C6 picker after recreation (NOT TESTED)
-- [ ] Next: Phase D - only after the owner says "next"
+
+## Phase D (0.12.0) - daily-use features
+- [x] D1 Android share sheet: Share > Isekai Drop opens the Send screen with the files ("Shared from another app"); unknown size / unreadable counted
+- [x] D2 Foreground service (dataSync) + progress notification with Cancel, "incoming request" notice; notification permission asked once with an explanation
+- [x] D3 "Always allow this device" (verified only), trusted_devices.json schema 3, turn off in Trusted devices
+- [x] D4 Open / Show in folder after receiving on Android (FileProvider / Downloads item) and desktops; Show folder in History
+- [ ] On real phones (owner): share from Gallery/Files, notification + Cancel, app in the background during a transfer, Open on Android 9 and 10+ (NOT TESTED)
+- [ ] Next: Phase E - only after the owner says "next"
 
 ## Phase 8 - Fix security, compatibility, performance, usability
 - [ ] Security tests for all acceptance tests

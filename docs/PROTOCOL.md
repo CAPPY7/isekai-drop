@@ -149,3 +149,12 @@ Service type `_isekaidrop._tcp`, port = the TLS port (47820). TXT keys: `id` (de
 - C6: while the other device has paused, it may stay paused for at most 30
   minutes in total per transfer (was: 6 hours per wait); then the transfer
   stops (Retry continues where it stopped).
+
+## 0.12.0 (Phase D, still protocol version 1, no change on the wire)
+- Nothing new is sent between devices. "Always allow this device" (D3) is a
+  local decision of the receiver: an offer from a VERIFIED device with
+  `always_allow` set is accepted without the question, exactly like the
+  existing auto-receive switch. The sender cannot ask for it.
+- Local file `trusted_devices.json` schema 3: each device gets
+  `"always_allow": false` on migration; a non-verified device is always
+  read as false.

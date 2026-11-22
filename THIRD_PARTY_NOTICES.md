@@ -83,6 +83,7 @@ Only permissive licences (Apache 2.0, MIT, BSD or similar) are allowed.
 | yaml | 3.1.4 | MIT |
 | AndroidX CameraX (camera-camera2, camera-lifecycle, via mobile_scanner, Android) | 1.6.1 | Apache 2.0 |
 | kotlinx-coroutines-android (via mobile_scanner, Android) | 1.11.0 | Apache 2.0 |
+| AndroidX Core, Activity, Fragment (already in the app through the Flutter Android embedding and plugins; used directly by MainActivity/TransferService since 0.11.4/0.12.0: Activity Result API, NotificationCompat, ServiceCompat, FileProvider; no new dependency added) | core 1.13.1, activity 1.8.1, fragment 1.7.1 | Apache 2.0 |
 | **Google ML Kit Barcode Scanning** `com.google.mlkit:barcode-scanning` (bundled model, Android only, via mobile_scanner) | 17.3.0 | **Not open source.** Free to use under the Google APIs Terms of Service and ML Kit Terms (https://developers.google.com/ml-kit/terms). Runs fully on the device; Isekai Drop sends no images. Per Google's ML Kit terms and Play data disclosure (checked 2026-10-16), ML Kit sends usage and performance metrics, device information (maker, model, OS), app package/version and a per-installation identifier to Google over HTTPS when internet is available. Camera images and scan results are NOT sent. The owner accepted this choice. |
 | flutter, flutter_web_plugins, sky_engine | Flutter SDK 3.47.7 | BSD-3-Clause (part of the Flutter SDK row above) |
 | Apple frameworks (Network/NetService, UIKit) and Android platform APIs (NsdManager, MediaStore, WifiManager) | OS | Part of the operating system, not shipped by us |

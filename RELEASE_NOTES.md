@@ -1,3 +1,26 @@
+# Isekai Drop 0.12.0 (DRAFT release notes, test build)
+
+## New
+- **Share > Isekai Drop (Android).** Share photos or files from any app
+  (Gallery, Files, ...) and they open on the Send screen, ready to send.
+- **Transfers keep going when you switch apps (Android).** A notification
+  shows how much has been moved, with a Cancel button. When a device wants
+  to send you something while Isekai Drop is in the background, a
+  notification tells you; tap it to answer. No file names or device names
+  are shown in notifications. Android 13+ asks once for permission, after
+  the app explains why. Closing the app (swipe away) still stops transfers.
+- **Always allow this device.** When a Verified device sends you files,
+  you can tick "Always allow this device": its files then arrive without
+  the question. Turn it off in Settings > Trusted devices.
+- **Open and Show in folder after receiving**, now also on Android. History
+  has "Show folder" for received files.
+
+## NOT TESTED
+- Tested only with automatic tests on the build box. Not tried on real
+  phones: sharing from other apps, the notifications and Cancel, running
+  in the background, opening received files (Android 9 and 10+), and the
+  Open / Show in folder buttons on Windows, Mac and Linux.
+
 # Isekai Drop 0.11.4 (DRAFT release notes, test build)
 
 ## Sending and receiving

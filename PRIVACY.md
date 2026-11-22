@@ -113,3 +113,22 @@ When you pick files or a folder to send, the app asks Android to keep **read** a
 App signing (0.11.1): Android APKs are signed with the owner's release key.
 The key only proves who built the app; it does not see or send any of your
 data.
+
+## Android 0.12.0: sharing, notifications, opening files
+- **Share > Isekai Drop:** another app hands over only the files you shared. They are read only to send them, like picked files. Links that point into an app's private folder (file://) and this app's own links are refused.
+- **Notifications:** while a transfer runs, or a device waits for your answer, a notification shows "Sending files", "Receiving files" or "A device wants to send you something", with the MB moved so far and a Cancel button. **No file names and no device names** are shown (they could be seen on the lock screen). Android 13+ asks for permission once, at your first transfer, after the app explains why; saying no only hides the notification.
+- **Always allow this device:** an option on the receive question, only for devices whose code you compared (Verified). Files from that device are then received without asking. Saved only in trusted_devices.json on this device; turn it off in Settings > Trusted devices.
+- **Open / Show in folder:** opens a received file with the app you choose. That app gets read access to that one file only. On Android 9 and older this goes through a private file link (FileProvider) limited to the "Isekai Drop" download folder.
+
+## Android permissions (what each one is for)
+| Permission | Why | Asked? |
+|---|---|---|
+| INTERNET | Direct connections between your devices on your network | No prompt |
+| CHANGE_WIFI_MULTICAST_STATE | Hear "I'm here" announcements of your other devices | No prompt |
+| ACCESS_NETWORK_STATE, ACCESS_WIFI_STATE | Connection type and Wi-Fi speed in Diagnostics | No prompt |
+| WAKE_LOCK | Keep Wi-Fi and the processor awake during a transfer | No prompt |
+| CAMERA | Scan a pairing QR code | When you tap Scan |
+| WRITE_EXTERNAL_STORAGE (Android 9 and older only) | Save into Downloads/Isekai Drop | When the first file is saved |
+| CHANGE_WIFI_STATE, CHANGE_NETWORK_STATE, NEARBY_WIFI_DEVICES (13+), ACCESS_FINE/COARSE_LOCATION (12 and older) | Fast direct phone-to-phone link; never used for your location | When you use Fast direct |
+| FOREGROUND_SERVICE, FOREGROUND_SERVICE_DATA_SYNC (0.12.0) | Keep a transfer going when you switch apps | No prompt |
+| POST_NOTIFICATIONS (0.12.0, Android 13+) | Progress and "incoming request" notifications | Once, at your first transfer |
