@@ -534,8 +534,9 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     Duration normal = const Duration(seconds: 60),
   ]) async {
     while (true) {
-      final m = await reader.nextJson(
-        job.pausedByPeer ? const Duration(hours: 6) : normal,
+      final m = await _peerPauseAware(
+        job,
+        () => reader.nextJson(job.pausedByPeer ? _peerWait(job) : normal),
       );
       switch (m['t']) {
         case 'pause':
@@ -547,6 +548,34 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       }
     }
   }
+
+  /// C6: limit for [TransferJob.peerPauseLimit] of new jobs (tests).
+  @visibleForTesting
+  Duration peerPauseLimit = kMaxPeerPause;
+
+  /// C6: how long to wait while the other device has paused: what is left
+  /// of its total pause time (at most 6 hours, as before).
+  Duration _peerWait(TransferJob job) {
+    final left = job.peerPauseLeft + const Duration(milliseconds: 200);
+    return left > const Duration(hours: 6) ? const Duration(hours: 6) : left;
+  }
+
+  /// C6: a wait that ran out while the other device was paused means its
+  /// pause time is used up.
+  Future<T> _peerPauseAware<T>(TransferJob job, Future<T> Function() f) async {
+    try {
+      return await f();
+    } on TimeoutException {
+      if (job.pausedByPeer && job.peerPauseLeft == Duration.zero) {
+        throw const PeerPauseTooLong();
+      }
+      rethrow;
+    }
+  }
+
+  static const String _peerPauseText =
+      'The other device kept this transfer paused for more than 30 minutes '
+      'in total, so it was stopped.';
 
   @override
   String get version => 'engine-v$kProtocolVersion';
@@ -2160,6 +2189,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       fileNames: names,
     );
     _setJobRoute(job, route);
+    job.peerPauseLimit = peerPauseLimit;
     final req = PendingRequest(
       id: job.id,
       kind: RequestKind.transfer,
@@ -2427,7 +2457,12 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
               .then<void>((r) => res = r, onError: (Object e) => laneErr = e);
           // Meanwhile the sender may pause, cancel or already end the file.
           while (res == null && laneErr == null && early == null) {
-            final ctl = ctlRead ??= reader.next(const Duration(hours: 6));
+            final ctl = ctlRead ??= _peerPauseAware(
+              job,
+              () => reader.next(
+                job.pausedByPeer ? _peerWait(job) : const Duration(hours: 6),
+              ),
+            );
             ctl.ignore();
             final which = await Future.any<int>([
               done.then((_) => 0),
@@ -2537,10 +2572,11 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
               await kick();
               return;
             }
-            final fr = await reader.next(
-              job.pausedByPeer
-                  ? const Duration(hours: 6)
-                  : const Duration(seconds: 60),
+            final fr = await _peerPauseAware(
+              job,
+              () => reader.next(
+                job.pausedByPeer ? _peerWait(job) : const Duration(seconds: 60),
+              ),
             );
             if (fr.type != frameData) {
               final t = fr.isJson ? fr.messageType : '';
@@ -2679,7 +2715,9 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       );
       job.finish(
         JobState.failed,
-        state != null && !discardState
+        e is PeerPauseTooLong
+            ? '$_peerPauseText Nothing unverified was saved.'
+            : state != null && !discardState
             ? 'The connection was lost. Nothing unverified was saved. '
                   'When the sender taps Retry, it continues where it stopped.'
             : 'The transfer stopped. Nothing unverified was kept.',
@@ -2994,7 +3032,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       trustedId: dev.id,
       sources: List.unmodifiable(files),
       fileNames: [for (final f in files) f.relativePath],
-    );
+    )..peerPauseLimit = peerPauseLimit;
     job.queued = _jobs.any(
       (j) => j.direction == JobDirection.sending && j.isActive,
     );
@@ -3367,6 +3405,9 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     } on PairingException catch (e) {
       job.needsRepair = trust.byId(job.trustedId ?? '')?.isBlocked ?? false;
       job.finish(JobState.failed, e.message);
+    } on PeerPauseTooLong {
+      diagLog.add('send_peer_pause_too_long', _peerPauseText);
+      job.finish(JobState.failed, '$_peerPauseText Tap Retry to continue.');
     } catch (e) {
       final readFailed = e is SourceReadException || e is FileSystemException;
       final cls = e is SourceReadException ? e.reason : classifyError(e);

@@ -30,6 +30,17 @@ String jobStatusLabel(TransferJob j) {
   return j.state.label;
 }
 
+/// C6 (0.11.4): the other device can keep one transfer paused for at most
+/// this long in total; then this side stops it (Retry continues).
+const Duration kMaxPeerPause = Duration(minutes: 30);
+
+/// C6: thrown when [kMaxPeerPause] is used up.
+class PeerPauseTooLong implements Exception {
+  const PeerPauseTooLong();
+  @override
+  String toString() => 'PeerPauseTooLong';
+}
+
 /// One transfer. Speed is MEASURED from bytes actually moved over time.
 class TransferJob extends ChangeNotifier {
   TransferJob({
@@ -124,6 +135,19 @@ class TransferJob extends ChangeNotifier {
   /// The other device told us it paused.
   bool pausedByPeer = false;
 
+  /// C6: how long the other device may keep this transfer paused in total.
+  Duration peerPauseLimit = kMaxPeerPause;
+  final Stopwatch _peerPaused = Stopwatch();
+
+  /// C6: total time the other device kept this transfer paused so far.
+  Duration get peerPausedTotal => _peerPaused.elapsed;
+
+  /// C6: pause time the other device has left (zero = used up).
+  Duration get peerPauseLeft {
+    final left = peerPauseLimit - _peerPaused.elapsed;
+    return left.isNegative ? Duration.zero : left;
+  }
+
   /// Sent to the other device when we pause/resume (set by the engine).
   void Function(bool paused)? onPauseChanged;
 
@@ -177,6 +201,11 @@ class TransferJob extends ChangeNotifier {
   void setPeerPaused(bool v) {
     if (pausedByPeer == v) return;
     pausedByPeer = v;
+    if (v) {
+      _peerPaused.start();
+    } else {
+      _peerPaused.stop();
+    }
     if (v) wasPaused = true;
     if (v) {
       _samples.clear();
