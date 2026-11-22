@@ -306,6 +306,15 @@ Future<IsekaiEngine> createPlatformEngine(
     File(p.join(support.path, 'pending_sends.json')),
   );
   await pendingSends.load();
+  if (Platform.isAndroid) {
+    // C4: give back file access no saved send needs any more.
+    try {
+      await AndroidUriGrants(_android)
+          .releaseAllExcept([for (final s in pendingSends.items) ...s.sources]);
+    } catch (e) {
+      noteError('release_grants', e);
+    }
+  }
   final history = HistoryStore(File(p.join(support.path, 'history.json')));
   // 0.11.0 Auto route: measured speeds per device (no names, no paths).
   final routeStats = RouteStats(File(p.join(support.path, 'route_stats.json')));

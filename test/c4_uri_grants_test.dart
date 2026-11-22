@@ -104,6 +104,18 @@ void main() {
       });
     });
 
+    test('C4: at start, access no saved send needs is given back', () async {
+      final g = AndroidUriGrants(ch);
+      await g.releaseAllExcept([
+        {'k': 'uri', 'uri': 'content://x/9'},
+        {'k': 'file', 'path': '/tmp/a'},
+      ]);
+      expect(calls.map((c) => c.method), ['releaseUnusedUris']);
+      expect(calls.single.arguments, {
+        'keep': ['content://x/9'],
+      });
+    });
+
     test('C4: nothing to release: no call', () async {
       final g = AndroidUriGrants(ch);
       await g.release([

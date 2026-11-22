@@ -27,4 +27,12 @@ class AndroidUriGrants {
       'keep': keepUris.toList(),
     });
   }
+
+  /// At start: gives back every kept access that none of the saved sends
+  /// in [keep] needs (left over from sends that ended while the app was
+  /// closing, or picks that were never sent).
+  Future<void> releaseAllExcept(List<Map<String, dynamic>> keep) =>
+      channel.invokeMethod<void>('releaseUnusedUris', {
+        'keep': _uris(keep).toSet().toList(),
+      });
 }

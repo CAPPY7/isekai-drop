@@ -155,6 +155,10 @@ class MainActivity : FlutterFragmentActivity() {
                         result.success(lostPick)
                         lostPick = null
                     }
+                    "releaseUnusedUris" -> {
+                        releaseUnusedUris(call.argument<List<String>>("keep") ?: emptyList())
+                        result.success(null)
+                    }
                     "releaseUris" -> {
                         releaseUris(
                             call.argument<List<String>>("release") ?: emptyList(),
@@ -470,6 +474,18 @@ class MainActivity : FlutterFragmentActivity() {
             if (k in keepKeys || k !in held) continue
             try {
                 contentResolver.releasePersistableUriPermission(k, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            } catch (_: SecurityException) {
+            }
+        }
+    }
+
+    /** C4: at start, give back every kept read access not in [keep]. */
+    private fun releaseUnusedUris(keep: List<String>) {
+        val keepKeys = keep.map { grantKey(Uri.parse(it)) }.toSet()
+        for (p in contentResolver.persistedUriPermissions) {
+            if (!p.isReadPermission || p.uri in keepKeys) continue
+            try {
+                contentResolver.releasePersistableUriPermission(p.uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
             } catch (_: SecurityException) {
             }
         }
