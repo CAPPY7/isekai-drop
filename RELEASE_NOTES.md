@@ -1,3 +1,29 @@
+# Isekai Drop 0.11.4 (DRAFT release notes, test build)
+
+## Sending and receiving
+- **Android 10 and newer: received files go straight into Downloads.**
+  The file is written once (hidden until it is complete and checked), so
+  big files need about half the free space and finish sooner.
+- **Sending to a new device: you compare the code too.** Before anything
+  is sent, your screen asks "Does the other screen show the same code?".
+  File names are only shared after the code was compared.
+- **You are told about files that were not added** (unknown size, folders
+  too deep, more than 20,000 files, unreadable).
+- **Retry works after the app restarts** on Android: the app keeps read
+  access to the files you picked until the send is done or removed.
+- **Limits:** a device cannot offer impossible file sizes, and kept
+  resume data is limited (5 per device, at most half the free space).
+- A transfer the other device keeps paused ends after 30 minutes.
+- If Android closes the app while the file picker is open, your pick is
+  no longer lost.
+- More problems are written to Diagnostics instead of being ignored.
+
+## NOT TESTED
+- All of this was tested only with automatic tests on the build box.
+  Not tried on real phones or real Wi-Fi: writing into Downloads, the
+  code dialog, picker counts, Retry after a restart, the app being
+  closed during a pick.
+
 # Isekai Drop 0.11.3 (DRAFT release notes, test build)
 
 No change in the app itself; this release is about the build system.

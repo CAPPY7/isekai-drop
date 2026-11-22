@@ -210,7 +210,16 @@ Owner on 0.10.1: plain TCP 6.9, TLS 7.1/8.8 MB/s; disk/hash 121-312 MB/s -> netw
 - [x] B5 docs/BRANCH_PROTECTION.md
 - [ ] Owner: turn on the ruleset from docs/BRANCH_PROTECTION.md (NOT DONE)
 - [x] B6 CONNECTION_TEST.txt removed
-- [ ] Next: Phase C (send and receive quality) - only after the owner says "next"
+
+## Phase C (0.11.4) - send and receive quality
+- [x] C1 Android 10+ receive writes straight into a hidden Downloads item (no double copy), native SHA-256, deleted on failure; copy fallback needs 2x free space; Android 9- unchanged
+- [x] C2 Sending to an unpaired device: "Does the other screen show the same code?" first; no file names before; "New device" label; PROTOCOL/PRIVACY updated
+- [x] C3 "N files were not added" with the reason (unknown size, too deep, over 20000, unreadable)
+- [x] C4 Android keeps read access to picked files for Retry after restart; given back when not needed
+- [x] C5 Offer limits 8 TiB/file, 16 TiB total; max 5 resume states per device, partial data <= half the free space
+- [x] C6 Path check with separator, peerCertificate guard, UiEnv instead of FLUTTER_TEST, Activity Result API, 30 min peer-pause cap, empty catch blocks reviewed
+- [ ] On real phones (owner): C1 direct save, C2 dialog, C3 picker counts, C4 Retry after restart, C6 picker after recreation (NOT TESTED)
+- [ ] Next: Phase D - only after the owner says "next"
 
 ## Phase 8 - Fix security, compatibility, performance, usability
 - [ ] Security tests for all acceptance tests

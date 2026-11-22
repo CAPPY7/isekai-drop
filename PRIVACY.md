@@ -105,6 +105,11 @@ History is stored only on this device (history.json in the app's private folder)
 ## Interrupted transfers (Phase 6)
 To let a transfer continue, the receiver keeps the unfinished file in a hidden folder (.isekai-resume) next to received files, for up to 7 days. It is deleted when the transfer finishes, is cancelled, or fails its integrity check.
 
+0.11.4: on Android 10 and newer, a file being received is written straight into a **hidden** item in Downloads/Isekai Drop (other apps do not see it). It becomes visible only after its checksum matched; otherwise it is deleted. An unfinished one is kept hidden for Retry for up to 7 days (Android also removes forgotten hidden items itself). At most 5 unfinished transfers per device are kept, and at most half of the free space; the oldest are deleted first.
+
+## Picked files on Android (0.11.4)
+When you pick files or a folder to send, the app asks Android to keep **read** access to exactly those files (or that folder) so "Retry" still works after the app was closed. Nothing is copied. The access is given back when the send finished, was cancelled or you removed it from the list of unfinished sends; any left over is given back at the next start. Some file providers do not allow this; Retry then asks you to pick the files again.
+
 App signing (0.11.1): Android APKs are signed with the owner's release key.
 The key only proves who built the app; it does not see or send any of your
 data.

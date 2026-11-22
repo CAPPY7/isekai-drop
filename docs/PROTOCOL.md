@@ -126,3 +126,26 @@ Service type `_isekaidrop._tcp`, port = the TLS port (47820). TXT keys: `id` (de
 - Cancel (either side) deletes the state. A completed transfer deletes it. States older than 7 days are deleted at start.
 - `decline` reason `not_accepting` = receiving turned off in Settings.
 - Old peers without `tid`: unchanged behaviour (no resume).
+
+## 0.11.4 (Phase C, still protocol version 1, backward compatible)
+- C1 Android 10+: the receiver writes the file bytes straight into a hidden
+  MediaStore Downloads item (`IS_PENDING=1`, Kotlin channel
+  `isekai_drop/media`, its own serial background queue). After `file_end`
+  it hashes the item with native SHA-256 from byte 0 and compares; only a
+  match sets `IS_PENDING=0` (visible). A mismatch, a storage problem or a
+  cancel deletes the item. After a lost connection the item stays hidden;
+  its id is kept in the resume state (`partial_direct`) so Retry continues
+  in it; Retry after 7 days, cancel or a state clean-up deletes it. If the
+  item cannot be created, the old path is used (temp file in the no-backup
+  folder, copied into Downloads at the end); that path needs free space of
+  2 x the bytes still to come + 64 MiB. Android 9 and older: unchanged.
+- C2: see Pairing step 3 (no `names` in `pair_req.offer` before the code
+  check; Cancel closes the connection and B drops its question).
+- C5: an `offer` with a file above 8 TiB or more than 16 TiB in total gets
+  `decline` reason `bad_offer` (sizes added with overflow protection). The
+  receiver keeps at most 5 resume states per sending device and kept
+  partial data of at most half the free space (checked when a new state is
+  made; the oldest go first).
+- C6: while the other device has paused, it may stay paused for at most 30
+  minutes in total per transfer (was: 6 hours per wait); then the transfer
+  stops (Retry continues where it stopped).
