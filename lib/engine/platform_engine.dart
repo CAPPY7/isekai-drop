@@ -21,6 +21,7 @@ import 'core/identity.dart';
 import 'core/identity_loader.dart';
 import 'core/key_migration.dart';
 import 'core/net_info.dart';
+import 'core/private_file.dart';
 import 'core/pending_send_store.dart';
 import 'windows_link.dart';
 import 'core/resume_store.dart';
@@ -62,7 +63,7 @@ Future<(Identity, String?, bool)> _loadIdentity(Directory support) async {
     final fresh = Identity.fromJson(jsonDecode(json) as Map<String, dynamic>);
     final fallback = File(p.join(support.path, 'identity_fallback.json'));
     if (await fallback.exists()) {
-      await fallback.writeAsString(json, flush: true);
+      await writePrivateFile(fallback, json);
     } else {
       const storage = FlutterSecureStorage();
       await storage
@@ -178,15 +179,9 @@ Future<(Identity, String?)> _useFallback(File fallback, String note) async {
   return (id, note);
 }
 
-Future<void> _writeFallback(File fallback, String json) async {
-  await fallback.parent.create(recursive: true);
-  await fallback.writeAsString(json, flush: true);
-  if (!Platform.isWindows) {
-    try {
-      await Process.run('chmod', ['600', fallback.path]);
-    } catch (_) {}
-  }
-}
+/// A5: created empty, mode 600, then the key is written.
+Future<void> _writeFallback(File fallback, String json) =>
+    writePrivateFile(fallback, json);
 
 /// 0.11.2: note when this device's key differs from the one saved last
 /// time while paired devices are still listed. Null otherwise (also on the
