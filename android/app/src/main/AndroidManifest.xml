@@ -32,7 +32,15 @@
         android:maxSdkVersion="32" />
     <uses-feature android:name="android.hardware.wifi.direct" android:required="false" />
     <uses-feature android:name="android.hardware.camera" android:required="false" /> 
+    <!-- A1 (0.11.2): no Android backup / device-to-device copy of app data.
+         The device key lives in the Keystore, which is never copied, so a
+         restored copy brought back the paired-device list with a NEW key:
+         every paired device then refused this one. Both rule files exclude
+         everything. -->
     <application
+        android:allowBackup="false"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:label="Isekai Drop"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">

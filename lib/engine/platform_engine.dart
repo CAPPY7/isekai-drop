@@ -17,6 +17,7 @@ import 'core/benchmark_store.dart';
 import 'core/engine.dart';
 import 'core/history_store.dart';
 import 'core/identity.dart';
+import 'core/identity_loader.dart';
 import 'core/key_migration.dart';
 import 'core/net_info.dart';
 import 'core/pending_send_store.dart';
@@ -96,6 +97,9 @@ Future<(Identity, String?)> _loadIdentityRaw(Directory support) async {
   // Once the fallback file is used it stays in use, so this device's
   // identity can never silently change between the file and the keyring.
   if (await fallback.exists()) {
+    // A1: a damaged file stops here (IdentityUnreadable), it is never
+    // replaced without asking.
+    final fromFile = await readFallbackIdentity(fallback);
     // Audit #3: move it into secure storage as soon as that works.
     if (!Platform.isLinux || await _linuxKeyringReady()) {
       final r = await migrateFallbackIdentity(
@@ -107,45 +111,55 @@ Future<(Identity, String?)> _loadIdentityRaw(Directory support) async {
         final saved = await const FlutterSecureStorage().read(
           key: _identityKey,
         );
-        return (
-          Identity.fromJson(jsonDecode(saved!) as Map<String, dynamic>),
-          null,
-        );
+        return (parseSavedIdentity(saved ?? '', 'corrupted_saved'), null);
       }
     }
-    return (
-      Identity.fromJson(
-        jsonDecode(await fallback.readAsString()) as Map<String, dynamic>,
-      ),
-      _fallbackNote,
-    );
+    return (fromFile, _fallbackNote);
   }
   if (Platform.isLinux && !await _linuxKeyringReady()) {
     return _useFallback(fallback, _linuxNoKeyringNote);
   }
-  const storage = FlutterSecureStorage();
+  // A1 (0.11.2): a new key ONLY when the key store says it has none. If
+  // reading fails (busy right after boot), retry once after 2 s; if it
+  // still fails, IdentityUnreadable goes up to the start screen. Making a
+  // new key here silently broke every pairing.
   try {
-    final saved = await storage
-        .read(key: _identityKey)
-        .timeout(_secureStorageTimeout);
-    if (saved != null) {
-      return (
-        Identity.fromJson(jsonDecode(saved) as Map<String, dynamic>),
-        null,
-      );
-    }
-    final id = await _generate();
+    final (id, _) = await loadOrCreateFromSlot(
+      _SecureSlot(),
+      generate: _generate,
+      timeout: _secureStorageTimeout,
+    );
+    return (id, null);
+  } on IdentityNotStored {
+    // The store had nothing and cannot keep a new key: use the file.
+    return _useFallback(fallback, _fallbackNote);
+  }
+}
+
+/// A1: "Create a new key" on the key error screen (the user agreed that
+/// paired devices will refuse this one until paired again). Replaces the
+/// unreadable identity where it lives: the fallback file if there is one,
+/// otherwise the key store (or a new fallback file if the store fails).
+Future<void> resetIdentity() async {
+  final support = await getApplicationSupportDirectory();
+  final fallback = File(p.join(support.path, 'identity_fallback.json'));
+  final id = await _generate();
+  final json = jsonEncode(id.toJson());
+  if (await fallback.exists()) {
+    await _writeFallback(fallback, json);
+    return;
+  }
+  try {
+    const storage = FlutterSecureStorage();
     await storage
-        .write(key: _identityKey, value: jsonEncode(id.toJson()))
+        .write(key: _identityKey, value: json)
         .timeout(_secureStorageTimeout);
-    // Read back: only trust the key store if it really kept the key.
     final check = await storage
         .read(key: _identityKey)
         .timeout(_secureStorageTimeout);
-    if (check == null) throw const FileSystemException('not stored');
-    return (id, null);
+    if (check != json) throw const IdentityNotStored();
   } catch (_) {
-    return _useFallback(fallback, _fallbackNote);
+    await _writeFallback(fallback, json);
   }
 }
 
@@ -159,14 +173,18 @@ class _SecureSlot implements SecretSlot {
 
 Future<(Identity, String?)> _useFallback(File fallback, String note) async {
   final id = await _generate();
+  await _writeFallback(fallback, jsonEncode(id.toJson()));
+  return (id, note);
+}
+
+Future<void> _writeFallback(File fallback, String json) async {
   await fallback.parent.create(recursive: true);
-  await fallback.writeAsString(jsonEncode(id.toJson()), flush: true);
+  await fallback.writeAsString(json, flush: true);
   if (!Platform.isWindows) {
     try {
       await Process.run('chmod', ['600', fallback.path]);
     } catch (_) {}
   }
-  return (id, note);
 }
 
 /// 0.11.2: note when this device's key differs from the one saved last
