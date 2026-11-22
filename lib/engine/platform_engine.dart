@@ -16,6 +16,7 @@ import 'android_uri_grants.dart';
 import 'bonjour.dart';
 import 'free_space.dart';
 import 'pick_result.dart';
+import 'share_intake.dart';
 
 export 'pick_result.dart' show PickResult, SkippedFiles;
 import 'core/benchmark_store.dart';
@@ -798,6 +799,12 @@ Future<PickResult> takeLostPickedFiles() async {
   return parseLostPick(
     await _android.invokeMapMethod<Object?, Object?>('takeLostPick'),
   );
+}
+
+/// D1: files shared from another Android app since the last call.
+Future<PickResult> takeSharedFiles() async {
+  if (!Platform.isAndroid) return PickResult.empty;
+  return const ShareIntake(_android).take();
 }
 
 /// Android only: keep the screen on while a transfer runs.

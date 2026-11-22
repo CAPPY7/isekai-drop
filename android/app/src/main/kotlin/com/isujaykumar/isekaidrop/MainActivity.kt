@@ -56,6 +56,54 @@ class MainActivity : FlutterFragmentActivity() {
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r -> onFolderResult(r) }
     private var lostPick: Map<String, Any?>? = null
 
+    // D1 (0.12.0): files shared from another app, kept until the Send
+    // screen takes them ("takeShared").
+    private val sharedFiles = mutableListOf<Map<String, Any?>>()
+    private var sharedUnreadable = 0
+
+    override fun onCreate(savedInstanceState: android.os.Bundle?) {
+        super.onCreate(savedInstanceState)
+        // After a recreation the same intent comes back: already taken.
+        if (savedInstanceState == null) takeShareIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        takeShareIntent(intent)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun takeShareIntent(i: Intent?) {
+        if (i == null) return
+        val uris = mutableListOf<Uri>()
+        when (i.action) {
+            Intent.ACTION_SEND -> (i.getParcelableExtra<android.os.Parcelable>(Intent.EXTRA_STREAM) as? Uri)?.let { uris.add(it) }
+            Intent.ACTION_SEND_MULTIPLE ->
+                i.getParcelableArrayListExtra<android.os.Parcelable>(Intent.EXTRA_STREAM)?.forEach { p -> (p as? Uri)?.let { uris.add(it) } }
+            else -> return
+        }
+        i.action = null // handled once
+        if (uris.isEmpty()) {
+            sharedUnreadable++ // e.g. only text was shared
+            return
+        }
+        for (u in uris) {
+            // A file:// link could point into this app's own folder, and
+            // our own content links must never be sent on.
+            if (u.scheme != "content" || (u.authority ?: "").startsWith(packageName)) {
+                sharedUnreadable++
+                continue
+            }
+            keepAccess(u)
+            try {
+                sharedFiles.add(describe(u))
+            } catch (_: Exception) {
+                sharedUnreadable++
+            }
+        }
+    }
+
     // Audit #6: Android 9 and older have no MediaStore.Downloads, so writing
     // to the public Downloads folder needs WRITE_EXTERNAL_STORAGE (declared
     // with maxSdkVersion=28, never requested on Android 10+).
@@ -151,6 +199,15 @@ class MainActivity : FlutterFragmentActivity() {
                     "ensureLegacyStorage" -> ensureLegacyStorage(result)
                     // C6: a picker result that arrived after the app was
                     // recreated (null when there is none).
+                    "takeShared" -> {
+                        if (sharedFiles.isEmpty() && sharedUnreadable == 0) {
+                            result.success(null)
+                        } else {
+                            result.success(mapOf("files" to sharedFiles.toList(), "unreadable" to sharedUnreadable))
+                            sharedFiles.clear()
+                            sharedUnreadable = 0
+                        }
+                    }
                     "takeLostPick" -> {
                         result.success(lostPick)
                         lostPick = null
@@ -425,20 +482,23 @@ class MainActivity : FlutterFragmentActivity() {
             for (i in 0 until clip.itemCount) uris.add(clip.getItemAt(i).uri)
         } ?: data.data?.let { uris.add(it) }
         for (uri in uris) keepAccess(uri)
-        val out = uris.map { uri ->
-            var name = "file"
-            var size: Long = -1
-            contentResolver.query(uri, null, null, null, null)?.use { c ->
-                if (c.moveToFirst()) {
-                    val n = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                    val s = c.getColumnIndex(OpenableColumns.SIZE)
-                    if (n >= 0 && !c.isNull(n)) name = c.getString(n)
-                    if (s >= 0 && !c.isNull(s)) size = c.getLong(s)
-                }
-            }
-            mapOf("uri" to uri.toString(), "name" to name, "size" to size)
-        }
+        val out = uris.map { describe(it) }
         if (result != null) result.success(out) else lostPick = mapOf("files" to out)
+    }
+
+    /** Name and size of a picked or shared file (size -1 = unknown). */
+    private fun describe(uri: Uri): Map<String, Any?> {
+        var name = "file"
+        var size: Long = -1
+        contentResolver.query(uri, null, null, null, null)?.use { c ->
+            if (c.moveToFirst()) {
+                val n = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                val s = c.getColumnIndex(OpenableColumns.SIZE)
+                if (n >= 0 && !c.isNull(n)) name = c.getString(n)
+                if (s >= 0 && !c.isNull(s)) size = c.getLong(s)
+            }
+        }
+        return mapOf("uri" to uri.toString(), "name" to name, "size" to size)
     }
 
     // ------------------------------------------------- C4: lasting access

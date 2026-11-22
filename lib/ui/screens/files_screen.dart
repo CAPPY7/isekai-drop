@@ -6,6 +6,7 @@ import '../../engine/platform_engine.dart';
 import '../../engine/transfer_engine.dart';
 import '../app_scope.dart';
 import '../pairing_flow.dart';
+import '../shell_nav.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
 import '../widgets/discovery_hint.dart';
@@ -19,6 +20,7 @@ class FilesScreen extends StatefulWidget {
     this.pickFiles = pickFilesToSend,
     this.pickFolder = pickFolderToSend,
     this.takeLostPick = takeLostPickedFiles,
+    this.sharedInbox,
   });
 
   final bool isDesktop;
@@ -34,6 +36,9 @@ class FilesScreen extends StatefulWidget {
   /// C6: files picked just before Android recreated the app.
   final Future<PickResult> Function() takeLostPick;
 
+  /// D1: files shared from another app (default: [sharedFilesInbox]).
+  final ValueNotifier<PickResult?>? sharedInbox;
+
   @override
   State<FilesScreen> createState() => _FilesScreenState();
 }
@@ -44,6 +49,10 @@ class _FilesScreenState extends State<FilesScreen> {
   bool _dragging = false;
   String? _error;
   String? _targetId;
+  bool _shared = false;
+
+  ValueNotifier<PickResult?> get _inbox =>
+      widget.sharedInbox ?? sharedFilesInbox;
 
   int get _total => _files.fold(0, (a, f) => a + f.size);
 
@@ -51,6 +60,8 @@ class _FilesScreenState extends State<FilesScreen> {
   void initState() {
     super.initState();
     _files.addAll(widget.initialFiles);
+    _inbox.addListener(_takeShared);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _takeShared());
     widget.takeLostPick().then(
       (r) {
         if (!mounted || (r.files.isEmpty && r.skipped.total == 0)) return;
@@ -63,6 +74,24 @@ class _FilesScreenState extends State<FilesScreen> {
         if (mounted) AppScope.of(context).engine.recordException('pick', e);
       },
     );
+  }
+
+  @override
+  void dispose() {
+    _inbox.removeListener(_takeShared);
+    super.dispose();
+  }
+
+  /// D1: files shared from another app join the list (taken once).
+  void _takeShared() {
+    final r = _inbox.value;
+    if (r == null || !mounted) return;
+    _inbox.value = null;
+    setState(() {
+      _files.addAll(r.files);
+      _shared = true;
+      _error = _skippedText(r.skipped);
+    });
   }
 
   Future<void> _pick() async {
@@ -149,7 +178,12 @@ class _FilesScreenState extends State<FilesScreen> {
         ],
       ),
     );
-    if (ok == true) setState(_files.clear);
+    if (ok == true) {
+      setState(() {
+        _files.clear();
+        _shared = false;
+      });
+    }
   }
 
   /// 0.9.1: send to a nearby device that is not paired yet. It gets one
@@ -351,6 +385,23 @@ class _FilesScreenState extends State<FilesScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
+                              if (_shared && _files.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    bottom: IdSpacing.sm,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.share, size: 20),
+                                      const SizedBox(width: IdSpacing.sm),
+                                      Text(
+                                        'Shared from another app',
+                                        key: const ValueKey('shared-note'),
+                                        style: theme.textTheme.titleSmall,
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               pickCard,
                               if (_error != null)
                                 Padding(

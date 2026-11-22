@@ -2,7 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../engine/platform_engine.dart' show setKeepScreenOn;
+import '../engine/platform_engine.dart' show setKeepScreenOn, takeSharedFiles;
+import '../engine/pick_result.dart';
 
 import '../engine/transfer_engine.dart';
 import 'app_scope.dart';
@@ -33,13 +34,16 @@ const _dests = [
 
 /// Main frame. Phone/tablet: bottom bar. Desktop: side rail (separate layout).
 class AppShell extends StatefulWidget {
-  const AppShell({super.key});
+  const AppShell({super.key, this.takeShared = takeSharedFiles});
+
+  /// D1: files shared from another app (Android; tests pass a fake).
+  final Future<PickResult> Function() takeShared;
 
   @override
   State<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   int _index = 0;
   TransferEngine? _engine;
   PendingRequest? _showing;
@@ -59,6 +63,21 @@ class _AppShellState extends State<AppShell> {
   void initState() {
     super.initState();
     shellTabRequest.addListener(_onTabRequest);
+    WidgetsBinding.instance.addObserver(this);
+    _checkShared();
+  }
+
+  /// D1: Android hands over shared files when the app starts or comes
+  /// back (Share > Isekai Drop while it was open).
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _checkShared();
+  }
+
+  void _checkShared() {
+    widget.takeShared().then((r) {
+      if (mounted) deliverShared(r);
+    }, onError: (Object e) => _engine?.recordException('take_shared', e));
   }
 
   void _onTabRequest() {
@@ -71,6 +90,7 @@ class _AppShellState extends State<AppShell> {
   @override
   void dispose() {
     shellTabRequest.removeListener(_onTabRequest);
+    WidgetsBinding.instance.removeObserver(this);
     _engine?.removeListener(_onEngine);
     super.dispose();
   }
