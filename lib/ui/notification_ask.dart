@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 
 import 'theme/design_tokens.dart';
+import '../l10n/l10n.dart';
 
 Future<void> maybeAskNotifications(
   BuildContext context, {
@@ -16,26 +17,22 @@ Future<void> maybeAskNotifications(
   final ok = await showDialog<bool>(
     context: context,
     builder: (c) => AlertDialog(
-      title: const Text('Show transfer notifications?'),
-      content: const Text(
-        'Isekai Drop shows how far a transfer is, and asks you about '
-        'incoming files, in a notification. Then transfers keep going when '
-        'you switch to another app. No file names or device names are shown.',
-      ),
+      title: Text(tr(context).notifTitle),
+      content: Text(tr(context).notifBody),
       actions: [
         TextButton(
           style: TextButton.styleFrom(
             minimumSize: const Size(0, IdLayout.minTouchTarget),
           ),
           onPressed: () => Navigator.pop(c, false),
-          child: const Text('Not now'),
+          child: Text(tr(context).notNow),
         ),
         FilledButton(
           style: FilledButton.styleFrom(
             minimumSize: const Size(0, IdLayout.minTouchTarget),
           ),
           onPressed: () => Navigator.pop(c, true),
-          child: const Text('Continue'),
+          child: Text(tr(context).continueLabel),
         ),
       ],
     ),

@@ -2,9 +2,11 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'engine/core/identity_loader.dart';
 import 'engine/transfer_engine.dart';
+import 'l10n/l10n.dart';
 import 'settings/settings_controller.dart';
 import 'ui/app_scope.dart';
 import 'ui/diag_report.dart' show kAppVersion;
@@ -50,6 +52,16 @@ class IsekaiDropApp extends StatelessWidget {
             theme: AppTheme.light(),
             darkTheme: AppTheme.dark(),
             themeMode: settings.themeMode,
+            // E2: English, Hindi, Kannada; null = the device language
+            // (English when the device uses another one).
+            locale: settings.locale,
+            supportedLocales: AppLocalizations.supportedLocales,
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
             home: showOnboarding && !settings.onboardingDone
                 ? OnboardingScreen(onDone: settings.markOnboardingDone)
                 : const AppShell(),

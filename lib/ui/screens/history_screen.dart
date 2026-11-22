@@ -5,6 +5,7 @@ import '../app_scope.dart';
 import '../file_actions.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
+import '../../l10n/l10n.dart';
 
 /// Real, saved transfer history (this device only). No file contents.
 class HistoryScreen extends StatelessWidget {
@@ -19,7 +20,7 @@ class HistoryScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(c, false),
-            child: const Text('Cancel'),
+            child: Text(tr(context).cancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -27,7 +28,7 @@ class HistoryScreen extends StatelessWidget {
               foregroundColor: Theme.of(context).colorScheme.onError,
             ),
             onPressed: () => Navigator.pop(c, true),
-            child: const Text('Delete'),
+            child: Text(tr(context).delete),
           ),
         ],
       ),
@@ -40,12 +41,12 @@ class HistoryScreen extends StatelessWidget {
     final scope = AppScope.of(context);
     final history = scope.engine.history;
     if (history == null) {
-      return const PageBody(
+      return PageBody(
         children: [
           StateMessage(
             icon: Icons.history,
-            title: 'History is not available',
-            message: 'This device could not open its history file.',
+            title: tr(context).historyUnavailable,
+            message: tr(context).historyUnavailableBody,
           ),
         ],
       );
@@ -58,17 +59,18 @@ class HistoryScreen extends StatelessWidget {
         return PageBody(
           children: [
             Text(
-              'Saved on this device only. File contents are never stored'
-              '${showNames ? '; file names are (turn off in Settings)' : '; file names are not saved'}.',
+              showNames
+                  ? tr(context).historyNoteNames
+                  : tr(context).historyNoteNoNames,
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: IdSpacing.md),
             if (list.isEmpty)
               // 0.11.0 (spec A1): one line, not a whole card.
-              const EmptyLine(
+              EmptyLine(
                 icon: Icons.history,
-                text: 'No transfers yet',
-                info: 'Finished transfers will be listed here.',
+                text: tr(context).noTransfers,
+                info: tr(context).noTransfersInfo,
               ),
             for (final t in list)
               Card(
@@ -80,10 +82,12 @@ class HistoryScreen extends StatelessWidget {
                         : Icons.south_west,
                   ),
                   title: Text(
-                    '${t.direction == HistoryDirection.sent ? 'Sent to' : 'Received from'} ${t.peerName}',
+                    t.direction == HistoryDirection.sent
+                        ? tr(context).sentTo(t.peerName)
+                        : tr(context).receivedFrom(t.peerName),
                   ),
                   subtitle: Text(
-                    '${_outcome(t.outcome)} - ${t.fileCount} file(s), ${formatBytes(t.totalBytes)}\n'
+                    '${tr(context).historyLine(_outcome(tr(context), t.outcome), '${t.fileCount}', formatBytes(t.totalBytes))}\n'
                     '${formatTime(t.createdAt.toLocal())}',
                   ),
                   childrenPadding: const EdgeInsets.fromLTRB(
@@ -95,19 +99,20 @@ class HistoryScreen extends StatelessWidget {
                   expandedCrossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (t.message != null) Text(t.message!),
-                    Text('Moved: ${formatBytes(t.bytesDone)}'),
+                    Text(tr(context).moved(formatBytes(t.bytesDone))),
                     if (t.resumedBytes > 0)
                       Text(
-                        'Continued an earlier attempt: ${formatBytes(t.resumedBytes)} were already there.',
+                        tr(context)
+                            .continuedEarlier(formatBytes(t.resumedBytes)),
                       ),
                     if (t.destination != null)
-                      Text('Saved to: ${t.destination}'),
+                      Text(tr(context).savedTo(t.destination ?? '')),
                     if (showNames && t.fileNames.isNotEmpty) ...[
                       const SizedBox(height: IdSpacing.xs),
                       for (final n in t.fileNames.take(20))
                         Text('- $n', overflow: TextOverflow.ellipsis),
                       if (t.fileNames.length > 20)
-                        Text('...and ${t.fileNames.length - 20} more'),
+                        Text(tr(context).andMore('${t.fileNames.length - 20}')),
                     ],
                     // D4: the folder received files went to.
                     if (t.direction == HistoryDirection.received &&
@@ -121,20 +126,17 @@ class HistoryScreen extends StatelessWidget {
                           ),
                           onPressed: () async {
                             final messenger = ScaffoldMessenger.of(context);
+                            final failText = tr(context).folderNotOpened;
                             if (!await savedFileActions.openFolder(
                               t.destination!,
                             )) {
                               messenger.showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'The folder could not be opened.',
-                                  ),
-                                ),
+                                SnackBar(content: Text(failText)),
                               );
                             }
                           },
                           icon: const Icon(Icons.folder_open),
-                          label: const Text('Show folder'),
+                          label: Text(tr(context).showFolder),
                         ),
                       ),
                     Align(
@@ -146,14 +148,14 @@ class HistoryScreen extends StatelessWidget {
                         onPressed: () async {
                           if (await _ask(
                             context,
-                            'Delete this entry?',
-                            'Only the history entry is removed. Your files are not deleted.',
+                            tr(context).deleteEntryTitle,
+                            tr(context).deleteEntryBody,
                           )) {
                             await history.remove(t.id);
                           }
                         },
                         icon: const Icon(Icons.delete_outline),
-                        label: const Text('Delete entry'),
+                        label: Text(tr(context).deleteEntry),
                       ),
                     ),
                   ],
@@ -169,14 +171,14 @@ class HistoryScreen extends StatelessWidget {
                 onPressed: () async {
                   if (await _ask(
                     context,
-                    'Clear history?',
-                    'All entries will be removed. Your files are not deleted.',
+                    tr(context).clearHistoryTitle,
+                    tr(context).clearHistoryBody,
                   )) {
                     await history.clear();
                   }
                 },
                 icon: const Icon(Icons.delete_outline),
-                label: const Text('Clear history'),
+                label: Text(tr(context).clearHistory),
               ),
             ],
           ],
@@ -185,9 +187,9 @@ class HistoryScreen extends StatelessWidget {
     );
   }
 
-  static String _outcome(HistoryOutcome o) => switch (o) {
-    HistoryOutcome.completed => 'Completed',
-    HistoryOutcome.failed => 'Failed',
-    HistoryOutcome.cancelled => 'Cancelled',
+  static String _outcome(AppLocalizations l, HistoryOutcome o) => switch (o) {
+    HistoryOutcome.completed => l.outcomeCompleted,
+    HistoryOutcome.failed => l.outcomeFailed,
+    HistoryOutcome.cancelled => l.outcomeCancelled,
   };
 }

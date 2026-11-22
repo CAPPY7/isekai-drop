@@ -19,7 +19,12 @@ class SettingsController extends ChangeNotifier {
 
   /// 1 = theme + name. 2 = receive, auto-receive, history names, visibility.
   /// 3 = route mode (0.11.0; every install starts on "auto").
-  static const int schemaVersion = 3;
+  /// 4 = language (0.12.1, E2; every install starts on "system").
+  static const int schemaVersion = 4;
+  static const _kLanguage = 'language';
+
+  /// E2: offered languages ("system" follows the device).
+  static const languages = ['system', 'en', 'hi', 'kn'];
   static const _kAccept = 'accept_files';
   static const _kAuto = 'auto_receive_verified';
   static const _kNames = 'history_file_names';
@@ -77,6 +82,12 @@ class SettingsController extends ChangeNotifier {
       v = 3;
       await prefs.setInt(_kVersion, v);
     }
+    if (v < 4) {
+      // E2: screens follow the device language until the user picks one.
+      await prefs.setString(_kLanguage, 'system');
+      v = 4;
+      await prefs.setInt(_kVersion, v);
+    }
   }
 
   /// Receive files from trusted devices at all.
@@ -97,6 +108,21 @@ class SettingsController extends ChangeNotifier {
   String get routeMode {
     final v = _prefs.getString(_kRoute);
     return routeModes.contains(v) ? v! : routeAuto;
+  }
+
+  /// E2: 'system', 'en', 'hi' or 'kn'.
+  String get language {
+    final v = _prefs.getString(_kLanguage);
+    return languages.contains(v) ? v! : 'system';
+  }
+
+  /// E2: the chosen language, or null to follow the device.
+  Locale? get locale => language == 'system' ? null : Locale(language);
+
+  Future<void> setLanguage(String v) async {
+    if (!languages.contains(v)) return;
+    await _prefs.setString(_kLanguage, v);
+    notifyListeners();
   }
 
   /// 0.11.0 (spec A8): the 3-slide intro was seen or skipped.

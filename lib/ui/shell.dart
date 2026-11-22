@@ -21,20 +21,21 @@ import 'screens/home_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/trusted_screen.dart';
 import 'theme/design_tokens.dart';
+import '../l10n/l10n.dart';
 
 class _Dest {
   const _Dest(this.label, this.icon, this.selectedIcon);
-  final String label;
+  final String Function(AppLocalizations) label;
   final IconData icon;
   final IconData selectedIcon;
 }
 
-const _dests = [
-  _Dest('Home', Icons.home_outlined, Icons.home),
-  _Dest('Send', Icons.upload_file_outlined, Icons.upload_file),
-  _Dest('Connect', Icons.qr_code_2_outlined, Icons.qr_code_2),
-  _Dest('History', Icons.history_outlined, Icons.history),
-  _Dest('Settings', Icons.settings_outlined, Icons.settings),
+final _dests = [
+  _Dest((l) => l.navHome, Icons.home_outlined, Icons.home),
+  _Dest((l) => l.navSend, Icons.upload_file_outlined, Icons.upload_file),
+  _Dest((l) => l.navConnect, Icons.qr_code_2_outlined, Icons.qr_code_2),
+  _Dest((l) => l.navHistory, Icons.history_outlined, Icons.history),
+  _Dest((l) => l.navSettings, Icons.settings_outlined, Icons.settings),
 ];
 
 /// Main frame. Phone/tablet: bottom bar. Desktop: side rail (separate layout).
@@ -177,10 +178,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         return AlertDialog(
           title: Text(
             pairing
-                ? 'Accept ${r.peerName}?'
+                ? tr(context).askPairTitle(r.peerName)
                 : isText
-                ? '${r.peerName} wants to send you a text'
-                : '${r.peerName} wants to send you files',
+                ? tr(context).askTextTitle(r.peerName)
+                : tr(context).askFilesTitle(r.peerName),
           ),
           content: SingleChildScrollView(
             child: Column(
@@ -190,34 +191,36 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                   ? [
                       // E1: the text itself is shown only after Accept.
                       Text(
-                        'A short text (${r.textBody?.characters.length ?? 0} '
-                        'characters) from ${platformLabel(r.peerPlatform)} '
-                        'device "${r.peerName}". It is shown after you accept.',
+                        tr(context).askTextBody(
+                          '${r.textBody?.characters.length ?? 0}',
+                          platformLabel(r.peerPlatform),
+                          r.peerName,
+                        ),
                       ),
                     ]
                   : pairing
                   ? [
                       Text(
                         r.offerCount > 0
-                            ? '${platformLabel(r.peerPlatform)} device "${r.peerName}" wants to send you '
-                                  '${r.offerCount} file(s), ${formatBytes(r.totalBytes)}.'
-                            : '${platformLabel(r.peerPlatform)} device "${r.peerName}" wants to connect.',
+                            ? tr(context).askPairWithFiles(
+                                platformLabel(r.peerPlatform),
+                                r.peerName,
+                                '${r.offerCount}',
+                                formatBytes(r.totalBytes),
+                              )
+                            : tr(context).askPairConnect(
+                                platformLabel(r.peerPlatform),
+                                r.peerName,
+                              ),
                       ),
                       for (final n in r.fileNames.take(3))
                         Text('- $n', overflow: TextOverflow.ellipsis),
                       const SizedBox(height: IdSpacing.sm),
-                      const Text(
-                        'Accept to pair: both devices remember each other, so '
-                        'next time files go straight to the usual question. '
-                        'If you did not start this, tap Decline.',
-                      ),
+                      Text(tr(context).askPairHelp),
                       if (r.replacesName != null) ...[
                         const SizedBox(height: IdSpacing.sm),
                         Text(
-                          'You paired a device named "${r.replacesName}" before, '
-                          'with a different key. This is probably that device after '
-                          'Isekai Drop was reinstalled or reset on it. Accept only '
-                          'if that is true; accepting replaces the old pairing.',
+                          tr(context).askReplaces(r.replacesName ?? ''),
                           key: const ValueKey('pair-replaces'),
                           style: TextStyle(
                             color: idStatus(context).warning,
@@ -228,9 +231,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                       if (r.keyChanged) ...[
                         const SizedBox(height: IdSpacing.sm),
                         Text(
-                          'WARNING: a device with this id was paired before with a DIFFERENT key. '
-                          'Accept only if you reinstalled or reset Isekai Drop on it. '
-                          'Accepting replaces the old key.',
+                          tr(context).askKeyWarning,
                           style: TextStyle(
                             color: idStatus(context).danger,
                             fontWeight: FontWeight.w700,
@@ -239,7 +240,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                       ],
                       const SizedBox(height: IdSpacing.md),
                       Text(
-                        'Optional check: the other screen shows the same code',
+                        tr(context).askCodeCheck,
                         style: Theme.of(c).textTheme.bodySmall,
                       ),
                       SelectableText(
@@ -252,21 +253,25 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                     ]
                   : [
                       Text(
-                        '${r.fileNames.length} file(s) · ${formatBytes(r.totalBytes)}',
+                        tr(context).filesAndSize(
+                          '${r.fileNames.length}',
+                          formatBytes(r.totalBytes),
+                        ),
                         style: Theme.of(c).textTheme.titleMedium,
                       ),
                       Text(
-                        'From trusted ${platformLabel(r.peerPlatform)} device "${r.peerName}".',
+                        tr(context).askFromTrusted(
+                          platformLabel(r.peerPlatform),
+                          r.peerName,
+                        ),
                       ),
                       const SizedBox(height: IdSpacing.sm),
                       if (r.resumeBytes > 0)
-                        Text(
-                          'Continues an interrupted transfer: ${formatBytes(r.resumeBytes)} are already here.',
-                        ),
+                        Text(tr(context).askResume(formatBytes(r.resumeBytes))),
                       for (final n in r.fileNames.take(5))
                         Text('- $n', overflow: TextOverflow.ellipsis),
                       if (r.fileNames.length > 5)
-                        Text('...and ${r.fileNames.length - 5} more'),
+                        Text(tr(context).andMore('${r.fileNames.length - 5}')),
                       // D3: only for a VERIFIED device (code compared).
                       if (r.peerVerified)
                         StatefulBuilder(
@@ -278,11 +283,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                             value: r.alwaysAllow,
                             onChanged: (v) =>
                                 set(() => r.alwaysAllow = v ?? false),
-                            title: const Text('Always allow this device'),
-                            subtitle: const Text(
-                              'Files from it are received without this '
-                              'question. Turn off in Settings > Trusted devices.',
-                            ),
+                            title: Text(tr(context).askAlwaysAllow),
+                            subtitle: Text(tr(context).askAlwaysAllowHelp),
                           ),
                         ),
                     ],
@@ -306,7 +308,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                     ),
                     onPressed: () => Navigator.pop(c, false),
                     icon: const Icon(Icons.close),
-                    label: const Text('Decline'),
+                    label: Text(tr(context).decline),
                   ),
                 ),
                 const SizedBox(width: IdSpacing.md),
@@ -318,7 +320,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                     ),
                     onPressed: () => Navigator.pop(c, true),
                     icon: const Icon(Icons.check),
-                    label: const Text('Accept'),
+                    label: Text(tr(context).accept),
                   ),
                 ),
               ],
@@ -335,7 +337,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                   ),
                   onPressed: () => Navigator.pop(c, 'block'),
                   icon: const Icon(Icons.block),
-                  label: const Text('Block this device'),
+                  label: Text(tr(context).blockDevice),
                 ),
               ),
           ],
@@ -346,11 +348,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     final ok = answer == true;
     if (r.decided) {
       if (r.expired && mounted) {
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          const SnackBar(
-            content: Text('Request expired - nobody answered in time.'),
-          ),
-        );
+        ScaffoldMessenger.maybeOf(context)
+            ?.showSnackBar(SnackBar(content: Text(tr(context).requestExpired)));
       }
       return;
     }
@@ -374,11 +373,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     } else if (answer == 'block') {
       r.block();
       if (mounted) {
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          const SnackBar(
-            content: Text('Blocked. Unblock it in Settings > Trusted devices.'),
-          ),
-        );
+        ScaffoldMessenger.maybeOf(context)
+            ?.showSnackBar(SnackBar(content: Text(tr(context).blockedNote)));
       }
     } else {
       r.decline();
@@ -423,7 +419,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           SettingsScreen(onTrusted: _openTrusted),
         ];
         final body = IndexedStack(index: _index, children: pages);
-        final title = _index == 0 ? 'Isekai Drop' : _dests[_index].label;
+        final title = _index == 0
+            ? 'Isekai Drop'
+            : _dests[_index].label(tr(context));
 
         // Back on any tab except Home goes to Home first.
         return PopScope(
@@ -442,13 +440,13 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                         labelType: c.maxWidth >= 1200
                             ? NavigationRailLabelType.none
                             : NavigationRailLabelType.all,
-                        leading: const Padding(
+                        leading: Padding(
                           padding: EdgeInsets.symmetric(vertical: IdSpacing.md),
                           child: Icon(
                             Icons.water_drop_rounded,
                             color: IdColors.accentPurple,
                             size: 36,
-                            semanticLabel: 'Isekai Drop',
+                            semanticLabel: tr(context).appTitle,
                           ),
                         ),
                         destinations: [
@@ -456,7 +454,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                             NavigationRailDestination(
                               icon: Icon(d.icon),
                               selectedIcon: Icon(d.selectedIcon),
-                              label: Text(d.label),
+                              label: Text(d.label(tr(context))),
                             ),
                         ],
                       ),
@@ -481,7 +479,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                         NavigationDestination(
                           icon: Icon(d.icon),
                           selectedIcon: Icon(d.selectedIcon),
-                          label: d.label,
+                          label: d.label(tr(context)),
                         ),
                     ],
                   ),

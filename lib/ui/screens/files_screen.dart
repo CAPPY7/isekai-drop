@@ -11,6 +11,7 @@ import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
 import '../widgets/discovery_hint.dart';
 import 'transfer_screen.dart';
+import '../../l10n/l10n.dart';
 
 class FilesScreen extends StatefulWidget {
   const FilesScreen({
@@ -113,9 +114,7 @@ class _FilesScreenState extends State<FilesScreen> {
         _error = _skippedText(picked.skipped);
       });
     } catch (_) {
-      setState(
-        () => _error = 'The file picker could not open. Please try again.',
-      );
+      setState(() => _error = tr(context).pickerFailed);
     } finally {
       if (mounted) setState(() => _picking = false);
     }
@@ -133,10 +132,7 @@ class _FilesScreenState extends State<FilesScreen> {
         _error = _skippedText(picked.skipped);
       });
     } catch (_) {
-      setState(
-        () => _error =
-            'The folder could not be opened here. Try picking files instead.',
-      );
+      setState(() => _error = tr(context).folderPickFailed);
     } finally {
       if (mounted) setState(() => _picking = false);
     }
@@ -169,18 +165,16 @@ class _FilesScreenState extends State<FilesScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Clear selection?'),
-        content: const Text(
-          'This removes all files from the list. Your files are not deleted.',
-        ),
+        title: Text(tr(context).clearSelectionTitle),
+        content: Text(tr(context).clearSelectionBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(c, false),
-            child: const Text('Cancel'),
+            child: Text(tr(context).cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(c, true),
-            child: const Text('Clear'),
+            child: Text(tr(context).clear),
           ),
         ],
       ),
@@ -226,13 +220,17 @@ class _FilesScreenState extends State<FilesScreen> {
       if (!mounted) return;
       _text.clear();
       messenger.showSnackBar(
-        SnackBar(content: Text('Text sent to ${dev.name}.')),
+        SnackBar(content: Text(tr(context).textSentTo(dev.name))),
       );
     } on TextSendException catch (e) {
-      if (mounted) setState(() => _error = explainTextError(e.reason));
+      if (mounted) {
+        setState(() => _error = textErrorText(tr(context), e.reason));
+      }
     } catch (e) {
       engine.recordException('text_send', e);
-      if (mounted) setState(() => _error = explainTextError('failed'));
+      if (mounted) {
+        setState(() => _error = textErrorText(tr(context), 'failed'));
+      }
     } finally {
       if (mounted) setState(() => _sendingText = false);
     }
@@ -254,13 +252,8 @@ class _FilesScreenState extends State<FilesScreen> {
     if (!mounted) return;
     setState(_files.clear);
     if (job.queued) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Added to the queue. It starts when the current send finishes.',
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(tr(context).addedToQueue)));
     }
     await Navigator.of(
       context,
@@ -282,7 +275,9 @@ class _FilesScreenState extends State<FilesScreen> {
         ),
         const SizedBox(height: IdSpacing.sm),
         Text(
-          widget.isDesktop ? 'Drag files here, or' : 'Choose files to send',
+          widget.isDesktop
+              ? tr(context).dragFilesHere
+              : tr(context).chooseFiles,
           style: theme.textTheme.titleMedium,
         ),
         const SizedBox(height: IdSpacing.sm),
@@ -298,7 +293,7 @@ class _FilesScreenState extends State<FilesScreen> {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Icon(Icons.folder_open),
-          label: Text(_picking ? 'Opening...' : 'Pick files'),
+          label: Text(_picking ? tr(context).opening : tr(context).pickFiles),
         ),
         const SizedBox(height: IdSpacing.sm),
         if (canPickFolder)
@@ -308,14 +303,13 @@ class _FilesScreenState extends State<FilesScreen> {
             ),
             onPressed: _picking ? null : _pickFolder,
             icon: const Icon(Icons.create_new_folder_outlined),
-            label: const Text('Pick a folder'),
+            label: Text(tr(context).pickFolder),
           ),
         const SizedBox(height: IdSpacing.xs),
         Text(
           canPickFolder
-              ? 'Files of any type, or a whole folder (its sub-folders are kept).'
-              : 'Files of any type. Folders cannot be picked on iPhone/iPad yet - '
-                    'pick the files inside instead.',
+              ? tr(context).anyFilesOrFolder
+              : tr(context).anyFilesIos,
           textAlign: TextAlign.center,
           style: theme.textTheme.bodySmall,
         ),
@@ -397,12 +391,14 @@ class _FilesScreenState extends State<FilesScreen> {
           icon: const Icon(Icons.send_rounded),
           label: Text(
             _textMode
-                ? (target == null ? 'Send text' : 'Send text to ${target.name}')
+                ? (target == null
+                      ? tr(context).sendText
+                      : tr(context).sendTextTo(target.name))
                 : targetName == null
-                ? 'Send'
+                ? tr(context).navSend
                 : _files.isEmpty
-                ? 'Send to $targetName'
-                : 'Send ${_files.length} file(s) to $targetName',
+                ? tr(context).sendToName(targetName)
+                : tr(context).sendFilesTo('${_files.length}', targetName),
             overflow: TextOverflow.ellipsis,
           ),
         );
@@ -426,16 +422,16 @@ class _FilesScreenState extends State<FilesScreen> {
                     style: SegmentedButton.styleFrom(
                       minimumSize: const Size(0, IdLayout.minTouchTarget),
                     ),
-                    segments: const [
+                    segments: [
                       ButtonSegment(
                         value: false,
                         icon: Icon(Icons.insert_drive_file_outlined),
-                        label: Text('Files'),
+                        label: Text(tr(context).modeFiles),
                       ),
                       ButtonSegment(
                         value: true,
                         icon: Icon(Icons.short_text),
-                        label: Text('Text'),
+                        label: Text(tr(context).modeText),
                       ),
                     ],
                     selected: {_textMode},
@@ -451,7 +447,7 @@ class _FilesScreenState extends State<FilesScreen> {
                       children: [
                         if (_textMode)
                           SectionCard(
-                            title: '1. Text or link',
+                            title: tr(context).stepTextOrLink,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
@@ -463,16 +459,15 @@ class _FilesScreenState extends State<FilesScreen> {
                                   onChanged: (_) => setState(() {}),
                                   decoration: InputDecoration(
                                     border: const OutlineInputBorder(),
-                                    hintText: 'Type or paste a text or link',
+                                    hintText: tr(context).textHint,
                                     errorText: textProblem == 'too_long'
-                                        ? explainTextError('too_long')
+                                        ? textErrorText(tr(context), 'too_long')
                                         : null,
                                   ),
                                 ),
                                 const SizedBox(height: IdSpacing.xs),
                                 Text(
-                                  'The other device asks before showing it. '
-                                  'Links are never opened by themselves.',
+                                  tr(context).textAskNote,
                                   style: theme.textTheme.bodySmall,
                                 ),
                                 if (_error != null)
@@ -488,12 +483,9 @@ class _FilesScreenState extends State<FilesScreen> {
                                     ),
                                   ),
                                 if (target == null && nearbyTarget != null)
-                                  const Padding(
+                                  Padding(
                                     padding: EdgeInsets.only(top: IdSpacing.sm),
-                                    child: Text(
-                                      'Text can be sent to paired devices only. '
-                                      'Pair first (send a file, or use Connect).',
-                                    ),
+                                    child: Text(tr(context).textPairedOnly),
                                   ),
                               ],
                             ),
@@ -501,13 +493,16 @@ class _FilesScreenState extends State<FilesScreen> {
                         else
                           SectionCard(
                             title: _files.isEmpty
-                                ? '1. Pick files'
-                                : '1. Files: ${_files.length}, ${formatBytes(_total)}',
+                                ? tr(context).stepPickFiles
+                                : tr(context).stepFilesCount(
+                                    '${_files.length}',
+                                    formatBytes(_total),
+                                  ),
                             trailing: _files.isEmpty
                                 ? null
                                 : TextButton(
                                     onPressed: _confirmClear,
-                                    child: const Text('Clear'),
+                                    child: Text(tr(context).clear),
                                   ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -522,7 +517,7 @@ class _FilesScreenState extends State<FilesScreen> {
                                         const Icon(Icons.share, size: 20),
                                         const SizedBox(width: IdSpacing.sm),
                                         Text(
-                                          'Shared from another app',
+                                          tr(context).sharedFromApp,
                                           key: const ValueKey('shared-note'),
                                           style: theme.textTheme.titleSmall,
                                         ),
@@ -559,20 +554,23 @@ class _FilesScreenState extends State<FilesScreen> {
                                     ),
                                     subtitle: Text(formatBytes(_files[i].size)),
                                     trailing: IconButton(
-                                      tooltip:
-                                          'Remove ${_files[i].name} from list',
+                                      tooltip: tr(context)
+                                          .removeFromList(_files[i].name),
                                       icon: const Icon(Icons.close),
                                       onPressed: () =>
                                           setState(() => _files.removeAt(i)),
                                     ),
                                   ),
                                 if (_files.length > 100)
-                                  Text('...and ${_files.length - 100} more'),
+                                  Text(
+                                    tr(context)
+                                        .andMore('${_files.length - 100}'),
+                                  ),
                               ],
                             ),
                           ),
                         SectionCard(
-                          title: '2. Pick a device',
+                          title: tr(context).stepPickDevice,
                           child: ids.isEmpty
                               ? DiscoveryHint(engine: engine)
                               : DropdownButton<String>(
@@ -586,7 +584,7 @@ class _FilesScreenState extends State<FilesScreen> {
                                           engine.nearby.any(
                                                 (n) => n.trusted?.id == d.id,
                                               )
-                                              ? '${d.name}  (nearby)'
+                                              ? tr(context).nameNearby(d.name)
                                               : d.name,
                                         ),
                                       ),
@@ -594,7 +592,7 @@ class _FilesScreenState extends State<FilesScreen> {
                                       DropdownMenuItem(
                                         value: 'nearby:${n.deviceId}',
                                         child: Text(
-                                          '${n.name}  (nearby, asks once to accept)',
+                                          tr(context).nameNearbyAsk(n.name),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),

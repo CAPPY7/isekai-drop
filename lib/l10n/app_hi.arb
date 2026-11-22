@@ -1,0 +1,880 @@
+{
+  "@@locale": "hi",
+  "@@x-review": "Hindi/Kannada texts are machine/assistant translations. They are NOT reviewed by a native speaker yet; every text needs a native-speaker check before a public release.",
+  "aboutApp": "Isekai Drop के बारे में",
+  "@aboutApp": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "aboutSubtitle": "Isekai Drop {version} - बिल्ड, कुंजी, अपडेट, लाइसेंस",
+  "@aboutSubtitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "aboutThisDevice": "इस डिवाइस के बारे में",
+  "@aboutThisDevice": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "aboutTitle": "जानकारी",
+  "@aboutTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "accept": "स्वीकार करें",
+  "@accept": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "addedToQueue": "कतार में जोड़ा गया। अभी का भेजना पूरा होने पर शुरू होगा।",
+  "@addedToQueue": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "advanced": "उन्नत",
+  "@advanced": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "andMore": "...और {count}",
+  "@andMore": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "anyFilesIos": "किसी भी तरह की फ़ाइलें। iPhone/iPad पर अभी फ़ोल्डर नहीं चुन सकते - अंदर की फ़ाइलें चुनें।",
+  "@anyFilesIos": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "anyFilesOrFolder": "किसी भी तरह की फ़ाइलें, या पूरा फ़ोल्डर (अंदर के फ़ोल्डर भी रहते हैं)।",
+  "@anyFilesOrFolder": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "appTitle": "Isekai Drop",
+  "@appTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "appVersion": "Isekai Drop {version}",
+  "@appVersion": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "appearance": "दिखावट",
+  "@appearance": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "askAlwaysAllow": "इस डिवाइस को हमेशा अनुमति दें",
+  "@askAlwaysAllow": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "askAlwaysAllowHelp": "इससे फ़ाइलें बिना यह सवाल पूछे आएँगी। सेटिंग्स > भरोसेमंद डिवाइस में बंद करें।",
+  "@askAlwaysAllowHelp": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "askCodeCheck": "वैकल्पिक जाँच: दूसरी स्क्रीन पर यही कोड दिखता है",
+  "@askCodeCheck": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "askFilesTitle": "{name} आपको फ़ाइलें भेजना चाहता है",
+  "@askFilesTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "askFromTrusted": "भरोसेमंद {platform} डिवाइस \"{name}\" से।",
+  "@askFromTrusted": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "askKeyWarning": "चेतावनी: इस आईडी वाला डिवाइस पहले किसी अलग कुंजी के साथ जोड़ा गया था। तभी स्वीकार करें जब आपने उस पर Isekai Drop दोबारा इंस्टॉल या रीसेट किया हो। स्वीकार करने से पुरानी कुंजी बदल जाएगी।",
+  "@askKeyWarning": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "askPairConnect": "{platform} डिवाइस \"{name}\" जुड़ना चाहता है।",
+  "@askPairConnect": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "askPairHelp": "जोड़ने के लिए स्वीकार करें: दोनों डिवाइस एक-दूसरे को याद रखेंगे, अगली बार सीधे सामान्य सवाल आएगा। अगर आपने यह शुरू नहीं किया, तो मना करें दबाएँ।",
+  "@askPairHelp": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "askPairTitle": "{name} को स्वीकार करें?",
+  "@askPairTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "askPairWithFiles": "{platform} डिवाइस \"{name}\" आपको {count} फ़ाइल(ें), {size} भेजना चाहता है।",
+  "@askPairWithFiles": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "askReplaces": "आपने पहले \"{name}\" नाम का डिवाइस किसी दूसरी कुंजी के साथ जोड़ा था। शायद उस पर Isekai Drop दोबारा इंस्टॉल या रीसेट हुआ है। तभी स्वीकार करें जब यह सच हो; स्वीकार करने से पुराना जोड़ बदल जाएगा।",
+  "@askReplaces": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "askResume": "रुका हुआ ट्रांसफ़र जारी है: {size} पहले से यहाँ है।",
+  "@askResume": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "askTextBody": "{platform} डिवाइस \"{name}\" से एक छोटा टेक्स्ट ({count} अक्षर)। स्वीकार करने के बाद दिखेगा।",
+  "@askTextBody": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "askTextTitle": "{name} आपको एक टेक्स्ट भेजना चाहता है",
+  "@askTextTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "autoReceive": "सत्यापित डिवाइस से अपने-आप पाएँ",
+  "@autoReceive": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "autoReceiveBody": "\"सत्यापित\" डिवाइस आपसे पूछे बिना इस डिवाइस पर फ़ाइलें भेज सकेंगे। फ़ाइलें फिर भी सामान्य फ़ोल्डर में ही जाएँगी और ख़राबी के लिए जाँची जाएँगी। आप इसे कभी भी बंद कर सकते हैं।",
+  "@autoReceiveBody": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "autoReceiveInfo": "बंद: हर बार आपसे पूछा जाएगा (सुझाया गया)। चालू: सिर्फ़ \"सत्यापित\" डिवाइस बिना पूछे भेज सकते हैं। \"भरोसेमंद\" के लिए हमेशा पूछा जाता है और ब्लॉक किए गए डिवाइस हमेशा मना होते हैं।",
+  "@autoReceiveInfo": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "autoReceiveOff": "बंद: हर बार आपसे पूछा जाएगा (सुझाया गया)",
+  "@autoReceiveOff": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "autoReceiveTitle": "अपने-आप पाना चालू करें?",
+  "@autoReceiveTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "benchmarkLog": "बेंचमार्क लॉग",
+  "@benchmarkLog": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "benchmarkSub": "मापे गए रन, मीडियन/न्यूनतम/अधिकतम, CSV एक्सपोर्ट",
+  "@benchmarkSub": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "blockDevice": "इस डिवाइस को ब्लॉक करें",
+  "@blockDevice": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "blockedNote": "ब्लॉक किया गया। सेटिंग्स > भरोसेमंद डिवाइस में अनब्लॉक करें।",
+  "@blockedNote": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "buildLoading": "बिल्ड: ...",
+  "@buildLoading": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "buildLocal": "बिल्ड: लोकल बिल्ड (GitHub से नहीं)",
+  "@buildLocal": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "buildNumber": "बिल्ड {number}",
+  "@buildNumber": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "cancel": "रद्द करें",
+  "@cancel": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "cannotRetry": "दोबारा नहीं हो सकता: डिवाइस या कोई फ़ाइल अब उपलब्ध नहीं है।",
+  "@cannotRetry": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "chooseFiles": "भेजने के लिए फ़ाइलें चुनें",
+  "@chooseFiles": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "clear": "हटाएँ",
+  "@clear": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "clearFinished": "पूरे हुए हटाएँ",
+  "@clearFinished": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "clearHistory": "इतिहास साफ़ करें",
+  "@clearHistory": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "clearHistoryBody": "सभी एंट्री हट जाएँगी। आपकी फ़ाइलें नहीं मिटेंगी।",
+  "@clearHistoryBody": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "clearHistoryTitle": "इतिहास साफ़ करें?",
+  "@clearHistoryTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "clearSelectionBody": "इससे सूची से सभी फ़ाइलें हट जाएँगी। आपकी फ़ाइलें नहीं मिटेंगी।",
+  "@clearSelectionBody": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "clearSelectionTitle": "चुनी हुई फ़ाइलें हटाएँ?",
+  "@clearSelectionTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "close": "बंद करें",
+  "@close": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "connectDevice": "डिवाइस जोड़ें",
+  "@connectDevice": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "connection": "कनेक्शन",
+  "@connection": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "continueLabel": "जारी रखें",
+  "@continueLabel": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "continuedEarlier": "पिछली कोशिश से जारी: {size} पहले से था।",
+  "@continuedEarlier": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "copied": "कॉपी हो गया",
+  "@copied": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "copy": "कॉपी करें",
+  "@copy": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "copyLink": "लिंक कॉपी करें",
+  "@copyLink": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "decline": "मना करें",
+  "@decline": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "delete": "मिटाएँ",
+  "@delete": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "deleteEntry": "एंट्री मिटाएँ",
+  "@deleteEntry": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "deleteEntryBody": "सिर्फ़ इतिहास की एंट्री हटेगी। आपकी फ़ाइलें नहीं मिटेंगी।",
+  "@deleteEntryBody": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "deleteEntryTitle": "यह एंट्री मिटाएँ?",
+  "@deleteEntryTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "deleteOldNames": "पुराने नाम मिटाएँ",
+  "@deleteOldNames": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "deviceKey": "डिवाइस कुंजी: {key}",
+  "@deviceKey": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "deviceKeySecure": "डिवाइस कुंजी: सुरक्षित स्टोरेज में रखी है",
+  "@deviceKeySecure": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "deviceName": "डिवाइस का नाम",
+  "@deviceName": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "deviceNameLabel": "दूसरे डिवाइस को दिखने वाला नाम",
+  "@deviceNameLabel": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "diagnostics": "जाँच जानकारी",
+  "@diagnostics": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "diagnosticsSub": "कनेक्शन, लिंक स्पीड, स्पीड टेस्ट, आख़िरी गड़बड़ी",
+  "@diagnosticsSub": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "didNotFinish": "{count} फ़ाइल(ें), {size} - पूरा नहीं हुआ",
+  "@didNotFinish": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "discoveryOn": "चालू",
+  "@discoveryOn": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "discoveryState": "खोज: {state}",
+  "@discoveryState": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "dragFilesHere": "फ़ाइलें यहाँ खींचें, या",
+  "@dragFilesHere": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "encryptionNote": "एन्क्रिप्शन: TLS 1.3, दोनों डिवाइस की कुंजियाँ जाँची जाती हैं।",
+  "@encryptionNote": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "engineVersion": "इंजन: {version}",
+  "@engineVersion": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "filesAndSize": "{count} फ़ाइल(ें) · {size}",
+  "@filesAndSize": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "folderNotOpened": "फ़ोल्डर नहीं खुल सका।",
+  "@folderNotOpened": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "folderPickFailed": "फ़ोल्डर यहाँ नहीं खुल सका। इसके बजाय फ़ाइलें चुनकर देखें।",
+  "@folderPickFailed": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "fromName": "{name} से",
+  "@fromName": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "getStarted": "शुरू करें",
+  "@getStarted": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "helpGuides": "मदद और गाइड",
+  "@helpGuides": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "helpGuidesSub": "हॉटस्पॉट, अनुमतियाँ, समस्या हल करना",
+  "@helpGuidesSub": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "historyEntries": "इतिहास एंट्री: {count}",
+  "@historyEntries": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "historyLine": "{outcome} - {count} फ़ाइल(ें), {size}",
+  "@historyLine": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "historyNoteNames": "सिर्फ़ इसी डिवाइस पर सहेजा गया। फ़ाइलों की सामग्री कभी नहीं रखी जाती; फ़ाइलों के नाम रखे जाते हैं (सेटिंग्स में बंद करें)।",
+  "@historyNoteNames": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "historyNoteNoNames": "सिर्फ़ इसी डिवाइस पर सहेजा गया। फ़ाइलों की सामग्री कभी नहीं रखी जाती; फ़ाइलों के नाम नहीं रखे जाते।",
+  "@historyNoteNoNames": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "historyUnavailable": "इतिहास उपलब्ध नहीं है",
+  "@historyUnavailable": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "historyUnavailableBody": "यह डिवाइस अपनी इतिहास फ़ाइल नहीं खोल सका।",
+  "@historyUnavailableBody": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "homeFooter": "फ़ाइलें सीधे आपके डिवाइसों के बीच एन्क्रिप्टेड जाती हैं। कुछ भी अपलोड नहीं होता।",
+  "@homeFooter": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "homeReadyHelp": "पाने के लिए Isekai Drop खुला रखें। आपसे हमेशा पहले पूछा जाएगा।",
+  "@homeReadyHelp": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "howToUpdate": "अपडेट कैसे करें",
+  "@howToUpdate": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "interruptedSends": "रुके हुए भेजे गए",
+  "@interruptedSends": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "jobProgress": "{status} - {size} का {percent}%",
+  "@jobProgress": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "keepOldNames": "पुराने नाम रखें",
+  "@keepOldNames": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "keyHelp": "आपके दूसरे डिवाइस इस डिवाइस को इसी कुंजी से पहचानते हैं। यह तभी बदलती है जब ऐप दोबारा इंस्टॉल या रीसेट हो।",
+  "@keyHelp": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "language": "भाषा",
+  "@language": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "languageNote": "हिन्दी और कन्नड़ मशीन/सहायक अनुवाद हैं; अभी किसी मूल भाषी ने इन्हें नहीं जाँचा है।",
+  "@languageNote": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "languageSystem": "डिवाइस जैसी",
+  "@languageSystem": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "latestTestBuild": "नया टेस्ट बिल्ड",
+  "@latestTestBuild": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "licences": "लाइसेंस",
+  "@licences": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "licencesSub": "शामिल सॉफ़्टवेयर के पूरे लाइसेंस",
+  "@licencesSub": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "licencesTitle": "ओपन-सोर्स लाइसेंस",
+  "@licencesTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "manage": "प्रबंधित करें",
+  "@manage": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "modeFiles": "फ़ाइलें",
+  "@modeFiles": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "modeText": "टेक्स्ट",
+  "@modeText": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "moved": "भेजा गया: {size}",
+  "@moved": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "nameNearby": "{name}  (पास में)",
+  "@nameNearby": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "nameNearbyAsk": "{name}  (पास में, एक बार स्वीकार करने को पूछेगा)",
+  "@nameNearbyAsk": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "navConnect": "जोड़ें",
+  "@navConnect": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "navHistory": "इतिहास",
+  "@navHistory": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "navHome": "होम",
+  "@navHome": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "navSend": "भेजें",
+  "@navSend": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "navSettings": "सेटिंग्स",
+  "@navSettings": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "nearbyDevices": "पास के डिवाइस",
+  "@nearbyDevices": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "nearbySeen": "दिखे पास के डिवाइस: {count}",
+  "@nearbySeen": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "needsPairingAgain": "फिर से जोड़ना होगा",
+  "@needsPairingAgain": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "newKeyTitle": "इस डिवाइस की नई कुंजी है",
+  "@newKeyTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "next": "आगे",
+  "@next": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "noAnalytics": "Isekai Drop में खुद कोई एनालिटिक्स, क्लाउड या क्रैश रिपोर्टिंग नहीं है। Android पर QR स्कैनर (Google ML Kit) Google को अपने इस्तेमाल के आँकड़े भेजता है - Privacy देखें।",
+  "@noAnalytics": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "noTransfers": "अभी तक कोई ट्रांसफ़र नहीं",
+  "@noTransfers": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "noTransfersInfo": "पूरे हुए ट्रांसफ़र यहाँ दिखेंगे।",
+  "@noTransfersInfo": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "notNow": "अभी नहीं",
+  "@notNow": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "notReady": "तैयार नहीं",
+  "@notReady": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "notRunning": "नहीं चल रहा",
+  "@notRunning": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "notifBody": "Isekai Drop सूचना में दिखाता है कि ट्रांसफ़र कितना हुआ, और आने वाली फ़ाइलों के बारे में पूछता है। फिर दूसरा ऐप खोलने पर भी ट्रांसफ़र चलता रहता है। फ़ाइल या डिवाइस के नाम नहीं दिखाए जाते।",
+  "@notifBody": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "notifTitle": "ट्रांसफ़र की सूचनाएँ दिखाएँ?",
+  "@notifTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "openInBrowser": "ब्राउज़र में खोलें",
+  "@openInBrowser": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "openLink": "लिंक खोलें",
+  "@openLink": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "openSource": "ओपन-सोर्स सॉफ़्टवेयर",
+  "@openSource": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "opening": "खुल रहा है...",
+  "@opening": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "outcomeCancelled": "रद्द हुआ",
+  "@outcomeCancelled": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "outcomeCompleted": "पूरा हुआ",
+  "@outcomeCompleted": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "outcomeFailed": "विफल",
+  "@outcomeFailed": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "pairAgain": "फिर से जोड़ें",
+  "@pairAgain": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "pickFiles": "फ़ाइलें चुनें",
+  "@pickFiles": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "pickFolder": "फ़ोल्डर चुनें",
+  "@pickFolder": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "pickerFailed": "फ़ाइल चुनने वाला नहीं खुल सका। फिर से कोशिश करें।",
+  "@pickerFailed": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "ready": "तैयार",
+  "@ready": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "receiveTrusted": "भरोसेमंद डिवाइस से फ़ाइलें पाएँ",
+  "@receiveTrusted": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "receiveTrustedInfo": "बंद होने पर हर फ़ाइल मना होगी। अनजान डिवाइस कभी नहीं भेज सकते; उन्हें पहले जुड़ना होगा।",
+  "@receiveTrustedInfo": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "receiveTrustedOff": "बंद: हर फ़ाइल मना होगी",
+  "@receiveTrustedOff": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "receivedFrom": "{name} से मिला",
+  "@receivedFrom": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "receivedGoTo": "मिली फ़ाइलें यहाँ जाती हैं: {place}",
+  "@receivedGoTo": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "receiving": "पाना",
+  "@receiving": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "receivingPort": "इस पोर्ट पर पा रहा है: {port}",
+  "@receivingPort": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "rejectedPeerBody": "\"{name}\" ने जुड़ने की कोशिश की, पर जोड़ते समय \"{paired}\" की जो कुंजी थी उससे अलग कुंजी के साथ। शायद उस पर Isekai Drop दोबारा इंस्टॉल या रीसेट हुआ। इस डिवाइस ने मना कर दिया। यह सच हो तभी फिर से जोड़ें।",
+  "@rejectedPeerBody": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "remove": "हटाएँ",
+  "@remove": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "removeFromList": "{name} को सूची से हटाएँ",
+  "@removeFromList": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "removeSendBody": "यह अब दोबारा कोशिश के लिए नहीं दिखेगा। आपकी फ़ाइलें नहीं मिटेंगी।",
+  "@removeSendBody": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "removeSendTitle": "यह भेजना हटाएँ?",
+  "@removeSendTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "rename": "नाम बदलें",
+  "@rename": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "requestExpired": "अनुरोध की समय-सीमा खत्म - समय पर किसी ने जवाब नहीं दिया।",
+  "@requestExpired": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "retry": "फिर से कोशिश करें",
+  "@retry": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "save": "सहेजें",
+  "@save": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "saveNames": "इतिहास में फ़ाइलों के नाम सहेजें",
+  "@saveNames": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "saveNamesInfo": "नाम सिर्फ़ इसी डिवाइस पर रखे जाते हैं और लॉग में कभी नहीं लिखे जाते। फ़ाइलों की सामग्री कभी नहीं सहेजी जाती।",
+  "@saveNamesInfo": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "saveNamesSummary": "सिर्फ़ इसी डिवाइस पर रखा जाता है",
+  "@saveNamesSummary": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "savedTo": "यहाँ सहेजा: {place}",
+  "@savedTo": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "savedTrusted": "सहेजे गए भरोसेमंद डिवाइस",
+  "@savedTrusted": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "security": "सुरक्षा",
+  "@security": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "sendFilesTo": "{name} को {count} फ़ाइल(ें) भेजें",
+  "@sendFilesTo": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "sendText": "टेक्स्ट भेजें",
+  "@sendText": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "sendTextTo": "{name} को टेक्स्ट भेजें",
+  "@sendTextTo": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "sendToName": "{name} को भेजें",
+  "@sendToName": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "sentTo": "{name} को भेजा",
+  "@sentTo": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "sharedFromApp": "दूसरे ऐप से शेयर किया गया",
+  "@sharedFromApp": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "shortKey": "छोटा रूप: {key}",
+  "@shortKey": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "showFolder": "फ़ोल्डर दिखाएँ",
+  "@showFolder": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "skip": "छोड़ें",
+  "@skip": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "slide1Text": "फ़ोन और पीसी। कोई खाता नहीं, कोई क्लाउड नहीं।",
+  "@slide1Text": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "slide1Title": "दोनों डिवाइस पर Isekai Drop खोलें",
+  "@slide1Title": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "slide2Text": "दोनों डिवाइस एक ही नेटवर्क पर हों (या एक हॉटस्पॉट चालू करे)। पहली बार QR कोड से एक बार जोड़ें।",
+  "@slide2Text": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "slide2Title": "एक ही वाई-फ़ाई इस्तेमाल करें",
+  "@slide2Title": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "slide3Text": "फ़ाइलें सीधे आपके डिवाइसों के बीच जाती हैं, एन्क्रिप्टेड और जाँची हुई।",
+  "@slide3Text": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "slide3Title": "फ़ाइलें चुनें और भेजें",
+  "@slide3Title": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "starting": "शुरू हो रहा है...",
+  "@starting": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "stepFilesCount": "1. फ़ाइलें: {count}, {size}",
+  "@stepFilesCount": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "stepOf": "चरण {step} / {total}",
+  "@stepOf": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "stepPickDevice": "2. डिवाइस चुनें",
+  "@stepPickDevice": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "stepPickFiles": "1. फ़ाइलें चुनें",
+  "@stepPickFiles": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "stepTextOrLink": "1. टेक्स्ट या लिंक",
+  "@stepTextOrLink": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "stopNamesBody": "नई इतिहास एंट्री में फ़ाइलों के नाम नहीं होंगे। क्या पहले से सहेजे नाम भी मिटाने हैं?",
+  "@stopNamesBody": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "stopNamesTitle": "फ़ाइलों के नाम सहेजना बंद करें?",
+  "@stopNamesTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "testBuildNote": "यह टेस्ट बिल्ड है, सार्वजनिक रिलीज़ नहीं।",
+  "@testBuildNote": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "textAskNote": "दूसरा डिवाइस दिखाने से पहले पूछता है। लिंक अपने-आप कभी नहीं खुलते।",
+  "@textAskNote": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "textErrDeclined": "दूसरे डिवाइस ने टेक्स्ट मना कर दिया।",
+  "@textErrDeclined": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "textErrEmpty": "पहले कुछ टेक्स्ट लिखें।",
+  "@textErrEmpty": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "textErrExpired": "दूसरे डिवाइस पर किसी ने जवाब नहीं दिया।",
+  "@textErrExpired": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "textErrFailed": "टेक्स्ट नहीं भेजा जा सका। फिर से कोशिश करें।",
+  "@textErrFailed": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "textErrNoAddress": "दूसरा डिवाइस नहीं मिला। देखें कि वह उसी नेटवर्क पर है और Isekai Drop खुला है।",
+  "@textErrNoAddress": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "textErrNotTrusted": "दूसरा डिवाइस अब इस डिवाइस पर भरोसा नहीं करता। फिर से जोड़ें।",
+  "@textErrNotTrusted": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "textErrOldPeer": "दूसरे डिवाइस पर पुराना Isekai Drop है जो टेक्स्ट नहीं ले सकता। दूसरे ऐप को अपडेट करें।",
+  "@textErrOldPeer": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "textErrTooLong": "टेक्स्ट बहुत लंबा है। 8 KB (लगभग 8000 अक्षर) तक भेज सकते हैं।",
+  "@textErrTooLong": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "textFrom": "{name} से टेक्स्ट",
+  "@textFrom": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "textHint": "टेक्स्ट या लिंक लिखें या पेस्ट करें",
+  "@textHint": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "textPairedOnly": "टेक्स्ट सिर्फ़ जुड़े हुए डिवाइस को भेजा जा सकता है। पहले जोड़ें (फ़ाइल भेजें, या जोड़ें टैब इस्तेमाल करें)।",
+  "@textPairedOnly": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "textSentTo": "{name} को टेक्स्ट भेजा गया।",
+  "@textSentTo": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "theme": "थीम",
+  "@theme": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "themeDark": "डार्क",
+  "@themeDark": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "themeLight": "लाइट",
+  "@themeLight": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "themeSystem": "सिस्टम",
+  "@themeSystem": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "thisDevice": "यह डिवाइस",
+  "@thisDevice": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "thisDeviceKey": "इस डिवाइस की कुंजी",
+  "@thisDeviceKey": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "toName": "{name} को",
+  "@toName": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "transfersThisSession": "इस बार के ट्रांसफ़र",
+  "@transfersThisSession": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "trustedCount": "भरोसेमंद डिवाइस: {count}",
+  "@trustedCount": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "trustedDevices": "भरोसेमंद डिवाइस",
+  "@trustedDevices": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "trustedDevicesSub": "कोड जाँचें, नाम बदलें, अनुमति वापस लें या हटाएँ",
+  "@trustedDevicesSub": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "turnOn": "चालू करें",
+  "@turnOn": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "unavailable": "उपलब्ध नहीं",
+  "@unavailable": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "updateAndroid": "Android: ऊपर का लिंक खोलें, isekai-drop-android-arm64.apk (या -universal.apk) डाउनलोड करें और इसी ऐप के ऊपर इंस्टॉल करें। आपके जुड़े डिवाइस और इतिहास बने रहेंगे।",
+  "@updateAndroid": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "updateBoth": "दोनों डिवाइस अपडेट करें: बहुत अलग संस्करण वाले डिवाइस शायद एक-दूसरे को न समझें।",
+  "@updateBoth": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "updateIos": "iPhone/iPad: नई .ipa को अपनी Apple ID से फिर से साइन करें (NOT TESTED)।",
+  "@updateIos": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "updateMac": "Mac: isekai-drop-macos.dmg डाउनलोड करें और ऐप को Applications में खींचें (Mac पर NOT TESTED)।",
+  "@updateMac": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "updateWindows": "Windows: isekai-drop-windows-setup.exe डाउनलोड करके चलाएँ।",
+  "@updateWindows": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "versionTitle": "संस्करण",
+  "@versionTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "visible": "पास के डिवाइस को दिखे",
+  "@visible": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "visibleInfo": "बंद: यह डिवाइस अपनी घोषणा बंद कर देता है (और Bonjour भी)। जुड़े डिवाइस और QR/लिखे पते वाले कनेक्शन फिर भी चलते हैं।",
+  "@visibleInfo": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "visibleSummary": "आपके वाई-फ़ाई पर दूसरे इस डिवाइस को ढूँढ सकते हैं",
+  "@visibleSummary": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  }
+}

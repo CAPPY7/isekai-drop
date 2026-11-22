@@ -1,0 +1,880 @@
+{
+  "@@locale": "kn",
+  "@@x-review": "Hindi/Kannada texts are machine/assistant translations. They are NOT reviewed by a native speaker yet; every text needs a native-speaker check before a public release.",
+  "aboutApp": "Isekai Drop ಬಗ್ಗೆ",
+  "@aboutApp": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "aboutSubtitle": "Isekai Drop {version} - ಬಿಲ್ಡ್, ಕೀಲಿ, ಅಪ್‌ಡೇಟ್, ಪರವಾನಗಿಗಳು",
+  "@aboutSubtitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "aboutThisDevice": "ಈ ಸಾಧನದ ಬಗ್ಗೆ",
+  "@aboutThisDevice": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "aboutTitle": "ಮಾಹಿತಿ",
+  "@aboutTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "accept": "ಸ್ವೀಕರಿಸಿ",
+  "@accept": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "addedToQueue": "ಸರತಿಗೆ ಸೇರಿಸಲಾಗಿದೆ. ಈಗಿನ ಕಳುಹಿಸುವಿಕೆ ಮುಗಿದಾಗ ಪ್ರಾರಂಭವಾಗುತ್ತದೆ.",
+  "@addedToQueue": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "advanced": "ಸುಧಾರಿತ",
+  "@advanced": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "andMore": "...ಮತ್ತು ಇನ್ನೂ {count}",
+  "@andMore": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "anyFilesIos": "ಯಾವುದೇ ಬಗೆಯ ಫೈಲ್‌ಗಳು. iPhone/iPad ನಲ್ಲಿ ಇನ್ನೂ ಫೋಲ್ಡರ್ ಆರಿಸಲು ಆಗುವುದಿಲ್ಲ - ಒಳಗಿನ ಫೈಲ್‌ಗಳನ್ನು ಆರಿಸಿ.",
+  "@anyFilesIos": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "anyFilesOrFolder": "ಯಾವುದೇ ಬಗೆಯ ಫೈಲ್‌ಗಳು, ಅಥವಾ ಇಡೀ ಫೋಲ್ಡರ್ (ಒಳಗಿನ ಫೋಲ್ಡರ್‌ಗಳೂ ಉಳಿಯುತ್ತವೆ).",
+  "@anyFilesOrFolder": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "appTitle": "Isekai Drop",
+  "@appTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "appVersion": "Isekai Drop {version}",
+  "@appVersion": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "appearance": "ನೋಟ",
+  "@appearance": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "askAlwaysAllow": "ಈ ಸಾಧನಕ್ಕೆ ಯಾವಾಗಲೂ ಅನುಮತಿಸಿ",
+  "@askAlwaysAllow": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "askAlwaysAllowHelp": "ಇದರಿಂದ ಫೈಲ್‌ಗಳು ಈ ಪ್ರಶ್ನೆ ಇಲ್ಲದೆ ಬರುತ್ತವೆ. ಸೆಟ್ಟಿಂಗ್‌ಗಳು > ವಿಶ್ವಾಸಾರ್ಹ ಸಾಧನಗಳು ಇಲ್ಲಿ ಆಫ್ ಮಾಡಿ.",
+  "@askAlwaysAllowHelp": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "askCodeCheck": "ಐಚ್ಛಿಕ ಪರಿಶೀಲನೆ: ಇನ್ನೊಂದು ಪರದೆಯಲ್ಲೂ ಇದೇ ಕೋಡ್ ಕಾಣಿಸುತ್ತದೆ",
+  "@askCodeCheck": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "askFilesTitle": "{name} ನಿಮಗೆ ಫೈಲ್‌ಗಳನ್ನು ಕಳುಹಿಸಲು ಬಯಸುತ್ತದೆ",
+  "@askFilesTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "askFromTrusted": "ವಿಶ್ವಾಸಾರ್ಹ {platform} ಸಾಧನ \"{name}\" ಇಂದ.",
+  "@askFromTrusted": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "askKeyWarning": "ಎಚ್ಚರಿಕೆ: ಈ ಐಡಿ ಇರುವ ಸಾಧನವನ್ನು ಮೊದಲು ಬೇರೆ ಕೀಲಿಯೊಂದಿಗೆ ಜೋಡಿಸಲಾಗಿತ್ತು. ನೀವು ಅದರಲ್ಲಿ Isekai Drop ಮರುಸ್ಥಾಪಿಸಿದ್ದರೆ ಅಥವಾ ರೀಸೆಟ್ ಮಾಡಿದ್ದರೆ ಮಾತ್ರ ಸ್ವೀಕರಿಸಿ. ಸ್ವೀಕರಿಸಿದರೆ ಹಳೆಯ ಕೀಲಿ ಬದಲಾಗುತ್ತದೆ.",
+  "@askKeyWarning": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "askPairConnect": "{platform} ಸಾಧನ \"{name}\" ಸಂಪರ್ಕಿಸಲು ಬಯಸುತ್ತದೆ.",
+  "@askPairConnect": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "askPairHelp": "ಜೋಡಿಸಲು ಸ್ವೀಕರಿಸಿ: ಎರಡೂ ಸಾಧನಗಳು ಒಂದನ್ನೊಂದು ನೆನಪಿಡುತ್ತವೆ, ಮುಂದಿನ ಬಾರಿ ನೇರವಾಗಿ ಸಾಮಾನ್ಯ ಪ್ರಶ್ನೆ ಬರುತ್ತದೆ. ನೀವು ಇದನ್ನು ಪ್ರಾರಂಭಿಸದಿದ್ದರೆ, ನಿರಾಕರಿಸಿ ಒತ್ತಿ.",
+  "@askPairHelp": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "askPairTitle": "{name} ಅನ್ನು ಸ್ವೀಕರಿಸುವುದೇ?",
+  "@askPairTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "askPairWithFiles": "{platform} ಸಾಧನ \"{name}\" ನಿಮಗೆ {count} ಫೈಲ್(ಗಳು), {size} ಕಳುಹಿಸಲು ಬಯಸುತ್ತದೆ.",
+  "@askPairWithFiles": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "askReplaces": "ನೀವು ಮೊದಲು \"{name}\" ಎಂಬ ಸಾಧನವನ್ನು ಬೇರೆ ಕೀಲಿಯೊಂದಿಗೆ ಜೋಡಿಸಿದ್ದೀರಿ. ಬಹುಶಃ ಅದರಲ್ಲಿ Isekai Drop ಮರುಸ್ಥಾಪನೆ ಅಥವಾ ರೀಸೆಟ್ ಆಗಿದೆ. ಅದು ನಿಜವಾದರೆ ಮಾತ್ರ ಸ್ವೀಕರಿಸಿ; ಸ್ವೀಕರಿಸಿದರೆ ಹಳೆಯ ಜೋಡಣೆ ಬದಲಾಗುತ್ತದೆ.",
+  "@askReplaces": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "askResume": "ನಿಂತುಹೋದ ವರ್ಗಾವಣೆ ಮುಂದುವರಿಯುತ್ತದೆ: {size} ಈಗಾಗಲೇ ಇಲ್ಲಿದೆ.",
+  "@askResume": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "askTextBody": "{platform} ಸಾಧನ \"{name}\" ಇಂದ ಒಂದು ಚಿಕ್ಕ ಪಠ್ಯ ({count} ಅಕ್ಷರಗಳು). ನೀವು ಸ್ವೀಕರಿಸಿದ ನಂತರ ಕಾಣಿಸುತ್ತದೆ.",
+  "@askTextBody": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "askTextTitle": "{name} ನಿಮಗೆ ಒಂದು ಪಠ್ಯ ಕಳುಹಿಸಲು ಬಯಸುತ್ತದೆ",
+  "@askTextTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "autoReceive": "ಪರಿಶೀಲಿತ ಸಾಧನಗಳಿಂದ ಸ್ವಯಂ-ಸ್ವೀಕಾರ",
+  "@autoReceive": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "autoReceiveBody": "\"ಪರಿಶೀಲಿಸಲಾಗಿದೆ\" ಎಂದು ಗುರುತಿಸಿದ ಸಾಧನಗಳು ನಿಮ್ಮನ್ನು ಕೇಳದೆ ಈ ಸಾಧನಕ್ಕೆ ಫೈಲ್ ಕಳುಹಿಸಬಹುದು. ಫೈಲ್‌ಗಳು ಈಗಲೂ ಸಾಮಾನ್ಯ ಫೋಲ್ಡರ್‌ಗೆ ಮಾತ್ರ ಹೋಗುತ್ತವೆ ಮತ್ತು ಹಾನಿಗಾಗಿ ಪರಿಶೀಲಿಸಲ್ಪಡುತ್ತವೆ. ಇದನ್ನು ಯಾವಾಗ ಬೇಕಾದರೂ ಆಫ್ ಮಾಡಬಹುದು.",
+  "@autoReceiveBody": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "autoReceiveInfo": "ಆಫ್: ಪ್ರತಿ ಬಾರಿ ನಿಮ್ಮನ್ನು ಕೇಳಲಾಗುತ್ತದೆ (ಶಿಫಾರಸು). ಆನ್: \"ಪರಿಶೀಲಿಸಲಾಗಿದೆ\" ಸಾಧನಗಳು ಮಾತ್ರ ಕೇಳದೆ ಕಳುಹಿಸಬಹುದು. \"ವಿಶ್ವಾಸಾರ್ಹ\" ಸಾಧನಗಳಿಗೆ ಯಾವಾಗಲೂ ಕೇಳಲಾಗುತ್ತದೆ, ನಿರ್ಬಂಧಿತವನ್ನು ಯಾವಾಗಲೂ ನಿರಾಕರಿಸಲಾಗುತ್ತದೆ.",
+  "@autoReceiveInfo": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "autoReceiveOff": "ಆಫ್: ಪ್ರತಿ ಬಾರಿ ನಿಮ್ಮನ್ನು ಕೇಳಲಾಗುತ್ತದೆ (ಶಿಫಾರಸು)",
+  "@autoReceiveOff": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "autoReceiveTitle": "ಸ್ವಯಂ-ಸ್ವೀಕಾರ ಆನ್ ಮಾಡುವುದೇ?",
+  "@autoReceiveTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "benchmarkLog": "ಬೆಂಚ್‌ಮಾರ್ಕ್ ಲಾಗ್",
+  "@benchmarkLog": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "benchmarkSub": "ಅಳೆದ ಓಟಗಳು, ಮಧ್ಯಮ/ಕನಿಷ್ಠ/ಗರಿಷ್ಠ, CSV ರಫ್ತು",
+  "@benchmarkSub": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "blockDevice": "ಈ ಸಾಧನವನ್ನು ನಿರ್ಬಂಧಿಸಿ",
+  "@blockDevice": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "blockedNote": "ನಿರ್ಬಂಧಿಸಲಾಗಿದೆ. ಸೆಟ್ಟಿಂಗ್‌ಗಳು > ವಿಶ್ವಾಸಾರ್ಹ ಸಾಧನಗಳು ಇಲ್ಲಿ ತೆರವುಗೊಳಿಸಿ.",
+  "@blockedNote": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "buildLoading": "ಬಿಲ್ಡ್: ...",
+  "@buildLoading": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "buildLocal": "ಬಿಲ್ಡ್: ಸ್ಥಳೀಯ ಬಿಲ್ಡ್ (GitHub ನಿಂದ ಅಲ್ಲ)",
+  "@buildLocal": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "buildNumber": "ಬಿಲ್ಡ್ {number}",
+  "@buildNumber": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "cancel": "ರದ್ದುಮಾಡಿ",
+  "@cancel": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "cannotRetry": "ಮರುಪ್ರಯತ್ನ ಸಾಧ್ಯವಿಲ್ಲ: ಸಾಧನ ಅಥವಾ ಒಂದು ಫೈಲ್ ಈಗ ಲಭ್ಯವಿಲ್ಲ.",
+  "@cannotRetry": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "chooseFiles": "ಕಳುಹಿಸಲು ಫೈಲ್‌ಗಳನ್ನು ಆರಿಸಿ",
+  "@chooseFiles": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "clear": "ತೆರವುಗೊಳಿಸಿ",
+  "@clear": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "clearFinished": "ಮುಗಿದವನ್ನು ತೆರವುಗೊಳಿಸಿ",
+  "@clearFinished": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "clearHistory": "ಇತಿಹಾಸ ತೆರವುಗೊಳಿಸಿ",
+  "@clearHistory": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "clearHistoryBody": "ಎಲ್ಲಾ ನಮೂದುಗಳು ಹೋಗುತ್ತವೆ. ನಿಮ್ಮ ಫೈಲ್‌ಗಳು ಅಳಿಯುವುದಿಲ್ಲ.",
+  "@clearHistoryBody": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "clearHistoryTitle": "ಇತಿಹಾಸ ತೆರವುಗೊಳಿಸುವುದೇ?",
+  "@clearHistoryTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "clearSelectionBody": "ಇದು ಪಟ್ಟಿಯಿಂದ ಎಲ್ಲಾ ಫೈಲ್‌ಗಳನ್ನು ತೆಗೆಯುತ್ತದೆ. ನಿಮ್ಮ ಫೈಲ್‌ಗಳು ಅಳಿಯುವುದಿಲ್ಲ.",
+  "@clearSelectionBody": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "clearSelectionTitle": "ಆಯ್ಕೆ ತೆರವುಗೊಳಿಸುವುದೇ?",
+  "@clearSelectionTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "close": "ಮುಚ್ಚಿ",
+  "@close": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "connectDevice": "ಸಾಧನವನ್ನು ಸಂಪರ್ಕಿಸಿ",
+  "@connectDevice": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "connection": "ಸಂಪರ್ಕ",
+  "@connection": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "continueLabel": "ಮುಂದುವರಿಸಿ",
+  "@continueLabel": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "continuedEarlier": "ಹಿಂದಿನ ಪ್ರಯತ್ನದಿಂದ ಮುಂದುವರಿಸಲಾಗಿದೆ: {size} ಈಗಾಗಲೇ ಇತ್ತು.",
+  "@continuedEarlier": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "copied": "ನಕಲಿಸಲಾಗಿದೆ",
+  "@copied": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "copy": "ನಕಲಿಸಿ",
+  "@copy": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "copyLink": "ಲಿಂಕ್ ನಕಲಿಸಿ",
+  "@copyLink": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "decline": "ನಿರಾಕರಿಸಿ",
+  "@decline": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "delete": "ಅಳಿಸಿ",
+  "@delete": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "deleteEntry": "ನಮೂದು ಅಳಿಸಿ",
+  "@deleteEntry": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "deleteEntryBody": "ಇತಿಹಾಸದ ನಮೂದು ಮಾತ್ರ ಹೋಗುತ್ತದೆ. ನಿಮ್ಮ ಫೈಲ್‌ಗಳು ಅಳಿಯುವುದಿಲ್ಲ.",
+  "@deleteEntryBody": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "deleteEntryTitle": "ಈ ನಮೂದನ್ನು ಅಳಿಸುವುದೇ?",
+  "@deleteEntryTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "deleteOldNames": "ಹಳೆಯ ಹೆಸರುಗಳನ್ನು ಅಳಿಸಿ",
+  "@deleteOldNames": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "deviceKey": "ಸಾಧನದ ಕೀಲಿ: {key}",
+  "@deviceKey": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "deviceKeySecure": "ಸಾಧನದ ಕೀಲಿ: ಸುರಕ್ಷಿತ ಸಂಗ್ರಹದಲ್ಲಿ ಇಡಲಾಗಿದೆ",
+  "@deviceKeySecure": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "deviceName": "ಸಾಧನದ ಹೆಸರು",
+  "@deviceName": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "deviceNameLabel": "ಇತರ ಸಾಧನಗಳಿಗೆ ಕಾಣುವ ಹೆಸರು",
+  "@deviceNameLabel": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "diagnostics": "ರೋಗನಿರ್ಣಯ ಮಾಹಿತಿ",
+  "@diagnostics": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "diagnosticsSub": "ಸಂಪರ್ಕ, ಲಿಂಕ್ ವೇಗ, ವೇಗ ಪರೀಕ್ಷೆ, ಕೊನೆಯ ದೋಷ",
+  "@diagnosticsSub": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "didNotFinish": "{count} ಫೈಲ್(ಗಳು), {size} - ಪೂರ್ಣವಾಗಲಿಲ್ಲ",
+  "@didNotFinish": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "discoveryOn": "ಆನ್",
+  "@discoveryOn": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "discoveryState": "ಹುಡುಕಾಟ: {state}",
+  "@discoveryState": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "dragFilesHere": "ಫೈಲ್‌ಗಳನ್ನು ಇಲ್ಲಿಗೆ ಎಳೆಯಿರಿ, ಅಥವಾ",
+  "@dragFilesHere": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "encryptionNote": "ಎನ್‌ಕ್ರಿಪ್ಶನ್: TLS 1.3, ಎರಡೂ ಸಾಧನಗಳ ಕೀಲಿಗಳನ್ನು ಪರಿಶೀಲಿಸಲಾಗುತ್ತದೆ.",
+  "@encryptionNote": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "engineVersion": "ಎಂಜಿನ್: {version}",
+  "@engineVersion": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "filesAndSize": "{count} ಫೈಲ್(ಗಳು) · {size}",
+  "@filesAndSize": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "folderNotOpened": "ಫೋಲ್ಡರ್ ತೆರೆಯಲು ಆಗಲಿಲ್ಲ.",
+  "@folderNotOpened": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "folderPickFailed": "ಫೋಲ್ಡರ್ ಇಲ್ಲಿ ತೆರೆಯಲು ಆಗಲಿಲ್ಲ. ಬದಲಿಗೆ ಫೈಲ್‌ಗಳನ್ನು ಆರಿಸಿ ನೋಡಿ.",
+  "@folderPickFailed": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "fromName": "{name} ಇಂದ",
+  "@fromName": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "getStarted": "ಪ್ರಾರಂಭಿಸಿ",
+  "@getStarted": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "helpGuides": "ಸಹಾಯ ಮತ್ತು ಮಾರ್ಗದರ್ಶಿಗಳು",
+  "@helpGuides": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "helpGuidesSub": "ಹಾಟ್‌ಸ್ಪಾಟ್, ಅನುಮತಿಗಳು, ಸಮಸ್ಯೆ ಪರಿಹಾರ",
+  "@helpGuidesSub": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "historyEntries": "ಇತಿಹಾಸ ನಮೂದುಗಳು: {count}",
+  "@historyEntries": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "historyLine": "{outcome} - {count} ಫೈಲ್(ಗಳು), {size}",
+  "@historyLine": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "historyNoteNames": "ಈ ಸಾಧನದಲ್ಲಿ ಮಾತ್ರ ಉಳಿಸಲಾಗಿದೆ. ಫೈಲ್‌ಗಳ ವಿಷಯವನ್ನು ಎಂದಿಗೂ ಇಡುವುದಿಲ್ಲ; ಫೈಲ್ ಹೆಸರುಗಳನ್ನು ಇಡಲಾಗುತ್ತದೆ (ಸೆಟ್ಟಿಂಗ್‌ಗಳಲ್ಲಿ ಆಫ್ ಮಾಡಿ).",
+  "@historyNoteNames": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "historyNoteNoNames": "ಈ ಸಾಧನದಲ್ಲಿ ಮಾತ್ರ ಉಳಿಸಲಾಗಿದೆ. ಫೈಲ್‌ಗಳ ವಿಷಯವನ್ನು ಎಂದಿಗೂ ಇಡುವುದಿಲ್ಲ; ಫೈಲ್ ಹೆಸರುಗಳನ್ನು ಉಳಿಸುವುದಿಲ್ಲ.",
+  "@historyNoteNoNames": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "historyUnavailable": "ಇತಿಹಾಸ ಲಭ್ಯವಿಲ್ಲ",
+  "@historyUnavailable": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "historyUnavailableBody": "ಈ ಸಾಧನಕ್ಕೆ ತನ್ನ ಇತಿಹಾಸ ಫೈಲ್ ತೆರೆಯಲು ಆಗಲಿಲ್ಲ.",
+  "@historyUnavailableBody": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "homeFooter": "ಫೈಲ್‌ಗಳು ನೇರವಾಗಿ ನಿಮ್ಮ ಸಾಧನಗಳ ನಡುವೆ ಎನ್‌ಕ್ರಿಪ್ಟ್ ಆಗಿ ಹೋಗುತ್ತವೆ. ಏನೂ ಅಪ್‌ಲೋಡ್ ಆಗುವುದಿಲ್ಲ.",
+  "@homeFooter": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "homeReadyHelp": "ಸ್ವೀಕರಿಸಲು Isekai Drop ತೆರೆದಿಡಿ. ನಿಮ್ಮನ್ನು ಯಾವಾಗಲೂ ಮೊದಲು ಕೇಳಲಾಗುತ್ತದೆ.",
+  "@homeReadyHelp": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "howToUpdate": "ಅಪ್‌ಡೇಟ್ ಮಾಡುವುದು ಹೇಗೆ",
+  "@howToUpdate": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "interruptedSends": "ನಿಂತುಹೋದ ಕಳುಹಿಸುವಿಕೆಗಳು",
+  "@interruptedSends": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "jobProgress": "{status} - {size} ನಲ್ಲಿ {percent}%",
+  "@jobProgress": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "keepOldNames": "ಹಳೆಯ ಹೆಸರುಗಳನ್ನು ಇಡಿ",
+  "@keepOldNames": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "keyHelp": "ನಿಮ್ಮ ಇತರ ಸಾಧನಗಳು ಈ ಸಾಧನವನ್ನು ಈ ಕೀಲಿಯಿಂದ ಗುರುತಿಸುತ್ತವೆ. ಆ್ಯಪ್ ಮರುಸ್ಥಾಪನೆ ಅಥವಾ ರೀಸೆಟ್ ಆದಾಗ ಮಾತ್ರ ಇದು ಬದಲಾಗುತ್ತದೆ.",
+  "@keyHelp": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "language": "ಭಾಷೆ",
+  "@language": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "languageNote": "ಹಿಂದಿ ಮತ್ತು ಕನ್ನಡ ಯಂತ್ರ/ಸಹಾಯಕ ಅನುವಾದಗಳು; ಇನ್ನೂ ಸ್ಥಳೀಯ ಭಾಷಿಕರು ಪರಿಶೀಲಿಸಿಲ್ಲ.",
+  "@languageNote": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "languageSystem": "ಸಾಧನದಂತೆಯೇ",
+  "@languageSystem": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "latestTestBuild": "ಹೊಸ ಪರೀಕ್ಷಾ ಬಿಲ್ಡ್",
+  "@latestTestBuild": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "licences": "ಪರವಾನಗಿಗಳು",
+  "@licences": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "licencesSub": "ಸೇರಿಸಿದ ತಂತ್ರಾಂಶಗಳ ಪೂರ್ಣ ಪರವಾನಗಿ ಪಠ್ಯ",
+  "@licencesSub": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "licencesTitle": "ಮುಕ್ತ ಮೂಲ ಪರವಾನಗಿಗಳು",
+  "@licencesTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "manage": "ನಿರ್ವಹಿಸಿ",
+  "@manage": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "modeFiles": "ಫೈಲ್‌ಗಳು",
+  "@modeFiles": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "modeText": "ಪಠ್ಯ",
+  "@modeText": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "moved": "ವರ್ಗಾಯಿಸಿದ್ದು: {size}",
+  "@moved": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "nameNearby": "{name}  (ಹತ್ತಿರದಲ್ಲಿ)",
+  "@nameNearby": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "nameNearbyAsk": "{name}  (ಹತ್ತಿರದಲ್ಲಿ, ಒಮ್ಮೆ ಸ್ವೀಕರಿಸಲು ಕೇಳುತ್ತದೆ)",
+  "@nameNearbyAsk": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "navConnect": "ಸಂಪರ್ಕಿಸಿ",
+  "@navConnect": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "navHistory": "ಇತಿಹಾಸ",
+  "@navHistory": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "navHome": "ಮುಖಪುಟ",
+  "@navHome": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "navSend": "ಕಳುಹಿಸಿ",
+  "@navSend": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "navSettings": "ಸೆಟ್ಟಿಂಗ್‌ಗಳು",
+  "@navSettings": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "nearbyDevices": "ಹತ್ತಿರದ ಸಾಧನಗಳು",
+  "@nearbyDevices": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "nearbySeen": "ಕಂಡ ಹತ್ತಿರದ ಸಾಧನಗಳು: {count}",
+  "@nearbySeen": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "needsPairingAgain": "ಮತ್ತೆ ಜೋಡಿಸಬೇಕು",
+  "@needsPairingAgain": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "newKeyTitle": "ಈ ಸಾಧನಕ್ಕೆ ಹೊಸ ಕೀಲಿ ಇದೆ",
+  "@newKeyTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "next": "ಮುಂದೆ",
+  "@next": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "noAnalytics": "Isekai Drop ನಲ್ಲಿ ಸ್ವತಃ ಯಾವುದೇ ಅನಾಲಿಟಿಕ್ಸ್, ಕ್ಲೌಡ್ ಅಥವಾ ಕ್ರ್ಯಾಶ್ ವರದಿ ಇಲ್ಲ. Android ನಲ್ಲಿ QR ಸ್ಕ್ಯಾನರ್ (Google ML Kit) Google ಗೆ ತನ್ನ ಬಳಕೆಯ ಅಂಕಿಅಂಶಗಳನ್ನು ಕಳುಹಿಸುತ್ತದೆ - Privacy ನೋಡಿ.",
+  "@noAnalytics": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "noTransfers": "ಇನ್ನೂ ಯಾವುದೇ ವರ್ಗಾವಣೆ ಇಲ್ಲ",
+  "@noTransfers": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "noTransfersInfo": "ಮುಗಿದ ವರ್ಗಾವಣೆಗಳು ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತವೆ.",
+  "@noTransfersInfo": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "notNow": "ಈಗ ಬೇಡ",
+  "@notNow": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "notReady": "ಸಿದ್ಧವಿಲ್ಲ",
+  "@notReady": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "notRunning": "ಚಾಲನೆಯಲ್ಲಿಲ್ಲ",
+  "@notRunning": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "notifBody": "Isekai Drop ಅಧಿಸೂಚನೆಯಲ್ಲಿ ವರ್ಗಾವಣೆ ಎಷ್ಟು ಆಗಿದೆ ಎಂದು ತೋರಿಸುತ್ತದೆ ಮತ್ತು ಬರುವ ಫೈಲ್‌ಗಳ ಬಗ್ಗೆ ಕೇಳುತ್ತದೆ. ಆಗ ಬೇರೆ ಆ್ಯಪ್‌ಗೆ ಹೋದರೂ ವರ್ಗಾವಣೆ ಮುಂದುವರಿಯುತ್ತದೆ. ಫೈಲ್ ಅಥವಾ ಸಾಧನದ ಹೆಸರುಗಳು ಕಾಣಿಸುವುದಿಲ್ಲ.",
+  "@notifBody": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "notifTitle": "ವರ್ಗಾವಣೆ ಅಧಿಸೂಚನೆಗಳನ್ನು ತೋರಿಸುವುದೇ?",
+  "@notifTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "openInBrowser": "ಬ್ರೌಸರ್‌ನಲ್ಲಿ ತೆರೆಯಿರಿ",
+  "@openInBrowser": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "openLink": "ಲಿಂಕ್ ತೆರೆಯಿರಿ",
+  "@openLink": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "openSource": "ಮುಕ್ತ ಮೂಲ ತಂತ್ರಾಂಶ",
+  "@openSource": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "opening": "ತೆರೆಯುತ್ತಿದೆ...",
+  "@opening": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "outcomeCancelled": "ರದ್ದಾಗಿದೆ",
+  "@outcomeCancelled": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "outcomeCompleted": "ಪೂರ್ಣಗೊಂಡಿದೆ",
+  "@outcomeCompleted": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "outcomeFailed": "ವಿಫಲವಾಗಿದೆ",
+  "@outcomeFailed": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "pairAgain": "ಮತ್ತೆ ಜೋಡಿಸಿ",
+  "@pairAgain": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "pickFiles": "ಫೈಲ್‌ಗಳನ್ನು ಆರಿಸಿ",
+  "@pickFiles": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "pickFolder": "ಫೋಲ್ಡರ್ ಆರಿಸಿ",
+  "@pickFolder": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "pickerFailed": "ಫೈಲ್ ಆಯ್ಕೆ ತೆರೆಯಲು ಆಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+  "@pickerFailed": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "ready": "ಸಿದ್ಧ",
+  "@ready": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "receiveTrusted": "ವಿಶ್ವಾಸಾರ್ಹ ಸಾಧನಗಳಿಂದ ಫೈಲ್ ಸ್ವೀಕರಿಸಿ",
+  "@receiveTrusted": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "receiveTrustedInfo": "ಆಫ್ ಇದ್ದಾಗ ಪ್ರತಿ ಕೊಡುಗೆಯನ್ನು ನಿರಾಕರಿಸಲಾಗುತ್ತದೆ. ಅಪರಿಚಿತ ಸಾಧನಗಳು ಎಂದಿಗೂ ಕಳುಹಿಸಲಾರವು; ಮೊದಲು ಜೋಡಿಸಬೇಕು.",
+  "@receiveTrustedInfo": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "receiveTrustedOff": "ಆಫ್: ಪ್ರತಿ ಕೊಡುಗೆಯನ್ನು ನಿರಾಕರಿಸಲಾಗುತ್ತದೆ",
+  "@receiveTrustedOff": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "receivedFrom": "{name} ಇಂದ ಸ್ವೀಕರಿಸಲಾಗಿದೆ",
+  "@receivedFrom": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "receivedGoTo": "ಸ್ವೀಕರಿಸಿದ ಫೈಲ್‌ಗಳು ಇಲ್ಲಿಗೆ ಹೋಗುತ್ತವೆ: {place}",
+  "@receivedGoTo": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "receiving": "ಸ್ವೀಕರಿಸುವಿಕೆ",
+  "@receiving": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "receivingPort": "ಈ ಪೋರ್ಟ್‌ನಲ್ಲಿ ಸ್ವೀಕರಿಸುತ್ತಿದೆ: {port}",
+  "@receivingPort": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "rejectedPeerBody": "\"{name}\" ಸಂಪರ್ಕಿಸಲು ಪ್ರಯತ್ನಿಸಿತು, ಆದರೆ ಜೋಡಿಸುವಾಗ \"{paired}\" ಗೆ ಇದ್ದ ಕೀಲಿಗಿಂತ ಬೇರೆ ಕೀಲಿಯೊಂದಿಗೆ. ಬಹುಶಃ ಅದರಲ್ಲಿ Isekai Drop ಮರುಸ್ಥಾಪನೆ ಅಥವಾ ರೀಸೆಟ್ ಆಗಿದೆ. ಈ ಸಾಧನ ಅದನ್ನು ನಿರಾಕರಿಸಿತು. ಅದು ನಿಜವಾದರೆ ಮಾತ್ರ ಮತ್ತೆ ಜೋಡಿಸಿ.",
+  "@rejectedPeerBody": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "remove": "ತೆಗೆಯಿರಿ",
+  "@remove": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "removeFromList": "{name} ಅನ್ನು ಪಟ್ಟಿಯಿಂದ ತೆಗೆಯಿರಿ",
+  "@removeFromList": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "removeSendBody": "ಇದನ್ನು ಇನ್ನು ಮರುಪ್ರಯತ್ನಕ್ಕೆ ತೋರಿಸುವುದಿಲ್ಲ. ನಿಮ್ಮ ಫೈಲ್‌ಗಳು ಅಳಿಯುವುದಿಲ್ಲ.",
+  "@removeSendBody": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "removeSendTitle": "ಈ ಕಳುಹಿಸುವಿಕೆಯನ್ನು ತೆಗೆಯುವುದೇ?",
+  "@removeSendTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "rename": "ಹೆಸರು ಬದಲಿಸಿ",
+  "@rename": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "requestExpired": "ವಿನಂತಿಯ ಸಮಯ ಮುಗಿಯಿತು - ಯಾರೂ ಸಮಯಕ್ಕೆ ಉತ್ತರಿಸಲಿಲ್ಲ.",
+  "@requestExpired": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "retry": "ಮರುಪ್ರಯತ್ನಿಸಿ",
+  "@retry": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "save": "ಉಳಿಸಿ",
+  "@save": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "saveNames": "ಇತಿಹಾಸದಲ್ಲಿ ಫೈಲ್ ಹೆಸರುಗಳನ್ನು ಉಳಿಸಿ",
+  "@saveNames": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "saveNamesInfo": "ಹೆಸರುಗಳನ್ನು ಈ ಸಾಧನದಲ್ಲಿ ಮಾತ್ರ ಇಡಲಾಗುತ್ತದೆ, ಲಾಗ್‌ಗಳಲ್ಲಿ ಎಂದಿಗೂ ಬರೆಯುವುದಿಲ್ಲ. ಫೈಲ್‌ಗಳ ವಿಷಯವನ್ನು ಎಂದಿಗೂ ಉಳಿಸುವುದಿಲ್ಲ.",
+  "@saveNamesInfo": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "saveNamesSummary": "ಈ ಸಾಧನದಲ್ಲಿ ಮಾತ್ರ ಇಡಲಾಗುತ್ತದೆ",
+  "@saveNamesSummary": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "savedTo": "ಇಲ್ಲಿ ಉಳಿಸಲಾಗಿದೆ: {place}",
+  "@savedTo": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "savedTrusted": "ಉಳಿಸಿದ ವಿಶ್ವಾಸಾರ್ಹ ಸಾಧನಗಳು",
+  "@savedTrusted": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "security": "ಭದ್ರತೆ",
+  "@security": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "sendFilesTo": "{name} ಗೆ {count} ಫೈಲ್(ಗಳು) ಕಳುಹಿಸಿ",
+  "@sendFilesTo": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "sendText": "ಪಠ್ಯ ಕಳುಹಿಸಿ",
+  "@sendText": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "sendTextTo": "{name} ಗೆ ಪಠ್ಯ ಕಳುಹಿಸಿ",
+  "@sendTextTo": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "sendToName": "{name} ಗೆ ಕಳುಹಿಸಿ",
+  "@sendToName": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "sentTo": "{name} ಗೆ ಕಳುಹಿಸಲಾಗಿದೆ",
+  "@sentTo": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "sharedFromApp": "ಬೇರೆ ಆ್ಯಪ್‌ನಿಂದ ಹಂಚಲಾಗಿದೆ",
+  "@sharedFromApp": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "shortKey": "ಚಿಕ್ಕ ರೂಪ: {key}",
+  "@shortKey": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "showFolder": "ಫೋಲ್ಡರ್ ತೋರಿಸಿ",
+  "@showFolder": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "skip": "ಬಿಟ್ಟುಬಿಡಿ",
+  "@skip": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "slide1Text": "ಫೋನ್ ಮತ್ತು ಪಿಸಿ. ಖಾತೆ ಇಲ್ಲ, ಕ್ಲೌಡ್ ಇಲ್ಲ.",
+  "@slide1Text": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "slide1Title": "ಎರಡೂ ಸಾಧನಗಳಲ್ಲಿ Isekai Drop ತೆರೆಯಿರಿ",
+  "@slide1Title": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "slide2Text": "ಎರಡೂ ಸಾಧನಗಳು ಒಂದೇ ನೆಟ್‌ವರ್ಕ್‌ನಲ್ಲಿರಲಿ (ಅಥವಾ ಒಂದು ಹಾಟ್‌ಸ್ಪಾಟ್ ಹಂಚಲಿ). ಮೊದಲ ಬಾರಿ QR ಕೋಡ್‌ನಿಂದ ಒಮ್ಮೆ ಸಂಪರ್ಕಿಸಿ.",
+  "@slide2Text": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "slide2Title": "ಒಂದೇ ವೈ-ಫೈ ಬಳಸಿ",
+  "@slide2Title": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "slide3Text": "ಫೈಲ್‌ಗಳು ನೇರವಾಗಿ ನಿಮ್ಮ ಸಾಧನಗಳ ನಡುವೆ ಹೋಗುತ್ತವೆ, ಎನ್‌ಕ್ರಿಪ್ಟ್ ಮಾಡಿ ಪರಿಶೀಲಿಸಿ.",
+  "@slide3Text": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "slide3Title": "ಫೈಲ್‌ಗಳನ್ನು ಆರಿಸಿ ಕಳುಹಿಸಿ",
+  "@slide3Title": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "starting": "ಪ್ರಾರಂಭವಾಗುತ್ತಿದೆ...",
+  "@starting": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "stepFilesCount": "1. ಫೈಲ್‌ಗಳು: {count}, {size}",
+  "@stepFilesCount": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "stepOf": "ಹಂತ {step} / {total}",
+  "@stepOf": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "stepPickDevice": "2. ಸಾಧನ ಆರಿಸಿ",
+  "@stepPickDevice": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "stepPickFiles": "1. ಫೈಲ್‌ಗಳನ್ನು ಆರಿಸಿ",
+  "@stepPickFiles": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "stepTextOrLink": "1. ಪಠ್ಯ ಅಥವಾ ಲಿಂಕ್",
+  "@stepTextOrLink": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "stopNamesBody": "ಹೊಸ ಇತಿಹಾಸ ನಮೂದುಗಳಲ್ಲಿ ಫೈಲ್ ಹೆಸರುಗಳು ಇರುವುದಿಲ್ಲ. ಈಗಾಗಲೇ ಉಳಿಸಿದ ಹೆಸರುಗಳನ್ನೂ ಅಳಿಸಬೇಕೇ?",
+  "@stopNamesBody": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "stopNamesTitle": "ಫೈಲ್ ಹೆಸರುಗಳನ್ನು ಉಳಿಸುವುದನ್ನು ನಿಲ್ಲಿಸುವುದೇ?",
+  "@stopNamesTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "testBuildNote": "ಇದು ಪರೀಕ್ಷಾ ಬಿಲ್ಡ್, ಸಾರ್ವಜನಿಕ ಬಿಡುಗಡೆ ಅಲ್ಲ.",
+  "@testBuildNote": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "textAskNote": "ಇನ್ನೊಂದು ಸಾಧನ ತೋರಿಸುವ ಮೊದಲು ಕೇಳುತ್ತದೆ. ಲಿಂಕ್‌ಗಳು ತಾವಾಗಿಯೇ ಎಂದಿಗೂ ತೆರೆಯುವುದಿಲ್ಲ.",
+  "@textAskNote": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "textErrDeclined": "ಇನ್ನೊಂದು ಸಾಧನ ಪಠ್ಯವನ್ನು ನಿರಾಕರಿಸಿತು.",
+  "@textErrDeclined": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "textErrEmpty": "ಮೊದಲು ಪಠ್ಯ ಬರೆಯಿರಿ.",
+  "@textErrEmpty": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "textErrExpired": "ಇನ್ನೊಂದು ಸಾಧನದಲ್ಲಿ ಯಾರೂ ಉತ್ತರಿಸಲಿಲ್ಲ.",
+  "@textErrExpired": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "textErrFailed": "ಪಠ್ಯ ಕಳುಹಿಸಲು ಆಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+  "@textErrFailed": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "textErrNoAddress": "ಇನ್ನೊಂದು ಸಾಧನ ಸಿಗಲಿಲ್ಲ. ಅದು ಅದೇ ನೆಟ್‌ವರ್ಕ್‌ನಲ್ಲಿದೆ ಮತ್ತು Isekai Drop ತೆರೆದಿದೆ ಎಂದು ನೋಡಿ.",
+  "@textErrNoAddress": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "textErrNotTrusted": "ಇನ್ನೊಂದು ಸಾಧನ ಈಗ ಈ ಸಾಧನವನ್ನು ನಂಬುವುದಿಲ್ಲ. ಮತ್ತೆ ಜೋಡಿಸಿ.",
+  "@textErrNotTrusted": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "textErrOldPeer": "ಇನ್ನೊಂದು ಸಾಧನದಲ್ಲಿ ಪಠ್ಯ ಸ್ವೀಕರಿಸಲಾಗದ ಹಳೆಯ Isekai Drop ಇದೆ. ಆ ಆ್ಯಪ್ ಅನ್ನು ಅಪ್‌ಡೇಟ್ ಮಾಡಿ.",
+  "@textErrOldPeer": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "textErrTooLong": "ಪಠ್ಯ ತುಂಬಾ ಉದ್ದವಾಗಿದೆ. 8 KB (ಸುಮಾರು 8000 ಅಕ್ಷರಗಳು) ವರೆಗೆ ಕಳುಹಿಸಬಹುದು.",
+  "@textErrTooLong": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "textFrom": "{name} ಇಂದ ಪಠ್ಯ",
+  "@textFrom": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "textHint": "ಪಠ್ಯ ಅಥವಾ ಲಿಂಕ್ ಬರೆಯಿರಿ ಅಥವಾ ಅಂಟಿಸಿ",
+  "@textHint": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "textPairedOnly": "ಪಠ್ಯವನ್ನು ಜೋಡಿಸಿದ ಸಾಧನಗಳಿಗೆ ಮಾತ್ರ ಕಳುಹಿಸಬಹುದು. ಮೊದಲು ಜೋಡಿಸಿ (ಫೈಲ್ ಕಳುಹಿಸಿ, ಅಥವಾ ಸಂಪರ್ಕಿಸಿ ಬಳಸಿ).",
+  "@textPairedOnly": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "textSentTo": "{name} ಗೆ ಪಠ್ಯ ಕಳುಹಿಸಲಾಗಿದೆ.",
+  "@textSentTo": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "theme": "ಥೀಮ್",
+  "@theme": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "themeDark": "ಡಾರ್ಕ್",
+  "@themeDark": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "themeLight": "ಲೈಟ್",
+  "@themeLight": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "themeSystem": "ಸಿಸ್ಟಮ್",
+  "@themeSystem": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "thisDevice": "ಈ ಸಾಧನ",
+  "@thisDevice": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "thisDeviceKey": "ಈ ಸಾಧನದ ಕೀಲಿ",
+  "@thisDeviceKey": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "toName": "{name} ಗೆ",
+  "@toName": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "transfersThisSession": "ಈ ಬಾರಿಯ ವರ್ಗಾವಣೆಗಳು",
+  "@transfersThisSession": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "trustedCount": "ವಿಶ್ವಾಸಾರ್ಹ ಸಾಧನಗಳು: {count}",
+  "@trustedCount": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "trustedDevices": "ವಿಶ್ವಾಸಾರ್ಹ ಸಾಧನಗಳು",
+  "@trustedDevices": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "trustedDevicesSub": "ಕೋಡ್ ಪರಿಶೀಲಿಸಿ, ಹೆಸರು ಬದಲಿಸಿ, ಹಿಂಪಡೆಯಿರಿ ಅಥವಾ ತೆಗೆಯಿರಿ",
+  "@trustedDevicesSub": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "turnOn": "ಆನ್ ಮಾಡಿ",
+  "@turnOn": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "unavailable": "ಲಭ್ಯವಿಲ್ಲ",
+  "@unavailable": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "updateAndroid": "Android: ಮೇಲಿನ ಲಿಂಕ್ ತೆರೆಯಿರಿ, isekai-drop-android-arm64.apk (ಅಥವಾ -universal.apk) ಡೌನ್‌ಲೋಡ್ ಮಾಡಿ ಈ ಆ್ಯಪ್‌ನ ಮೇಲೆಯೇ ಸ್ಥಾಪಿಸಿ. ನಿಮ್ಮ ಜೋಡಿಸಿದ ಸಾಧನಗಳು ಮತ್ತು ಇತಿಹಾಸ ಉಳಿಯುತ್ತವೆ.",
+  "@updateAndroid": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "updateBoth": "ಎರಡೂ ಸಾಧನಗಳನ್ನು ಅಪ್‌ಡೇಟ್ ಮಾಡಿ: ತುಂಬಾ ಬೇರೆ ಆವೃತ್ತಿಗಳ ಸಾಧನಗಳು ಒಂದನ್ನೊಂದು ಅರ್ಥಮಾಡಿಕೊಳ್ಳದಿರಬಹುದು.",
+  "@updateBoth": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "updateIos": "iPhone/iPad: ಹೊಸ .ipa ಅನ್ನು ನಿಮ್ಮ Apple ID ಯಿಂದ ಮತ್ತೆ ಸಹಿ ಮಾಡಿ (NOT TESTED).",
+  "@updateIos": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "updateMac": "Mac: isekai-drop-macos.dmg ಡೌನ್‌ಲೋಡ್ ಮಾಡಿ ಆ್ಯಪ್ ಅನ್ನು Applications ಗೆ ಎಳೆಯಿರಿ (Mac ನಲ್ಲಿ NOT TESTED).",
+  "@updateMac": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "updateWindows": "Windows: isekai-drop-windows-setup.exe ಡೌನ್‌ಲೋಡ್ ಮಾಡಿ ಚಲಾಯಿಸಿ.",
+  "@updateWindows": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "versionTitle": "ಆವೃತ್ತಿ",
+  "@versionTitle": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "visible": "ಹತ್ತಿರದ ಸಾಧನಗಳಿಗೆ ಕಾಣಿಸಲಿ",
+  "@visible": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "visibleInfo": "ಆಫ್: ಈ ಸಾಧನ ತನ್ನನ್ನು ಘೋಷಿಸುವುದನ್ನು ನಿಲ್ಲಿಸುತ್ತದೆ (Bonjour ಕೂಡ). ಜೋಡಿಸಿದ ಸಾಧನಗಳು ಮತ್ತು QR/ಬರೆದ ವಿಳಾಸದ ಸಂಪರ್ಕಗಳು ಈಗಲೂ ಕೆಲಸ ಮಾಡುತ್ತವೆ.",
+  "@visibleInfo": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  },
+  "visibleSummary": "ನಿಮ್ಮ ವೈ-ಫೈನಲ್ಲಿರುವ ಇತರರು ಈ ಸಾಧನವನ್ನು ಹುಡುಕಬಹುದು",
+  "@visibleSummary": {
+    "description": "Assistant translation - NEEDS NATIVE-SPEAKER REVIEW"
+  }
+}

@@ -9,6 +9,7 @@ import '../diag_report.dart';
 import '../file_actions.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
+import '../../l10n/l10n.dart';
 
 /// Where every test build is published (replaced by each new build).
 const kLatestBuildUrl =
@@ -26,47 +27,47 @@ class AboutScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final fp = engine.myFingerprint;
     return Scaffold(
-      appBar: AppBar(title: const Text('About')),
+      appBar: AppBar(title: Text(tr(context).aboutTitle)),
       body: PageBody(
         children: [
           SectionCard(
-            title: 'Version',
+            title: tr(context).versionTitle,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Isekai Drop $kAppVersion',
+                  tr(context).appVersion(kAppVersion),
                   style: theme.textTheme.titleMedium,
                 ),
                 FutureBuilder<String?>(
                   future: buildNumber(),
                   builder: (context, snap) {
                     if (snap.connectionState != ConnectionState.done) {
-                      return const Text('Build: ...');
+                      return Text(tr(context).buildLoading);
                     }
                     final b = snap.data;
                     return Text(
                       b == null || b.isEmpty
-                          ? 'Build: local build (not from GitHub)'
-                          : 'Build $b',
+                          ? tr(context).buildLocal
+                          : tr(context).buildNumber(b),
                     );
                   },
                 ),
                 const SizedBox(height: IdSpacing.xs),
                 Text(
-                  'A test build, not a public release.',
+                  tr(context).testBuildNote,
                   style: theme.textTheme.bodySmall,
                 ),
               ],
             ),
           ),
           SectionCard(
-            title: 'This device\'s key',
+            title: tr(context).thisDeviceKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Short: ${shortFingerprint(fp)}',
+                  tr(context).shortKey(shortFingerprint(fp)),
                   style: theme.textTheme.titleSmall,
                 ),
                 const SizedBox(height: IdSpacing.xs),
@@ -75,16 +76,12 @@ class AboutScreen extends StatelessWidget {
                   style: const TextStyle(fontFamily: 'monospace'),
                 ),
                 const SizedBox(height: IdSpacing.xs),
-                Text(
-                  'Your other devices know this device by this key. It '
-                  'changes only if the app is reinstalled or reset.',
-                  style: theme.textTheme.bodySmall,
-                ),
+                Text(tr(context).keyHelp, style: theme.textTheme.bodySmall),
               ],
             ),
           ),
           SectionCard(
-            title: 'Latest test build',
+            title: tr(context).latestTestBuild,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -102,7 +99,7 @@ class AboutScreen extends StatelessWidget {
                         const ClipboardData(text: kLatestBuildUrl),
                       ),
                       icon: const Icon(Icons.copy),
-                      label: const Text('Copy link'),
+                      label: Text(tr(context).copyLink),
                     ),
                     if (savedFileActions.canOpenLinks)
                       OutlinedButton.icon(
@@ -113,7 +110,7 @@ class AboutScreen extends StatelessWidget {
                           Uri.parse(kLatestBuildUrl),
                         ),
                         icon: const Icon(Icons.open_in_new),
-                        label: const Text('Open in browser'),
+                        label: Text(tr(context).openInBrowser),
                       ),
                   ],
                 ),
@@ -121,43 +118,28 @@ class AboutScreen extends StatelessWidget {
             ),
           ),
           SectionCard(
-            title: 'How to update',
+            title: tr(context).howToUpdate,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
-                  'Android: open the link above, download '
-                  'isekai-drop-android-arm64.apk (or -universal.apk) and '
-                  'install it over this app. Your paired devices and history '
-                  'stay.',
-                ),
+              children: [
+                Text(tr(context).updateAndroid),
                 SizedBox(height: IdSpacing.xs),
-                Text(
-                  'Windows: download isekai-drop-windows-setup.exe and run it.',
-                ),
+                Text(tr(context).updateWindows),
                 SizedBox(height: IdSpacing.xs),
-                Text(
-                  'Mac: download isekai-drop-macos.dmg and drag the app to '
-                  'Applications (NOT TESTED on a Mac).',
-                ),
+                Text(tr(context).updateMac),
                 SizedBox(height: IdSpacing.xs),
-                Text(
-                  'iPhone/iPad: sign the new .ipa again with your own Apple '
-                  'ID (NOT TESTED).',
-                ),
+                Text(tr(context).updateIos),
                 SizedBox(height: IdSpacing.xs),
-                Text(
-                  'Update both devices: devices with very different versions '
-                  'may not understand each other.',
-                ),
+                Text(tr(context).updateBoth),
               ],
             ),
           ),
           SectionCard(
-            title: 'Open-source software',
+            title: tr(context).openSource,
             child: Align(
               alignment: Alignment.centerLeft,
               child: FilledButton.icon(
+                key: const ValueKey('about-licences'),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(0, IdLayout.minTouchTarget),
                 ),
@@ -167,7 +149,7 @@ class AboutScreen extends StatelessWidget {
                   applicationVersion: kAppVersion,
                 ),
                 icon: const Icon(Icons.gavel_outlined),
-                label: const Text('Licences'),
+                label: Text(tr(context).licences),
               ),
             ),
           ),

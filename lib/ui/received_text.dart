@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../engine/transfer_engine.dart' show webLinkIn;
 import 'file_actions.dart';
 import 'theme/design_tokens.dart';
+import '../l10n/l10n.dart';
 
 Future<void> showReceivedText(
   BuildContext context, {
@@ -18,7 +19,7 @@ Future<void> showReceivedText(
   return showDialog<void>(
     context: context,
     builder: (c) => AlertDialog(
-      title: Text('Text from $from'),
+      title: Text(tr(context).textFrom(from)),
       content: SingleChildScrollView(
         child: SelectableText(body, key: const ValueKey('received-text')),
       ),
@@ -31,14 +32,14 @@ Future<void> showReceivedText(
             ),
             onPressed: () => open(link),
             icon: const Icon(Icons.open_in_new),
-            label: const Text('Open link'),
+            label: Text(tr(context).openLink),
           ),
         FilledButton(
           style: FilledButton.styleFrom(
             minimumSize: const Size(0, IdLayout.minTouchTarget),
           ),
           onPressed: () => Navigator.pop(c),
-          child: const Text('Close'),
+          child: Text(tr(context).close),
         ),
       ],
     ),
@@ -67,6 +68,6 @@ class _CopyButtonState extends State<_CopyButton> {
       if (mounted) setState(() => _copied = true);
     },
     icon: Icon(_copied ? Icons.check : Icons.copy),
-    label: Text(_copied ? 'Copied' : 'Copy'),
+    label: Text(_copied ? tr(context).copied : tr(context).copy),
   );
 }

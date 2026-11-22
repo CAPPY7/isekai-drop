@@ -11,6 +11,7 @@ import '../widgets/discovery_hint.dart';
 import '../widgets/wifi_band.dart';
 import '../../engine/platform_engine.dart' show ConnectionInfo;
 import 'transfer_screen.dart';
+import '../../l10n/l10n.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({
@@ -49,7 +50,7 @@ class HomeScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    ready ? 'Ready' : 'Not ready',
+                    ready ? tr(context).ready : tr(context).notReady,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: IdTypeSizes.headline,
@@ -58,8 +59,8 @@ class HomeScreen extends StatelessWidget {
                   ),
                   Text(
                     ready
-                        ? 'Keep Isekai Drop open to receive. You will always be asked first.'
-                        : (engine.startError ?? 'Starting...'),
+                        ? tr(context).homeReadyHelp
+                        : (engine.startError ?? tr(context).starting),
                     style: const TextStyle(color: Colors.white),
                   ),
                   const SizedBox(height: IdSpacing.md),
@@ -78,7 +79,7 @@ class HomeScreen extends StatelessWidget {
                         ),
                         onPressed: onSend,
                         icon: const Icon(Icons.upload_rounded),
-                        label: const Text('Send'),
+                        label: Text(tr(context).navSend),
                       ),
                       OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
@@ -88,7 +89,7 @@ class HomeScreen extends StatelessWidget {
                         ),
                         onPressed: onConnect,
                         icon: const Icon(Icons.link),
-                        label: const Text('Connect a device'),
+                        label: Text(tr(context).connectDevice),
                       ),
                     ],
                   ),
@@ -98,7 +99,7 @@ class HomeScreen extends StatelessWidget {
             const SizedBox(height: IdSpacing.md),
             if (engine.interruptedSends.isNotEmpty)
               SectionCard(
-                title: 'Interrupted sends',
+                title: tr(context).interruptedSends,
                 child: Column(
                   children: [
                     for (final s in engine.interruptedSends)
@@ -106,53 +107,51 @@ class HomeScreen extends StatelessWidget {
                         contentPadding: EdgeInsets.zero,
                         minTileHeight: IdLayout.minTouchTarget,
                         leading: const Icon(Icons.restore),
-                        title: Text('To ${s.peerName}'),
+                        title: Text(tr(context).toName(s.peerName)),
                         subtitle: Text(
-                          '${s.fileCount} file(s), ${formatBytes(s.totalBytes)} - did not finish',
+                          tr(context).didNotFinish(
+                            '${s.fileCount}',
+                            formatBytes(s.totalBytes),
+                          ),
                         ),
                         trailing: Wrap(
                           children: [
                             TextButton(
                               onPressed: () async {
                                 final messenger = ScaffoldMessenger.of(context);
+                                final failText = tr(context).cannotRetry;
                                 final j = await engine.retrySaved(s.id);
                                 if (j == null) {
                                   messenger.showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Cannot retry: the device or a file is no longer available.',
-                                      ),
-                                    ),
+                                    SnackBar(content: Text(failText)),
                                   );
                                 }
                               },
-                              child: const Text('Retry'),
+                              child: Text(tr(context).retry),
                             ),
                             TextButton(
                               onPressed: () async {
                                 final ok = await showDialog<bool>(
                                   context: context,
                                   builder: (c) => AlertDialog(
-                                    title: const Text('Remove this send?'),
-                                    content: const Text(
-                                      'It will no longer be offered for retry. Your files are not deleted.',
-                                    ),
+                                    title: Text(tr(context).removeSendTitle),
+                                    content: Text(tr(context).removeSendBody),
                                     actions: [
                                       TextButton(
                                         onPressed: () =>
                                             Navigator.pop(c, false),
-                                        child: const Text('Cancel'),
+                                        child: Text(tr(context).cancel),
                                       ),
                                       FilledButton(
                                         onPressed: () => Navigator.pop(c, true),
-                                        child: const Text('Remove'),
+                                        child: Text(tr(context).remove),
                                       ),
                                     ],
                                   ),
                                 );
                                 if (ok == true) await engine.removeSaved(s.id);
                               },
-                              child: const Text('Remove'),
+                              child: Text(tr(context).remove),
                             ),
                           ],
                         ),
@@ -162,11 +161,11 @@ class HomeScreen extends StatelessWidget {
               ),
             if (engine.jobs.isNotEmpty)
               SectionCard(
-                title: 'Transfers this session',
+                title: tr(context).transfersThisSession,
                 trailing: engine.jobs.any((j) => !j.isActive)
                     ? TextButton(
                         onPressed: engine.clearFinishedJobs,
-                        child: const Text('Clear finished'),
+                        child: Text(tr(context).clearFinished),
                       )
                     : null,
                 child: Column(
@@ -183,16 +182,18 @@ class HomeScreen extends StatelessWidget {
                                 : Icons.south_west,
                           ),
                           title: Text(
-                            '${j.direction == JobDirection.sending ? 'To' : 'From'} ${j.peerName}',
+                            j.direction == JobDirection.sending
+                                ? tr(context).toName(j.peerName)
+                                : tr(context).fromName(j.peerName),
                           ),
                           subtitle: Text(
-                            '${jobStatusLabel(j)} - ${(j.progress * 100).round()}% of ${formatBytes(j.totalBytes)}'
+                            '${tr(context).jobProgress(jobStatusLabel(j), '${(j.progress * 100).round()}', formatBytes(j.totalBytes))}'
                             '${j.state == JobState.failed && j.message != null ? '\n${j.message}' : ''}',
                           ),
                           trailing: j.canRetry
                               ? TextButton(
                                   onPressed: () => engine.retry(j),
-                                  child: const Text('Retry'),
+                                  child: Text(tr(context).retry),
                                 )
                               : null,
                           onTap: () => Navigator.of(context).push(
@@ -208,22 +209,17 @@ class HomeScreen extends StatelessWidget {
             if (engine.secureStorageNote?.contains('NEW key') ?? false)
               SectionCard(
                 key: const ValueKey('own-key-new'),
-                title: 'This device has a new key',
+                title: tr(context).newKeyTitle,
                 child: Text(engine.secureStorageNote!),
               ),
             if (engine.rejectedPeer case final r?)
               SectionCard(
                 key: const ValueKey('rejected-peer'),
-                title: 'Needs pairing again',
+                title: tr(context).needsPairingAgain,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '"${r.name}" tried to connect, but with a different key '
-                      'than "${r.pairedName}" had when you paired. Most likely '
-                      'Isekai Drop was reinstalled or reset on it. This device '
-                      'refused it. Pair again only if that is true.',
-                    ),
+                    Text(tr(context).rejectedPeerBody(r.name, r.pairedName)),
                     const SizedBox(height: IdSpacing.sm),
                     Wrap(
                       spacing: IdSpacing.sm,
@@ -244,11 +240,11 @@ class HomeScreen extends StatelessWidget {
                               );
                             }
                           },
-                          child: const Text('Pair again'),
+                          child: Text(tr(context).pairAgain),
                         ),
                         TextButton(
                           onPressed: engine.dismissRejectedPeer,
-                          child: const Text('Not now'),
+                          child: Text(tr(context).notNow),
                         ),
                       ],
                     ),
@@ -256,7 +252,7 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
             SectionCard(
-              title: 'Nearby devices',
+              title: tr(context).nearbyDevices,
               child: engine.nearby.isEmpty
                   ? DiscoveryHint(engine: engine)
                   : Column(
@@ -279,10 +275,10 @@ class HomeScreen extends StatelessWidget {
             // 0.11.0: hidden while empty (pairing lives in the Connect tab).
             if (engine.trustedDevices.isNotEmpty)
               SectionCard(
-                title: 'Saved trusted devices',
+                title: tr(context).savedTrusted,
                 trailing: TextButton(
                   onPressed: onTrusted,
-                  child: const Text('Manage'),
+                  child: Text(tr(context).manage),
                 ),
                 child: Column(
                   children: [
@@ -298,13 +294,13 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
             Text(
-              'Files go directly between your devices, encrypted. Nothing is uploaded.',
+              tr(context).homeFooter,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall,
             ),
             // 0.11.2: the version, so a report or photo shows which build runs.
             Text(
-              'Isekai Drop $kAppVersion',
+              tr(context).appVersion(kAppVersion),
               key: const Key('home-version'),
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall,

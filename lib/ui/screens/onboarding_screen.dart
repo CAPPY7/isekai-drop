@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/design_tokens.dart';
+import '../../l10n/l10n.dart';
 
 class _Slide {
   const _Slide(this.icon, this.title, this.text);
@@ -9,23 +10,10 @@ class _Slide {
   final String text;
 }
 
-const _slides = [
-  _Slide(
-    Icons.devices,
-    'Open Isekai Drop on both devices',
-    'Phones and PCs. No account and no cloud.',
-  ),
-  _Slide(
-    Icons.wifi,
-    'Use the same Wi-Fi',
-    'Both devices on one network (or one shares a hotspot). The first '
-        'time, connect them once with a QR code.',
-  ),
-  _Slide(
-    Icons.send_rounded,
-    'Pick files and send',
-    'Files go straight between your devices, encrypted and checked.',
-  ),
+List<_Slide> _slidesFor(AppLocalizations l) => [
+  _Slide(Icons.devices, l.slide1Title, l.slide1Text),
+  _Slide(Icons.wifi, l.slide2Title, l.slide2Text),
+  _Slide(Icons.send_rounded, l.slide3Title, l.slide3Text),
 ];
 
 /// 0.11.0 (spec A8): three short slides, shown once, skippable.
@@ -41,6 +29,7 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final _pages = PageController();
   int _page = 0;
+  static const _count = 3;
 
   @override
   void dispose() {
@@ -49,7 +38,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _next() {
-    if (_page >= _slides.length - 1) {
+    if (_page >= _count - 1) {
       widget.onDone();
       return;
     }
@@ -67,7 +56,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final last = _page == _slides.length - 1;
+    final last = _page == _count - 1;
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -90,7 +79,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         ),
                       ),
                       onPressed: widget.onDone,
-                      child: const Text('Skip'),
+                      child: Text(tr(context).skip),
                     ),
                   ),
                 ),
@@ -99,7 +88,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     controller: _pages,
                     onPageChanged: (i) => setState(() => _page = i),
                     children: [
-                      for (final s in _slides)
+                      for (final s in _slidesFor(tr(context)))
                         SingleChildScrollView(
                           padding: const EdgeInsets.all(IdSpacing.lg),
                           child: Column(
@@ -130,12 +119,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ),
                 Semantics(
                   container: true,
-                  label: 'Step ${_page + 1} of ${_slides.length}',
+                  label: tr(context).stepOf('${_page + 1}', '$_count'),
                   excludeSemantics: true,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      for (var i = 0; i < _slides.length; i++)
+                      for (var i = 0; i < _count; i++)
                         Container(
                           margin: const EdgeInsets.all(IdSpacing.xs),
                           // Size, not only colour, shows the current step.
@@ -159,7 +148,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       minimumSize: const Size.fromHeight(56),
                     ),
                     onPressed: _next,
-                    child: Text(last ? 'Get started' : 'Next'),
+                    child: Text(
+                      last ? tr(context).getStarted : tr(context).next,
+                    ),
                   ),
                 ),
               ],

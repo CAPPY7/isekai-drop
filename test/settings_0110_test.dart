@@ -81,7 +81,7 @@ void main() {
         });
         final p = await SharedPreferences.getInstance();
         await SettingsController.migrate(p);
-        expect(p.getInt('settings_schema_version'), 3);
+        expect(p.getInt('settings_schema_version'), 4); // E2: now 4
         expect(SettingsController(p).routeMode, SettingsController.routeAuto);
       },
     );

@@ -1,0 +1,7 @@
+# E2 (0.12.1): screen texts. English is the template; Hindi (hi) and
+# Kannada (kn) fall back to English for any missing key.
+arb-dir: lib/l10n
+template-arb-file: app_en.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+untranslated-messages-file: build/untranslated_messages.json

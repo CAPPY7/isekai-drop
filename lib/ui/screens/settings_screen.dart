@@ -11,6 +11,7 @@ import 'diagnostics_screen.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
 import 'fast_direct_screen.dart';
+import '../../l10n/l10n.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key, required this.onTrusted});
@@ -23,23 +24,21 @@ class SettingsScreen extends StatelessWidget {
     final name = await showDialog<String>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Device name'),
+        title: Text(tr(context).deviceName),
         content: TextField(
           controller: controller,
           autofocus: true,
           maxLength: 40,
-          decoration: const InputDecoration(
-            labelText: 'Name other devices will see',
-          ),
+          decoration: InputDecoration(labelText: tr(context).deviceNameLabel),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(c),
-            child: const Text('Cancel'),
+            child: Text(tr(context).cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(c, controller.text),
-            child: const Text('Save'),
+            child: Text(tr(context).save),
           ),
         ],
       ),
@@ -54,20 +53,16 @@ class SettingsScreen extends StatelessWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Turn on auto-receive?'),
-        content: const Text(
-          'Devices marked "Verified" will be able to send files to this device '
-          'without asking you. Files still go only to the normal receive folder '
-          'and are still checked for damage. You can turn this off at any time.',
-        ),
+        title: Text(tr(context).autoReceiveTitle),
+        content: Text(tr(context).autoReceiveBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(c, false),
-            child: const Text('Cancel'),
+            child: Text(tr(context).cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(c, true),
-            child: const Text('Turn on'),
+            child: Text(tr(context).turnOn),
           ),
         ],
       ),
@@ -81,19 +76,16 @@ class SettingsScreen extends StatelessWidget {
     final r = await showDialog<String>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Stop saving file names?'),
-        content: const Text(
-          'New history entries will not contain file names. '
-          'Do you also want to delete the names already saved?',
-        ),
+        title: Text(tr(context).stopNamesTitle),
+        content: Text(tr(context).stopNamesBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(c),
-            child: const Text('Cancel'),
+            child: Text(tr(context).cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(c, 'keep'),
-            child: const Text('Keep old names'),
+            child: Text(tr(context).keepOldNames),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -101,7 +93,7 @@ class SettingsScreen extends StatelessWidget {
               foregroundColor: Theme.of(context).colorScheme.onError,
             ),
             onPressed: () => Navigator.pop(c, 'delete'),
-            child: const Text('Delete old names'),
+            child: Text(tr(context).deleteOldNames),
           ),
         ],
       ),
@@ -120,11 +112,11 @@ class SettingsScreen extends StatelessWidget {
       builder: (context, _) => PageBody(
         children: [
           SectionCard(
-            title: 'Appearance',
+            title: tr(context).appearance,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Theme'),
+                Text(tr(context).theme),
                 const SizedBox(height: IdSpacing.sm),
                 // 0.11.0 (spec D17): no wrapped "Syste / m" at big font
                 // sizes: segments keep their width and scroll if needed.
@@ -132,40 +124,67 @@ class SettingsScreen extends StatelessWidget {
                   scrollDirection: Axis.horizontal,
                   child: SegmentedButton<ThemeMode>(
                     showSelectedIcon: false,
-                    segments: const [
+                    segments: [
                       ButtonSegment(
                         value: ThemeMode.system,
-                        label: Text('System', softWrap: false),
+                        label: Text(tr(context).themeSystem, softWrap: false),
                       ),
                       ButtonSegment(
                         value: ThemeMode.dark,
-                        label: Text('Dark', softWrap: false),
+                        label: Text(tr(context).themeDark, softWrap: false),
                       ),
                       ButtonSegment(
                         value: ThemeMode.light,
-                        label: Text('Light', softWrap: false),
+                        label: Text(tr(context).themeLight, softWrap: false),
                       ),
                     ],
                     selected: {settings.themeMode},
                     onSelectionChanged: (s) => settings.setThemeMode(s.first),
                   ),
                 ),
+                const SizedBox(height: IdSpacing.md),
+                // E2: screen language (System / English / Hindi / Kannada).
+                Text(tr(context).language),
+                DropdownButton<String>(
+                  key: const ValueKey('settings-language'),
+                  isExpanded: true,
+                  value: settings.language,
+                  items: [
+                    for (final code in kLanguageCodes)
+                      DropdownMenuItem(
+                        value: code,
+                        child: Text(
+                          code == 'system'
+                              ? tr(context).languageSystem
+                              : kLanguageNames[code]!,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) settings.setLanguage(v);
+                  },
+                ),
+                Text(
+                  tr(context).languageNote,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ],
             ),
           ),
           SectionCard(
-            title: 'This device',
+            title: tr(context).thisDevice,
             child: Column(
               children: [
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   minTileHeight: IdLayout.minTouchTarget,
                   leading: const Icon(Icons.badge_outlined),
-                  title: const Text('Device name'),
+                  title: Text(tr(context).deviceName),
                   subtitle: Text(settings.deviceName),
-                  trailing: const Icon(
+                  trailing: Icon(
                     Icons.edit_outlined,
-                    semanticLabel: 'Rename',
+                    semanticLabel: tr(context).rename,
                   ),
                   onTap: () => _editName(context),
                 ),
@@ -174,10 +193,8 @@ class SettingsScreen extends StatelessWidget {
                   contentPadding: EdgeInsets.zero,
                   minTileHeight: IdLayout.minTouchTarget,
                   leading: const Icon(Icons.info_outline),
-                  title: const Text('About Isekai Drop'),
-                  subtitle: const Text(
-                    'Isekai Drop $kAppVersion - build, key, updates, licences',
-                  ),
+                  title: Text(tr(context).aboutApp),
+                  subtitle: Text(tr(context).aboutSubtitle(kAppVersion)),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
@@ -189,76 +206,72 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
           SectionCard(
-            title: 'Receiving',
+            title: tr(context).receiving,
             child: Column(
               children: [
                 SettingSwitch(
                   value: settings.acceptFiles,
                   onChanged: (v) => settings.setAcceptFiles(v),
-                  title: 'Receive files from trusted devices',
-                  summary: 'Off: every offer is declined',
-                  info: 'When off, every offer is declined. Unknown devices can never send; they must pair first.',
+                  title: tr(context).receiveTrusted,
+                  summary: tr(context).receiveTrustedOff,
+                  info: tr(context).receiveTrustedInfo,
                 ),
                 SettingSwitch(
                   value: settings.autoReceiveVerified,
                   onChanged: settings.acceptFiles
                       ? (v) => _setAuto(context, v)
                       : null,
-                  title: 'Auto-receive from verified devices',
-                  summary: 'Off: you are asked every time (recommended)',
-                  info:
-                      'Off: you are asked every time (recommended). On: only devices marked '
-                      '"Verified" can send without asking. "Trusted" and blocked devices are always asked or refused.',
+                  title: tr(context).autoReceive,
+                  summary: tr(context).autoReceiveOff,
+                  info: tr(context).autoReceiveInfo,
                 ),
                 SettingSwitch(
                   value: settings.historyFileNames,
                   onChanged: (v) => _setNames(context, v),
-                  title: 'Save file names in History',
-                  summary: 'Kept on this device only',
-                  info: 'Names are kept on this device only and never written to logs. File contents are never saved.',
+                  title: tr(context).saveNames,
+                  summary: tr(context).saveNamesSummary,
+                  info: tr(context).saveNamesInfo,
                 ),
               ],
             ),
           ),
           SectionCard(
-            title: 'Connection',
+            title: tr(context).connection,
             child: Column(
               children: [
                 SettingSwitch(
                   value: settings.visibleOnNetwork,
                   onChanged: (v) => settings.setVisibleOnNetwork(v),
-                  title: 'Visible to nearby devices',
-                  summary: 'Others on your Wi-Fi can find this device',
-                  info:
-                      'Off: this device stops announcing itself (and stops Bonjour). '
-                      'Paired devices and QR/typed-address connections still work.',
+                  title: tr(context).visible,
+                  summary: tr(context).visibleSummary,
+                  info: tr(context).visibleInfo,
                 ),
                 const FastDirectSetting(),
               ],
             ),
           ),
           SectionCard(
-            title: 'Security',
+            title: tr(context).security,
             child: ListTile(
               contentPadding: EdgeInsets.zero,
               minTileHeight: IdLayout.minTouchTarget,
               leading: const Icon(Icons.verified_user_outlined),
-              title: const Text('Trusted devices'),
-              subtitle: const Text('Check codes, rename, revoke or remove'),
+              title: Text(tr(context).trustedDevices),
+              subtitle: Text(tr(context).trustedDevicesSub),
               trailing: const Icon(Icons.chevron_right),
               onTap: onTrusted,
             ),
           ),
           SectionCard(
-            title: 'Advanced',
+            title: tr(context).advanced,
             child: Column(
               children: [
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   minTileHeight: IdLayout.minTouchTarget,
                   leading: const Icon(Icons.menu_book_outlined),
-                  title: const Text('Help & guides'),
-                  subtitle: const Text('Hotspot, permissions, troubleshooting'),
+                  title: Text(tr(context).helpGuides),
+                  subtitle: Text(tr(context).helpGuidesSub),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
@@ -270,10 +283,8 @@ class SettingsScreen extends StatelessWidget {
                   contentPadding: EdgeInsets.zero,
                   minTileHeight: IdLayout.minTouchTarget,
                   leading: const Icon(Icons.monitor_heart_outlined),
-                  title: const Text('Diagnostics'),
-                  subtitle: const Text(
-                    'Connection, link speed, speed test, last error',
-                  ),
+                  title: Text(tr(context).diagnostics),
+                  subtitle: Text(tr(context).diagnosticsSub),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
@@ -285,10 +296,8 @@ class SettingsScreen extends StatelessWidget {
                   contentPadding: EdgeInsets.zero,
                   minTileHeight: IdLayout.minTouchTarget,
                   leading: const Icon(Icons.speed),
-                  title: const Text('Benchmark log'),
-                  subtitle: const Text(
-                    'Measured runs, median/min/max, CSV export',
-                  ),
+                  title: Text(tr(context).benchmarkLog),
+                  subtitle: Text(tr(context).benchmarkSub),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
@@ -300,10 +309,8 @@ class SettingsScreen extends StatelessWidget {
                   contentPadding: EdgeInsets.zero,
                   minTileHeight: IdLayout.minTouchTarget,
                   leading: const Icon(Icons.gavel_outlined),
-                  title: const Text('Open-source licences'),
-                  subtitle: const Text(
-                    'Full licence texts of included software',
-                  ),
+                  title: Text(tr(context).licencesTitle),
+                  subtitle: Text(tr(context).licencesSub),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => showLicensePage(
                     context: context,
@@ -314,7 +321,7 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
           SectionCard(
-            title: 'About this device',
+            title: tr(context).aboutThisDevice,
             child: ListenableBuilder(
               listenable: scope.engine,
               builder: (context, _) {
@@ -322,9 +329,11 @@ class SettingsScreen extends StatelessWidget {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Engine: ${e.version}'),
+                    Text(tr(context).engineVersion(e.version)),
                     Text(
-                      'Receiving on port: ${e.listeningPort ?? 'not running'}',
+                      tr(context).receivingPort(
+                        e.listeningPort?.toString() ?? tr(context).notRunning,
+                      ),
                     ),
                     if (e.startError != null)
                       Text(
@@ -333,25 +342,28 @@ class SettingsScreen extends StatelessWidget {
                           color: Theme.of(context).colorScheme.error,
                         ),
                       ),
-                    Text('Discovery: ${e.discoveryError ?? 'on'}'),
-                    Text('Nearby devices seen: ${e.nearby.length}'),
-                    Text('Trusted devices: ${e.trustedDevices.length}'),
-                    Text('Device key: ${shortFingerprint(e.myFingerprint)}'),
                     Text(
-                      e.secureStorageNote ??
-                          'Device key: kept in secure storage',
+                      tr(context).discoveryState(
+                        e.discoveryError ?? tr(context).discoveryOn,
+                      ),
                     ),
-                    Text('Received files go to: ${e.receiveLocationNote}'),
-                    const Text(
-                      'Encryption: TLS 1.3 with both devices\' keys checked.',
+                    Text(tr(context).nearbySeen('${e.nearby.length}')),
+                    Text(
+                      tr(context).trustedCount('${e.trustedDevices.length}'),
                     ),
                     Text(
-                      'History entries: ${e.history?.entries.length ?? 'unavailable'}',
+                      tr(context).deviceKey(shortFingerprint(e.myFingerprint)),
                     ),
-                    const Text(
-                      'Isekai Drop itself has no analytics, no cloud, no crash reporting. '
-                      'On Android the QR scanner (Google ML Kit) sends Google its own usage metrics - see Privacy.',
+                    Text(e.secureStorageNote ?? tr(context).deviceKeySecure),
+                    Text(tr(context).receivedGoTo(e.receiveLocationNote)),
+                    Text(tr(context).encryptionNote),
+                    Text(
+                      tr(context).historyEntries(
+                        e.history?.entries.length.toString() ??
+                            tr(context).unavailable,
+                      ),
                     ),
+                    Text(tr(context).noAnalytics),
                   ],
                 );
               },

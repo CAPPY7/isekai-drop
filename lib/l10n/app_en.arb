@@ -1,0 +1,581 @@
+{
+  "@@locale": "en",
+  "aboutApp": "About Isekai Drop",
+  "aboutSubtitle": "Isekai Drop {version} - build, key, updates, licences",
+  "@aboutSubtitle": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "aboutThisDevice": "About this device",
+  "aboutTitle": "About",
+  "accept": "Accept",
+  "addedToQueue": "Added to the queue. It starts when the current send finishes.",
+  "advanced": "Advanced",
+  "andMore": "...and {count} more",
+  "@andMore": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "anyFilesIos": "Files of any type. Folders cannot be picked on iPhone/iPad yet - pick the files inside instead.",
+  "anyFilesOrFolder": "Files of any type, or a whole folder (its sub-folders are kept).",
+  "appTitle": "Isekai Drop",
+  "appVersion": "Isekai Drop {version}",
+  "@appVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "appearance": "Appearance",
+  "askAlwaysAllow": "Always allow this device",
+  "askAlwaysAllowHelp": "Files from it are received without this question. Turn off in Settings > Trusted devices.",
+  "askCodeCheck": "Optional check: the other screen shows the same code",
+  "askFilesTitle": "{name} wants to send you files",
+  "@askFilesTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "askFromTrusted": "From trusted {platform} device \"{name}\".",
+  "@askFromTrusted": {
+    "placeholders": {
+      "platform": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "askKeyWarning": "WARNING: a device with this id was paired before with a DIFFERENT key. Accept only if you reinstalled or reset Isekai Drop on it. Accepting replaces the old key.",
+  "askPairConnect": "{platform} device \"{name}\" wants to connect.",
+  "@askPairConnect": {
+    "placeholders": {
+      "platform": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "askPairHelp": "Accept to pair: both devices remember each other, so next time files go straight to the usual question. If you did not start this, tap Decline.",
+  "askPairTitle": "Accept {name}?",
+  "@askPairTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "askPairWithFiles": "{platform} device \"{name}\" wants to send you {count} file(s), {size}.",
+  "@askPairWithFiles": {
+    "placeholders": {
+      "platform": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      },
+      "count": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "askReplaces": "You paired a device named \"{name}\" before, with a different key. This is probably that device after Isekai Drop was reinstalled or reset on it. Accept only if that is true; accepting replaces the old pairing.",
+  "@askReplaces": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "askResume": "Continues an interrupted transfer: {size} are already here.",
+  "@askResume": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "askTextBody": "A short text ({count} characters) from {platform} device \"{name}\". It is shown after you accept.",
+  "@askTextBody": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      },
+      "platform": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "askTextTitle": "{name} wants to send you a text",
+  "@askTextTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "autoReceive": "Auto-receive from verified devices",
+  "autoReceiveBody": "Devices marked \"Verified\" will be able to send files to this device without asking you. Files still go only to the normal receive folder and are still checked for damage. You can turn this off at any time.",
+  "autoReceiveInfo": "Off: you are asked every time (recommended). On: only devices marked \"Verified\" can send without asking. \"Trusted\" and blocked devices are always asked or refused.",
+  "autoReceiveOff": "Off: you are asked every time (recommended)",
+  "autoReceiveTitle": "Turn on auto-receive?",
+  "benchmarkLog": "Benchmark log",
+  "benchmarkSub": "Measured runs, median/min/max, CSV export",
+  "blockDevice": "Block this device",
+  "blockedNote": "Blocked. Unblock it in Settings > Trusted devices.",
+  "buildLoading": "Build: ...",
+  "buildLocal": "Build: local build (not from GitHub)",
+  "buildNumber": "Build {number}",
+  "@buildNumber": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "cancel": "Cancel",
+  "cannotRetry": "Cannot retry: the device or a file is no longer available.",
+  "chooseFiles": "Choose files to send",
+  "clear": "Clear",
+  "clearFinished": "Clear finished",
+  "clearHistory": "Clear history",
+  "clearHistoryBody": "All entries will be removed. Your files are not deleted.",
+  "clearHistoryTitle": "Clear history?",
+  "clearSelectionBody": "This removes all files from the list. Your files are not deleted.",
+  "clearSelectionTitle": "Clear selection?",
+  "close": "Close",
+  "connectDevice": "Connect a device",
+  "connection": "Connection",
+  "continueLabel": "Continue",
+  "continuedEarlier": "Continued an earlier attempt: {size} were already there.",
+  "@continuedEarlier": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "copied": "Copied",
+  "copy": "Copy",
+  "copyLink": "Copy link",
+  "decline": "Decline",
+  "delete": "Delete",
+  "deleteEntry": "Delete entry",
+  "deleteEntryBody": "Only the history entry is removed. Your files are not deleted.",
+  "deleteEntryTitle": "Delete this entry?",
+  "deleteOldNames": "Delete old names",
+  "deviceKey": "Device key: {key}",
+  "@deviceKey": {
+    "placeholders": {
+      "key": {
+        "type": "String"
+      }
+    }
+  },
+  "deviceKeySecure": "Device key: kept in secure storage",
+  "deviceName": "Device name",
+  "deviceNameLabel": "Name other devices will see",
+  "diagnostics": "Diagnostics",
+  "diagnosticsSub": "Connection, link speed, speed test, last error",
+  "didNotFinish": "{count} file(s), {size} - did not finish",
+  "@didNotFinish": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "discoveryOn": "on",
+  "discoveryState": "Discovery: {state}",
+  "@discoveryState": {
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "dragFilesHere": "Drag files here, or",
+  "encryptionNote": "Encryption: TLS 1.3 with both devices' keys checked.",
+  "engineVersion": "Engine: {version}",
+  "@engineVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "filesAndSize": "{count} file(s) · {size}",
+  "@filesAndSize": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "folderNotOpened": "The folder could not be opened.",
+  "folderPickFailed": "The folder could not be opened here. Try picking files instead.",
+  "fromName": "From {name}",
+  "@fromName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "getStarted": "Get started",
+  "helpGuides": "Help & guides",
+  "helpGuidesSub": "Hotspot, permissions, troubleshooting",
+  "historyEntries": "History entries: {count}",
+  "@historyEntries": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "historyLine": "{outcome} - {count} file(s), {size}",
+  "@historyLine": {
+    "placeholders": {
+      "outcome": {
+        "type": "String"
+      },
+      "count": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "historyNoteNames": "Saved on this device only. File contents are never stored; file names are (turn off in Settings).",
+  "historyNoteNoNames": "Saved on this device only. File contents are never stored; file names are not saved.",
+  "historyUnavailable": "History is not available",
+  "historyUnavailableBody": "This device could not open its history file.",
+  "homeFooter": "Files go directly between your devices, encrypted. Nothing is uploaded.",
+  "homeReadyHelp": "Keep Isekai Drop open to receive. You will always be asked first.",
+  "howToUpdate": "How to update",
+  "interruptedSends": "Interrupted sends",
+  "jobProgress": "{status} - {percent}% of {size}",
+  "@jobProgress": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "keepOldNames": "Keep old names",
+  "keyHelp": "Your other devices know this device by this key. It changes only if the app is reinstalled or reset.",
+  "language": "Language",
+  "languageNote": "Hindi and Kannada are machine/assistant translations and have not been checked by a native speaker yet.",
+  "languageSystem": "Same as device",
+  "latestTestBuild": "Latest test build",
+  "licences": "Licences",
+  "licencesSub": "Full licence texts of included software",
+  "licencesTitle": "Open-source licences",
+  "manage": "Manage",
+  "modeFiles": "Files",
+  "modeText": "Text",
+  "moved": "Moved: {size}",
+  "@moved": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "nameNearby": "{name}  (nearby)",
+  "@nameNearby": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "nameNearbyAsk": "{name}  (nearby, asks once to accept)",
+  "@nameNearbyAsk": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "navConnect": "Connect",
+  "navHistory": "History",
+  "navHome": "Home",
+  "navSend": "Send",
+  "navSettings": "Settings",
+  "nearbyDevices": "Nearby devices",
+  "nearbySeen": "Nearby devices seen: {count}",
+  "@nearbySeen": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "needsPairingAgain": "Needs pairing again",
+  "newKeyTitle": "This device has a new key",
+  "next": "Next",
+  "noAnalytics": "Isekai Drop itself has no analytics, no cloud, no crash reporting. On Android the QR scanner (Google ML Kit) sends Google its own usage metrics - see Privacy.",
+  "noTransfers": "No transfers yet",
+  "noTransfersInfo": "Finished transfers will be listed here.",
+  "notNow": "Not now",
+  "notReady": "Not ready",
+  "notRunning": "not running",
+  "notifBody": "Isekai Drop shows how far a transfer is, and asks you about incoming files, in a notification. Then transfers keep going when you switch to another app. No file names or device names are shown.",
+  "notifTitle": "Show transfer notifications?",
+  "openInBrowser": "Open in browser",
+  "openLink": "Open link",
+  "openSource": "Open-source software",
+  "opening": "Opening...",
+  "outcomeCancelled": "Cancelled",
+  "outcomeCompleted": "Completed",
+  "outcomeFailed": "Failed",
+  "pairAgain": "Pair again",
+  "pickFiles": "Pick files",
+  "pickFolder": "Pick a folder",
+  "pickerFailed": "The file picker could not open. Please try again.",
+  "ready": "Ready",
+  "receiveTrusted": "Receive files from trusted devices",
+  "receiveTrustedInfo": "When off, every offer is declined. Unknown devices can never send; they must pair first.",
+  "receiveTrustedOff": "Off: every offer is declined",
+  "receivedFrom": "Received from {name}",
+  "@receivedFrom": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "receivedGoTo": "Received files go to: {place}",
+  "@receivedGoTo": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "receiving": "Receiving",
+  "receivingPort": "Receiving on port: {port}",
+  "@receivingPort": {
+    "placeholders": {
+      "port": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedPeerBody": "\"{name}\" tried to connect, but with a different key than \"{paired}\" had when you paired. Most likely Isekai Drop was reinstalled or reset on it. This device refused it. Pair again only if that is true.",
+  "@rejectedPeerBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "paired": {
+        "type": "String"
+      }
+    }
+  },
+  "remove": "Remove",
+  "removeFromList": "Remove {name} from list",
+  "@removeFromList": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "removeSendBody": "It will no longer be offered for retry. Your files are not deleted.",
+  "removeSendTitle": "Remove this send?",
+  "rename": "Rename",
+  "requestExpired": "Request expired - nobody answered in time.",
+  "retry": "Retry",
+  "save": "Save",
+  "saveNames": "Save file names in History",
+  "saveNamesInfo": "Names are kept on this device only and never written to logs. File contents are never saved.",
+  "saveNamesSummary": "Kept on this device only",
+  "savedTo": "Saved to: {place}",
+  "@savedTo": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "savedTrusted": "Saved trusted devices",
+  "security": "Security",
+  "sendFilesTo": "Send {count} file(s) to {name}",
+  "@sendFilesTo": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sendText": "Send text",
+  "sendTextTo": "Send text to {name}",
+  "@sendTextTo": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sendToName": "Send to {name}",
+  "@sendToName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sentTo": "Sent to {name}",
+  "@sentTo": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedFromApp": "Shared from another app",
+  "shortKey": "Short: {key}",
+  "@shortKey": {
+    "placeholders": {
+      "key": {
+        "type": "String"
+      }
+    }
+  },
+  "showFolder": "Show folder",
+  "skip": "Skip",
+  "slide1Text": "Phones and PCs. No account and no cloud.",
+  "slide1Title": "Open Isekai Drop on both devices",
+  "slide2Text": "Both devices on one network (or one shares a hotspot). The first time, connect them once with a QR code.",
+  "slide2Title": "Use the same Wi-Fi",
+  "slide3Text": "Files go straight between your devices, encrypted and checked.",
+  "slide3Title": "Pick files and send",
+  "starting": "Starting...",
+  "stepFilesCount": "1. Files: {count}, {size}",
+  "@stepFilesCount": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "stepOf": "Step {step} of {total}",
+  "@stepOf": {
+    "placeholders": {
+      "step": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "stepPickDevice": "2. Pick a device",
+  "stepPickFiles": "1. Pick files",
+  "stepTextOrLink": "1. Text or link",
+  "stopNamesBody": "New history entries will not contain file names. Do you also want to delete the names already saved?",
+  "stopNamesTitle": "Stop saving file names?",
+  "testBuildNote": "A test build, not a public release.",
+  "textAskNote": "The other device asks before showing it. Links are never opened by themselves.",
+  "textErrDeclined": "The other device declined the text.",
+  "textErrEmpty": "Type a text first.",
+  "textErrExpired": "Nobody answered on the other device.",
+  "textErrFailed": "The text could not be sent. Please try again.",
+  "textErrNoAddress": "The other device was not found. Make sure it is on the same network with Isekai Drop open.",
+  "textErrNotTrusted": "The other device does not trust this device any more. Pair again.",
+  "textErrOldPeer": "The other device has an older Isekai Drop that cannot receive text. Update the other app.",
+  "textErrTooLong": "The text is too long. Up to 8 KB (about 8000 letters) can be sent.",
+  "textFrom": "Text from {name}",
+  "@textFrom": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "textHint": "Type or paste a text or link",
+  "textPairedOnly": "Text can be sent to paired devices only. Pair first (send a file, or use Connect).",
+  "textSentTo": "Text sent to {name}.",
+  "@textSentTo": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "theme": "Theme",
+  "themeDark": "Dark",
+  "themeLight": "Light",
+  "themeSystem": "System",
+  "thisDevice": "This device",
+  "thisDeviceKey": "This device's key",
+  "toName": "To {name}",
+  "@toName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "transfersThisSession": "Transfers this session",
+  "trustedCount": "Trusted devices: {count}",
+  "@trustedCount": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "trustedDevices": "Trusted devices",
+  "trustedDevicesSub": "Check codes, rename, revoke or remove",
+  "turnOn": "Turn on",
+  "unavailable": "unavailable",
+  "updateAndroid": "Android: open the link above, download isekai-drop-android-arm64.apk (or -universal.apk) and install it over this app. Your paired devices and history stay.",
+  "updateBoth": "Update both devices: devices with very different versions may not understand each other.",
+  "updateIos": "iPhone/iPad: sign the new .ipa again with your own Apple ID (NOT TESTED).",
+  "updateMac": "Mac: download isekai-drop-macos.dmg and drag the app to Applications (NOT TESTED on a Mac).",
+  "updateWindows": "Windows: download isekai-drop-windows-setup.exe and run it.",
+  "versionTitle": "Version",
+  "visible": "Visible to nearby devices",
+  "visibleInfo": "Off: this device stops announcing itself (and stops Bonjour). Paired devices and QR/typed-address connections still work.",
+  "visibleSummary": "Others on your Wi-Fi can find this device"
+}
