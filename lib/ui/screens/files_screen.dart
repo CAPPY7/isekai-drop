@@ -16,6 +16,8 @@ class FilesScreen extends StatefulWidget {
     super.key,
     required this.isDesktop,
     this.initialFiles = const [],
+    this.pickFiles = pickFilesToSend,
+    this.pickFolder = pickFolderToSend,
   });
 
   final bool isDesktop;
@@ -23,6 +25,10 @@ class FilesScreen extends StatefulWidget {
   /// Files already in step 1 (tests; the pickers need a real platform).
   @visibleForTesting
   final List<SendSource> initialFiles;
+
+  /// The system pickers (tests pass fakes).
+  final Future<PickResult> Function() pickFiles;
+  final Future<PickResult> Function() pickFolder;
 
   @override
   State<FilesScreen> createState() => _FilesScreenState();
@@ -49,8 +55,11 @@ class _FilesScreenState extends State<FilesScreen> {
       _error = null;
     });
     try {
-      final picked = await pickFilesToSend();
-      setState(() => _files.addAll(picked));
+      final picked = await widget.pickFiles();
+      setState(() {
+        _files.addAll(picked.files);
+        _error = _skippedText(picked.skipped);
+      });
     } catch (_) {
       setState(
         () => _error = 'The file picker could not open. Please try again.',
@@ -66,10 +75,10 @@ class _FilesScreenState extends State<FilesScreen> {
       _error = null;
     });
     try {
-      final picked = await pickFolderToSend();
+      final picked = await widget.pickFolder();
       setState(() {
-        _files.addAll(picked);
-        if (picked.isEmpty) _error = null;
+        _files.addAll(picked.files);
+        _error = _skippedText(picked.skipped);
       });
     } catch (_) {
       setState(
@@ -81,20 +90,26 @@ class _FilesScreenState extends State<FilesScreen> {
     }
   }
 
+  /// C3: "N files were not added" with the reason, or null.
+  String? _skippedText(SkippedFiles s) =>
+      s.total == 0 ? null : s.messages.join('\n');
+
   Future<void> _onDrop(DropDoneDetails details) async {
     final added = <SendSource>[];
-    var skipped = 0;
+    var skipped = const SkippedFiles();
     for (final f in details.files) {
       try {
-        added.addAll(await sendSourcesFromPath(f.path));
+        final r = await sendSourcesFromPath(f.path);
+        added.addAll(r.files);
+        skipped = skipped + r.skipped;
       } catch (_) {
-        skipped++;
+        skipped = skipped + const SkippedFiles(unreadable: 1);
       }
     }
     setState(() {
       _dragging = false;
       _files.addAll(added);
-      if (skipped > 0) _error = '$skipped dropped item(s) could not be read.';
+      _error = _skippedText(skipped);
     });
   }
 

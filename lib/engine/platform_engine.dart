@@ -14,6 +14,9 @@ import 'android_export.dart';
 import 'android_media.dart';
 import 'bonjour.dart';
 import 'free_space.dart';
+import 'pick_result.dart';
+
+export 'pick_result.dart' show PickResult, SkippedFiles;
 import 'core/benchmark_store.dart';
 import 'core/blocked_store.dart';
 import 'core/diag_log.dart';
@@ -711,60 +714,51 @@ Future<String> androidFileSha256(File f) async {
   return h;
 }
 
-/// Opens the system file picker. Returns files ready to stream.
-Future<List<SendSource>> pickFilesToSend() async {
+/// Opens the system file picker. Returns files ready to stream, and (C3)
+/// how many could not be added and why.
+Future<PickResult> pickFilesToSend() async {
   if (Platform.isAndroid) {
-    final list =
-        await _android.invokeListMethod<Map<dynamic, dynamic>>('pickFiles') ??
-        [];
-    final out = <SendSource>[];
-    for (final m in list) {
-      final size = (m['size'] as num?)?.toInt() ?? -1;
-      if (size < 0) continue; // Unknown size: cannot be verified, skipped.
-      out.add(AndroidUriSource(m['uri'] as String, m['name'] as String, size));
-    }
-    return out;
+    return parseAndroidPicked(
+      await _android.invokeListMethod<Object?>('pickFiles') ?? const [],
+    );
   }
   final files = await openFiles();
-  return [
-    for (final f in files)
-      if (f.path.isNotEmpty) FileSendSource(File(f.path), name: f.name),
-  ];
+  final out = <SendSource>[];
+  var unreadable = 0;
+  for (final f in files) {
+    if (f.path.isEmpty) {
+      unreadable++;
+      continue;
+    }
+    try {
+      out.add(FileSendSource(File(f.path), name: f.name));
+    } on FileSystemException {
+      unreadable++;
+    }
+  }
+  return PickResult(out, SkippedFiles(unreadable: unreadable));
 }
 
 /// A dropped path: a file, or a folder (sent with its structure).
-Future<List<SendSource>> sendSourcesFromPath(String path) async {
+Future<PickResult> sendSourcesFromPath(String path) async {
   if (await FileSystemEntity.isDirectory(path)) {
-    return folderSources(Directory(path));
+    return folderPick(Directory(path));
   }
-  return [FileSendSource(File(path))];
+  return PickResult([FileSendSource(File(path))]);
 }
 
 /// Opens the system folder picker. Returns every file inside, keeping the
 /// folder structure in [SendSource.relativePath]. Empty if cancelled.
-Future<List<SendSource>> pickFolderToSend() async {
+/// C3: files that could not be added are counted in [PickResult.skipped].
+Future<PickResult> pickFolderToSend() async {
   if (Platform.isAndroid) {
-    final m = await _android.invokeMapMethod<String, dynamic>('pickFolder');
-    if (m == null) return const [];
-    final out = <SendSource>[];
-    for (final f in (m['files'] as List? ?? const [])) {
-      final x = f as Map;
-      final size = (x['size'] as num?)?.toInt() ?? -1;
-      if (size < 0) continue;
-      out.add(
-        AndroidUriSource(
-          x['uri'] as String,
-          x['name'] as String,
-          size,
-          relativePath: x['rel'] as String,
-        ),
-      );
-    }
-    return out;
+    return parseAndroidFolder(
+      await _android.invokeMapMethod<Object?, Object?>('pickFolder'),
+    );
   }
   final dir = await getDirectoryPath();
-  if (dir == null) return const [];
-  return folderSources(Directory(dir));
+  if (dir == null) return PickResult.empty;
+  return folderPick(Directory(dir));
 }
 
 /// Android only: keep the screen on while a transfer runs.

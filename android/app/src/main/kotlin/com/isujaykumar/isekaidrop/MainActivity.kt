@@ -690,16 +690,28 @@ class MainActivity : FlutterActivity() {
                     DocumentsContract.buildDocumentUriUsingTree(tree, rootId),
                     arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME), null, null, null,
                 )?.use { c -> if (c.moveToFirst() && !c.isNull(0)) rootName = c.getString(0) }
-                walk(tree, rootId, rootName, out, 0)
-                runOnUiThread { result.success(mapOf("name" to rootName, "files" to out)) }
+                val skips = Skips()
+                walk(tree, rootId, rootName, out, 0, skips)
+                // C3: counts of what could not be added (shown to the user).
+                runOnUiThread {
+                    result.success(mapOf(
+                        "name" to rootName, "files" to out,
+                        "skippedDeep" to skips.deep, "skippedMany" to skips.many,
+                    ))
+                }
             } catch (e: Exception) {
                 runOnUiThread { result.error("folder_failed", "Could not read folder", null) }
             }
         }
     }
 
-    private fun walk(tree: Uri, docId: String, rel: String, out: MutableList<Map<String, Any?>>, depth: Int) {
-        if (depth > 32 || out.size > 20000) return
+    /** C3: folders deeper than 32 levels, files over the 20000 limit. */
+    private class Skips { var deep = 0; var many = 0 }
+
+    private fun walk(
+        tree: Uri, docId: String, rel: String, out: MutableList<Map<String, Any?>>,
+        depth: Int, skips: Skips,
+    ) {
         val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, docId)
         val cols = arrayOf(
             DocumentsContract.Document.COLUMN_DOCUMENT_ID,
@@ -713,7 +725,10 @@ class MainActivity : FlutterActivity() {
                 val name = c.getString(1) ?: "file"
                 val mime = c.getString(2) ?: ""
                 if (mime == DocumentsContract.Document.MIME_TYPE_DIR) {
-                    walk(tree, id, "$rel/$name", out, depth + 1)
+                    if (depth + 1 > 32) skips.deep++
+                    else walk(tree, id, "$rel/$name", out, depth + 1, skips)
+                } else if (out.size >= 20000) {
+                    skips.many++
                 } else {
                     val size = if (c.isNull(3)) -1L else c.getLong(3)
                     out.add(mapOf(
