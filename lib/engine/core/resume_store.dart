@@ -141,13 +141,22 @@ class ResumeStore {
     }
   }
 
+  /// Creates a new state. C5: first makes room: at most [maxPerPeer]
+  /// states per sending device, and (when [freeBytes] is known) kept
+  /// partial data of at most half the free space; the oldest go first.
   Future<ResumeState> create(
     String peerFp,
     String tid,
-    List<(String, int)> files,
-  ) async {
+    List<(String, int)> files, {
+    int? freeBytes,
+  }) async {
     final key = keyFor(peerFp, tid);
     await discard(key);
+    try {
+      await _makeRoom(peerFp, freeBytes);
+    } on FileSystemException {
+      // Could not list the folder: nothing to clean up.
+    }
     final now = DateTime.now().toUtc();
     final s = ResumeState(
       key: key,
@@ -228,6 +237,54 @@ class ResumeStore {
       } catch (_) {
         await discard(p.basenameWithoutExtension(e.path));
       }
+    }
+  }
+
+  /// C5: most resume states kept per sending device.
+  static const int maxPerPeer = 5;
+
+  Future<void> _makeRoom(String peerFp, int? freeBytes) async {
+    if (!await dir.exists()) return;
+    final all = <({String key, String fp, DateTime at, int bytes})>[];
+    await for (final e in dir.list()) {
+      if (e is! File || !e.path.endsWith('.json')) continue;
+      final key = p.basenameWithoutExtension(e.path);
+      try {
+        final j = jsonDecode(await e.readAsString()) as Map<String, dynamic>;
+        var bytes = 0;
+        final pi = j['partial_index'];
+        if (j['partial_direct'] is String && pi is int) {
+          // Hidden Downloads item: its size is not known here; count the
+          // whole file (deletes old data sooner, never later).
+          final f = (j['files'] as List)[pi] as Map;
+          bytes = (f['size'] as num).toInt();
+        } else {
+          final part = partFile(key);
+          if (await part.exists()) bytes = await part.length();
+        }
+        all.add((
+          key: key,
+          fp: j['peer_fp'] as String,
+          at: DateTime.parse(j['updated_at'] as String),
+          bytes: bytes,
+        ));
+      } catch (_) {
+        await discard(key); // damaged: can never be resumed
+      }
+    }
+    all.sort((a, b) => a.at.compareTo(b.at)); // oldest first
+    final mine = all.where((x) => x.fp == peerFp).toList();
+    while (mine.length >= maxPerPeer) {
+      final old = mine.removeAt(0);
+      all.remove(old);
+      await discard(old.key);
+    }
+    if (freeBytes == null) return;
+    var total = all.fold<int>(0, (a, x) => a + x.bytes);
+    while (all.isNotEmpty && total > freeBytes ~/ 2) {
+      final old = all.removeAt(0);
+      total -= old.bytes;
+      await discard(old.key);
     }
   }
 

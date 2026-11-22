@@ -70,6 +70,24 @@ const int kLaneBatchBytes = 1024 * 1024;
 
 const int kFreeSpaceMargin = 64 * 1024 * 1024;
 
+/// C5: largest file an offer may announce (8 TiB).
+const int kMaxOfferFileBytes = 8 << 40;
+
+/// C5: largest total an offer may announce (16 TiB).
+const int kMaxOfferTotalBytes = 16 << 40;
+
+/// C5: every size is 0..8 TiB and the total is at most 16 TiB. Adds with
+/// overflow protection (never wraps around).
+bool offerSizesOk(List<int> sizes) {
+  var total = 0;
+  for (final s in sizes) {
+    if (s < 0 || s > kMaxOfferFileBytes) return false;
+    if (s > kMaxOfferTotalBytes - total) return false;
+    total += s;
+  }
+  return true;
+}
+
 String _mb(int b) => (b / (1024 * 1024)).ceil().toString();
 
 /// Default finalizer for desktop: rename inside [dir] without overwriting.
@@ -2035,6 +2053,15 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       );
       sizes.add(size);
     }
+    if (!offerSizesOk(sizes)) {
+      recordProblem(
+        'incoming_offer_too_big',
+        'Receiving: refused a file list with a file above 8 TiB or more '
+            'than 16 TiB in total.',
+      );
+      s.add(jsonFrame({'t': 'decline', 'reason': 'bad_offer'}));
+      return;
+    }
     final total = sizes.fold<int>(0, (a, b) => a + b);
 
     // Resume (optional): only for this sender's key + this transfer id.
@@ -2201,7 +2228,12 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       } catch (_) {}
     };
     if (store != null) {
-      state ??= await store.create(dev.fingerprint, tid!, offerList);
+      state ??= await store.create(
+        dev.fingerprint,
+        tid!,
+        offerList,
+        freeBytes: free,
+      );
     }
     final offsets = <int, int>{};
     if (state != null) {
@@ -3113,6 +3145,9 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         job.refusedByPeer = true;
         job.finish(JobState.failed, switch (answer['reason']) {
           'not_accepting' => 'The other device is not accepting files right now (turned off in its Settings).',
+          'bad_offer' =>
+            'The other device refused the file list: too many files, or a '
+                'file is too big (at most 8 TiB per file, 16 TiB in total).',
           'no_space' =>
             'The other device does not have enough free space'
                 '${answer['need'] is int && answer['free'] is int ? ' (${_mb(answer['need'] as int)} MB needed, ${_mb(answer['free'] as int)} MB free)' : ''}.',
