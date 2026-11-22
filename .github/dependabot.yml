@@ -1,0 +1,21 @@
+# B4 (0.11.3): weekly update checks. Dependabot opens a pull request; CI
+# (ci.yml) tests it; nothing is merged automatically. Minor and patch
+# updates come as one grouped pull request per ecosystem; major updates
+# come one by one (they may need code changes, and pub packages must stay
+# MIT/BSD/Apache-2.0 - check THIRD_PARTY_NOTICES.md before merging).
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      actions-minor-patch:
+        update-types: ["minor", "patch"]
+  - package-ecosystem: "pub"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      pub-minor-patch:
+        update-types: ["minor", "patch"]

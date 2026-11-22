@@ -147,4 +147,19 @@ void main() {
       }
     });
   });
+
+  test('B4 dependabot: github-actions and pub weekly, minor+patch grouped', () {
+    final s = File('.github/dependabot.yml').readAsStringSync();
+    expect(s, contains('version: 2'));
+    for (final eco in ['github-actions', 'pub']) {
+      final i = s.indexOf('package-ecosystem: "$eco"');
+      expect(i, greaterThan(0), reason: eco);
+      final next = s.indexOf('package-ecosystem:', i + 1);
+      final block = s.substring(i, next < 0 ? s.length : next);
+      expect(block, contains('directory: "/"'));
+      expect(block, contains('interval: "weekly"'));
+      expect(block, contains('groups:'));
+      expect(block, contains('update-types: ["minor", "patch"]'));
+    }
+  });
 }
