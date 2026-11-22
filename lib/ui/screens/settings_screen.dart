@@ -1,3 +1,5 @@
+import 'about_screen.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../engine/transfer_engine.dart';
@@ -172,8 +174,16 @@ class SettingsScreen extends StatelessWidget {
                   contentPadding: EdgeInsets.zero,
                   minTileHeight: IdLayout.minTouchTarget,
                   leading: const Icon(Icons.info_outline),
-                  title: const Text('App version'),
-                  subtitle: const Text('Isekai Drop $kAppVersion'),
+                  title: const Text('About Isekai Drop'),
+                  subtitle: const Text(
+                    'Isekai Drop $kAppVersion - build, key, updates, licences',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const AboutScreen(),
+                    ),
+                  ),
                 ),
               ],
             ),

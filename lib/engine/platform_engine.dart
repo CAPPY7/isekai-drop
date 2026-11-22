@@ -808,6 +808,11 @@ Future<PickResult> takeLostPickedFiles() async {
   );
 }
 
+/// E3: the build number the app was built with (`--build-number`, the
+/// GitHub run number in CI; the pubspec number in a local build). Flutter
+/// embeds it at compile time, so no package and no platform call is needed.
+Future<String?> currentBuildNumber() async => appBuildNumber;
+
 /// D2: Android 13+ notification permission. True when allowed.
 Future<bool> askNotificationPermission() async {
   if (!Platform.isAndroid) return true;
