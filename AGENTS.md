@@ -286,3 +286,11 @@ file before every phase. Stop after each phase and wait for "next".
 - Certificates up to 0.11.1 all had CN "Isekai Drop device". BoringSSL picks a self-signed client cert from the server's trusted certs BY SUBJECT and needs an exact match, so a receiver with 2+ trusted devices accepted only one. Never give two identities the same subject again.
 - Since 0.11.2 CN = "Isekai Drop <deviceId>", O = Isekai Drop. platform_engine `_loadIdentity` renews old identities (same deviceId) and stores them where the old one was; keeps the old one if storing fails. `Identity.generate(legacySubject: true)` is for tests only.
 - The receiver side cannot work around old certs (Dart has no server onBadCertificate); senders must be on 0.11.2.
+
+## Phase A / 0.11.2 security decisions (2026-11-22)
+- Build plan: 6 phases A-F (0.11.2 ... 0.12.2), one commit per item "<id>: <text>", failing test first, AUDIT rows #37+. Stop after each phase and wait for "next".
+- Identity (A1): `lib/engine/core/identity_loader.dart`. A new key ONLY when the key store returns null. A throw is retried once after `kIdentityRetryDelay` (2 s), then `IdentityUnreadable` -> `StartupErrorApp` (Try again / Create a new key, asks first; `resetIdentity()` in platform_engine). Never silently replace an identity. Android: allowBackup=false + res/xml backup_rules + data_extraction_rules (exclude all).
+- Discovery (A2): `parseAnnouncement` / `validAnnouncementFields` in discovery.dart; `kMaxNearby` 64, `kMaxNewIdsPerSource` 5 per `kNewIdsWindow` 10 s; paired devices bypass the limits; nearby notifications max 4/s. `cleanDeviceName` lives in core/names.dart (re-exported by engine.dart); settings uses `cleanSystemName`.
+- Pairing (A3): `kPairHelloWait` 45 s, `kMaxPairHelloWaits` 2 (one per source address), `kPairCooldown` 60 s by key fingerprint (reason "cooldown"). Blocked keys: `BlockedStore` (`blocked_devices.json`, schema_version 1, atomic), refused with reason "declined" before any dialog. kMaxHandshakes/kMaxSessions unchanged.
+- Key files (A4/A5): `secureDelete` overwrites then truncates; `writePrivateFile` (core/private_file.dart) for every fallback write.
+- Errors (A6): `lib/startup_guard.dart`; entries `uncaught_<plainErrorClass>`, never the error message or stack. Engine takes `diagLog:` so app and engine share one log.

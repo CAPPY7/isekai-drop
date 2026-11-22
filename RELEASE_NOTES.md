@@ -27,9 +27,30 @@
 - When a device refuses a known device's new key it shows a
   **Needs pairing again** card with **Pair again**.
 
+## Security and safety (Phase A)
+- **Your device key is safer.** Android no longer backs up or copies Isekai
+  Drop's data to a new phone (that brought back paired devices with a new
+  key, so they all refused this one). If the phone's key store has a hiccup,
+  the app tries again after 2 seconds and never makes a new key by itself.
+  If the key really cannot be read you see a clear screen with
+  **Try again** and **Create a new key** (it asks first).
+- **Nearby list can't be flooded.** Fake or broken "I am here" messages are
+  ignored, names are cleaned, the list holds at most 64 devices (your paired
+  devices always show), and it updates at most 4 times a second.
+- **No more pairing spam.** Two people can pair at the same time (one wait
+  per address, 45 seconds). After you tap Decline, the same device cannot
+  ask again for 1 minute. New **Block this device** button in the pairing
+  question; see and undo it in Settings > Trusted devices > Blocked.
+- The old key file is now overwritten with zeros before it is deleted, and
+  a new key file is private (mode 600) from the first moment.
+- Unexpected errors are written to Diagnostics (no file or device names).
+  If the app cannot start, **Copy details** copies a short report.
+
 ## NOT TESTED
 - Nothing in this release was tried on a real phone or Windows PC. Tested
-  on the build box (Linux) with several app engines over loopback.
+  on the build box (Linux) with several app engines over loopback. Not
+  testable here: Android backup/restore, a failing Android Keystore, real
+  Wi-Fi discovery floods, the new screens on a phone.
 
 # Isekai Drop 0.11.1 (DRAFT release notes, test build)
 

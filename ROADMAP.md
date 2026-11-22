@@ -193,6 +193,16 @@ Owner on 0.10.1: plain TCP 6.9, TLS 7.1/8.8 MB/s; disk/hash 121-312 MB/s -> netw
 - [ ] Owner: update all devices, pair again, phone <-> phone send (NOT TESTED)
 - [ ] Speed items from the owner's Windows Speed test (netsh parse localized, direct link Windows <-> Android, faster hashing)
 
+## Phase A (0.11.2) - security and safety (plan 0.11.1 -> 0.12.0)
+- [x] A1 Android backup off (backup_rules + data_extraction_rules); no new key when the key store throws (retry once after 2 s, IdentityUnreadable screen); damaged fallback guarded
+- [x] A2 Discovery input validated (id/fp/port/strings), names cleaned by runes, max 64 nearby, 5 new ids/address/10 s, max 4 updates/s; cleanSystemName
+- [x] A3 pair_hello wait per address (max 2, 45 s), 60 s cooldown after Decline/expiry, Block this device + Blocked list (blocked_devices.json)
+- [x] A4 secureDelete: zeros first, flush, then truncate + delete
+- [x] A5 Fallback key file: create empty, mode 600, then write
+- [x] A6 runZonedGuarded + FlutterError/PlatformDispatcher handlers -> Diagnostics; Copy details on the start error screen
+- [ ] On real devices (owner): backup/restore, Keystore hiccup, pairing cooldown/block, error screen (NOT TESTED)
+- [ ] Next: Phase B (CI for every platform) - only after the owner says "next"
+
 ## Phase 8 - Fix security, compatibility, performance, usability
 - [ ] Security tests for all acceptance tests
 - [x] Real release key (never committed): new key in 0.11.1 (old backup lost), CI signs main builds when the 4 secrets exist (Phase 7m).
