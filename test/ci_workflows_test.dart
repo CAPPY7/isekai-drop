@@ -162,4 +162,20 @@ void main() {
       expect(block, contains('update-types: ["minor", "patch"]'));
     }
   });
+
+  test('B5 docs/BRANCH_PROTECTION.md: step by step for the owner', () {
+    final s = File('docs/BRANCH_PROTECTION.md').readAsStringSync();
+    for (final want in [
+      'Settings',
+      'Rulesets',
+      'Require a pull request before merging',
+      'Require status checks to pass',
+      'flutter analyze + flutter test',
+      'Bypass list',
+    ]) {
+      expect(s, contains(want), reason: want);
+    }
+    // The check name in the doc must be the real job name in ci.yml.
+    expect(wf('ci.yml'), contains('name: flutter analyze + flutter test'));
+  });
 }
