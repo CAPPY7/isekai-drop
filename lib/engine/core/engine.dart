@@ -948,6 +948,132 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   @visibleForTesting
   Duration approvalTimeout = kApprovalTimeout;
 
+  /// E1 tests: behave like an app older than 0.12.1 (no text messages).
+  @visibleForTesting
+  bool debugTextUnknown = false;
+
+  /// E1 tests: send a text without the sender-side size check.
+  @visibleForTesting
+  bool debugSkipTextCheck = false;
+
+  // ------------------------------------------------------------ E1: text
+
+  @override
+  Future<void> sendText(
+    TrustedDevice dev,
+    String body, {
+    String? host,
+    int? port,
+  }) async {
+    final problem = textBodyProblem(body);
+    if (problem != null && !(debugSkipTextCheck && problem == 'too_long')) {
+      throw TextSendException(problem);
+    }
+    if (!dev.isTrusted) throw const TextSendException('not_trusted');
+    final tries = _addressesFor(dev, host, port);
+    if (tries.isEmpty) throw const TextSendException('no_address');
+    SecureSocket? s;
+    Object? err;
+    for (final (h, pt) in tries) {
+      try {
+        s = await _connectTrusted(dev, h, pt);
+        break;
+      } on PairingException {
+        rethrow;
+      } catch (e) {
+        err = e;
+      }
+    }
+    final sock = s;
+    if (sock == null) {
+      recordException('text_connect', err ?? 'no_address', quiet: true);
+      throw const TextSendException('no_address');
+    }
+    final reader = FrameReader(sock);
+    try {
+      sock.add(jsonFrame({'t': 'text', 'v': kProtocolVersion, 'body': body}));
+      await _flushOrClosed(sock);
+      // The other user answers a question: allow as long as files get.
+      final r = await reader.nextJson(
+        approvalTimeout + const Duration(seconds: 15),
+      );
+      if (r['t'] == 'text_ok') return;
+      final reason = '${r['reason'] ?? 'refused'}';
+      throw TextSendException(
+        reason == 'unknown_message' ? 'old_peer' : reason,
+      );
+    } on TextSendException {
+      rethrow;
+    } catch (e) {
+      recordException('text_send', e, quiet: true);
+      throw const TextSendException('failed');
+    } finally {
+      sock.destroy();
+      await reader.cancel();
+    }
+  }
+
+  /// E1: a text from a trusted device. Always asked (never received
+  /// silently); the content is never logged or stored.
+  Future<void> _serverText(
+    SecureSocket s,
+    TrustedDevice dev,
+    Map<String, dynamic> m,
+  ) async {
+    final body = m['body'];
+    if (body is! String || textBodyProblem(body) != null) {
+      s.add(
+        jsonFrame({
+          't': 'decline',
+          'reason': body is String && body.trim().isEmpty
+              ? 'empty'
+              : 'too_long',
+        }),
+      );
+      return;
+    }
+    final req = PendingRequest(
+      id: randomHex(8),
+      kind: RequestKind.text,
+      peerName: dev.name,
+      peerPlatform: dev.platform,
+      deviceId: dev.deviceId,
+      peerVerified: dev.isVerified,
+      textBody: body,
+    );
+    if (!await _ask(req)) {
+      s.add(
+        jsonFrame({
+          't': 'decline',
+          'reason': req.expired ? 'expired' : 'declined',
+        }),
+      );
+      return;
+    }
+    s.add(jsonFrame({'t': 'text_ok'}));
+    final h = history;
+    if (h != null) {
+      final now = DateTime.now().toUtc();
+      _keep(
+        h.add(
+          HistoryEntry(
+            id: req.id,
+            direction: HistoryDirection.received,
+            outcome: HistoryOutcome.completed,
+            peerName: dev.name,
+            peerDeviceId: dev.deviceId,
+            fileCount: 0,
+            totalBytes: 0,
+            bytesDone: 0,
+            createdAt: now,
+            updatedAt: now,
+            message: 'Text received',
+          ),
+        ),
+      );
+    }
+  }
+
   /// Time allowed for the first message after TLS. Changeable only for tests.
   @visibleForTesting
   Duration firstMessageTimeout = kFirstMessageTimeout;
@@ -1162,6 +1288,8 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           }
         case 'ping':
           s.add(jsonFrame({'t': 'pong'}));
+        case 'text' when !debugTextUnknown:
+          await _serverText(s, dev, first);
         default:
           s.add(jsonFrame({'t': 'error', 'reason': 'unknown_message'}));
       }

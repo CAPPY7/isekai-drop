@@ -256,6 +256,8 @@ class MainActivity : FlutterFragmentActivity() {
                     // D4: "Open" / "Show in folder" after receiving.
                     "openReceived" -> result.success(openReceived(call.argument<String>("path") ?: ""))
                     "openReceiveFolder" -> result.success(openReceiveFolder())
+                    // E1: a received http/https link, only after the user taps Open.
+                    "openLink" -> result.success(openLink(call.argument<String>("url") ?: ""))
                     "takeShared" -> {
                         if (sharedFiles.isEmpty() && sharedUnreadable == 0) {
                             result.success(null)
@@ -593,6 +595,23 @@ class MainActivity : FlutterFragmentActivity() {
             return true
         } catch (_: Exception) {
             return false // no app for this type, or not found
+        }
+    }
+
+    /** E1: opens an http/https link in the browser. Any other kind of
+     *  link (intent:, file:, javascript:, ...) is refused. */
+    private fun openLink(url: String): Boolean {
+        val u = Uri.parse(url)
+        if ((u.scheme != "http" && u.scheme != "https") || u.host.isNullOrEmpty()) return false
+        return try {
+            startActivity(
+                Intent(Intent.ACTION_VIEW, u)
+                    .addCategory(Intent.CATEGORY_BROWSABLE)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+            true
+        } catch (_: Exception) {
+            false
         }
     }
 

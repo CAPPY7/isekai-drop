@@ -35,6 +35,7 @@ export 'core/jobs.dart';
 export 'core/net_info.dart';
 export 'core/pending_send_store.dart' show PendingSend;
 export 'core/send_source.dart';
+export 'core/text_message.dart';
 export 'core/speed_test.dart'
     show SpeedReport, SpeedSample, SpeedTestException, kSpeedLabels;
 export 'core/blocked_store.dart' show BlockedDevice;
@@ -136,6 +137,16 @@ abstract class TransferEngine implements Listenable {
     NearbyDevice n,
     List<SendSource> files, {
     Future<bool> Function(String code)? confirmCode,
+  });
+
+  /// E1: sends a short text or link (max [kMaxTextBytes]) to a paired
+  /// device; returns when the other user accepted it. Throws
+  /// [TextSendException] (see explainTextError).
+  Future<void> sendText(
+    TrustedDevice device,
+    String body, {
+    String? host,
+    int? port,
   });
 
   Future<TransferJob> send(

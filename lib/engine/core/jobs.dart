@@ -315,7 +315,8 @@ class TransferJob extends ChangeNotifier {
   }
 }
 
-enum RequestKind { pairing, transfer }
+/// E1: text = a short text or link (0.12.1).
+enum RequestKind { pairing, transfer, text }
 
 /// Something the user must approve or decline on THIS device.
 class PendingRequest {
@@ -334,7 +335,11 @@ class PendingRequest {
     this.offerCount = 0,
     this.deviceId,
     this.peerVerified = false,
+    this.textBody,
   });
+
+  /// E1: the text, for [RequestKind.text]. Kept in memory only.
+  final String? textBody;
 
   /// D3: the other device's id (transfer requests from paired devices).
   final String? deviceId;

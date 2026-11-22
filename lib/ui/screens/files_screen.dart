@@ -51,6 +51,11 @@ class _FilesScreenState extends State<FilesScreen> {
   String? _targetId;
   bool _shared = false;
 
+  // E1: "Text" tab.
+  bool _textMode = false;
+  bool _sendingText = false;
+  final _text = TextEditingController();
+
   ValueNotifier<PickResult?> get _inbox =>
       widget.sharedInbox ?? sharedFilesInbox;
 
@@ -79,6 +84,7 @@ class _FilesScreenState extends State<FilesScreen> {
   @override
   void dispose() {
     _inbox.removeListener(_takeShared);
+    _text.dispose();
     super.dispose();
   }
 
@@ -88,6 +94,7 @@ class _FilesScreenState extends State<FilesScreen> {
     if (r == null || !mounted) return;
     _inbox.value = null;
     setState(() {
+      _textMode = false;
       _files.addAll(r.files);
       _shared = true;
       _error = _skippedText(r.skipped);
@@ -195,6 +202,40 @@ class _FilesScreenState extends State<FilesScreen> {
     await Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => TransferScreen(job: job)));
+  }
+
+  /// E1: sends the typed text to a paired device.
+  Future<void> _sendText(TrustedDevice dev) async {
+    final engine = AppScope.of(context).engine;
+    final messenger = ScaffoldMessenger.of(context);
+    NearbyDevice? live;
+    for (final n in engine.nearby) {
+      if (n.trusted?.id == dev.id && !n.fingerprintMismatch) live = n;
+    }
+    setState(() {
+      _sendingText = true;
+      _error = null;
+    });
+    try {
+      await engine.sendText(
+        dev,
+        _text.text,
+        host: live?.host,
+        port: live?.port,
+      );
+      if (!mounted) return;
+      _text.clear();
+      messenger.showSnackBar(
+        SnackBar(content: Text('Text sent to ${dev.name}.')),
+      );
+    } on TextSendException catch (e) {
+      if (mounted) setState(() => _error = explainTextError(e.reason));
+    } catch (e) {
+      engine.recordException('text_send', e);
+      if (mounted) setState(() => _error = explainTextError('failed'));
+    } finally {
+      if (mounted) setState(() => _sendingText = false);
+    }
   }
 
   Future<void> _send(TrustedDevice dev) async {
@@ -331,7 +372,10 @@ class _FilesScreenState extends State<FilesScreen> {
                 ),
               )
             : pickArea;
-        final ready = _files.isNotEmpty && targetName != null;
+        final textProblem = textBodyProblem(_text.text);
+        final ready = _textMode
+            ? target != null && textProblem == null && !_sendingText
+            : _files.isNotEmpty && targetName != null;
         final sendButton = FilledButton.icon(
           key: const ValueKey('send-button'),
           style: FilledButton.styleFrom(
@@ -342,11 +386,19 @@ class _FilesScreenState extends State<FilesScreen> {
               : () {
                   // Spec D22: a light tap when the send starts.
                   HapticFeedback.lightImpact();
-                  target != null ? _send(target) : _sendNearby(nearbyTarget!);
+                  if (_textMode) {
+                    _sendText(target!);
+                  } else if (target != null) {
+                    _send(target);
+                  } else {
+                    _sendNearby(nearbyTarget!);
+                  }
                 },
           icon: const Icon(Icons.send_rounded),
           label: Text(
-            targetName == null
+            _textMode
+                ? (target == null ? 'Send text' : 'Send text to ${target.name}')
+                : targetName == null
                 ? 'Send'
                 : _files.isEmpty
                 ? 'Send to $targetName'
@@ -368,78 +420,157 @@ class _FilesScreenState extends State<FilesScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // E1: Files or Text.
+                  SegmentedButton<bool>(
+                    key: const ValueKey('send-mode'),
+                    style: SegmentedButton.styleFrom(
+                      minimumSize: const Size(0, IdLayout.minTouchTarget),
+                    ),
+                    segments: const [
+                      ButtonSegment(
+                        value: false,
+                        icon: Icon(Icons.insert_drive_file_outlined),
+                        label: Text('Files'),
+                      ),
+                      ButtonSegment(
+                        value: true,
+                        icon: Icon(Icons.short_text),
+                        label: Text('Text'),
+                      ),
+                    ],
+                    selected: {_textMode},
+                    onSelectionChanged: (v) => setState(() {
+                      _textMode = v.first;
+                      _error = null;
+                    }),
+                  ),
+                  const SizedBox(height: IdSpacing.sm),
                   Flexible(
                     child: ListView(
                       shrinkWrap: true,
                       children: [
-                        SectionCard(
-                          title: _files.isEmpty
-                              ? '1. Pick files'
-                              : '1. Files: ${_files.length}, ${formatBytes(_total)}',
-                          trailing: _files.isEmpty
-                              ? null
-                              : TextButton(
-                                  onPressed: _confirmClear,
-                                  child: const Text('Clear'),
-                                ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              if (_shared && _files.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(
-                                    bottom: IdSpacing.sm,
+                        if (_textMode)
+                          SectionCard(
+                            title: '1. Text or link',
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                TextField(
+                                  key: const ValueKey('send-text-field'),
+                                  controller: _text,
+                                  minLines: 3,
+                                  maxLines: 8,
+                                  onChanged: (_) => setState(() {}),
+                                  decoration: InputDecoration(
+                                    border: const OutlineInputBorder(),
+                                    hintText: 'Type or paste a text or link',
+                                    errorText: textProblem == 'too_long'
+                                        ? explainTextError('too_long')
+                                        : null,
                                   ),
-                                  child: Row(
-                                    children: [
-                                      const Icon(Icons.share, size: 20),
-                                      const SizedBox(width: IdSpacing.sm),
-                                      Text(
-                                        'Shared from another app',
-                                        key: const ValueKey('shared-note'),
-                                        style: theme.textTheme.titleSmall,
+                                ),
+                                const SizedBox(height: IdSpacing.xs),
+                                Text(
+                                  'The other device asks before showing it. '
+                                  'Links are never opened by themselves.',
+                                  style: theme.textTheme.bodySmall,
+                                ),
+                                if (_error != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(
+                                      top: IdSpacing.sm,
+                                    ),
+                                    child: Text(
+                                      _error!,
+                                      style: TextStyle(
+                                        color: theme.colorScheme.error,
                                       ),
-                                    ],
-                                  ),
-                                ),
-                              pickCard,
-                              if (_error != null)
-                                Padding(
-                                  padding: const EdgeInsets.only(
-                                    top: IdSpacing.sm,
-                                  ),
-                                  child: Text(
-                                    _error!,
-                                    style: TextStyle(
-                                      color: theme.colorScheme.error,
                                     ),
                                   ),
-                                ),
-                              for (var i = 0; i < _files.length && i < 100; i++)
-                                ListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  minTileHeight: IdLayout.minTouchTarget,
-                                  leading: const Icon(
-                                    Icons.insert_drive_file_outlined,
+                                if (target == null && nearbyTarget != null)
+                                  const Padding(
+                                    padding: EdgeInsets.only(top: IdSpacing.sm),
+                                    child: Text(
+                                      'Text can be sent to paired devices only. '
+                                      'Pair first (send a file, or use Connect).',
+                                    ),
                                   ),
-                                  title: Text(
-                                    _files[i].relativePath,
-                                    overflow: TextOverflow.ellipsis,
+                              ],
+                            ),
+                          )
+                        else
+                          SectionCard(
+                            title: _files.isEmpty
+                                ? '1. Pick files'
+                                : '1. Files: ${_files.length}, ${formatBytes(_total)}',
+                            trailing: _files.isEmpty
+                                ? null
+                                : TextButton(
+                                    onPressed: _confirmClear,
+                                    child: const Text('Clear'),
                                   ),
-                                  subtitle: Text(formatBytes(_files[i].size)),
-                                  trailing: IconButton(
-                                    tooltip:
-                                        'Remove ${_files[i].name} from list',
-                                    icon: const Icon(Icons.close),
-                                    onPressed: () =>
-                                        setState(() => _files.removeAt(i)),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                if (_shared && _files.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(
+                                      bottom: IdSpacing.sm,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.share, size: 20),
+                                        const SizedBox(width: IdSpacing.sm),
+                                        Text(
+                                          'Shared from another app',
+                                          key: const ValueKey('shared-note'),
+                                          style: theme.textTheme.titleSmall,
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              if (_files.length > 100)
-                                Text('...and ${_files.length - 100} more'),
-                            ],
+                                pickCard,
+                                if (_error != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(
+                                      top: IdSpacing.sm,
+                                    ),
+                                    child: Text(
+                                      _error!,
+                                      style: TextStyle(
+                                        color: theme.colorScheme.error,
+                                      ),
+                                    ),
+                                  ),
+                                for (
+                                  var i = 0;
+                                  i < _files.length && i < 100;
+                                  i++
+                                )
+                                  ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    minTileHeight: IdLayout.minTouchTarget,
+                                    leading: const Icon(
+                                      Icons.insert_drive_file_outlined,
+                                    ),
+                                    title: Text(
+                                      _files[i].relativePath,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    subtitle: Text(formatBytes(_files[i].size)),
+                                    trailing: IconButton(
+                                      tooltip:
+                                          'Remove ${_files[i].name} from list',
+                                      icon: const Icon(Icons.close),
+                                      onPressed: () =>
+                                          setState(() => _files.removeAt(i)),
+                                    ),
+                                  ),
+                                if (_files.length > 100)
+                                  Text('...and ${_files.length - 100} more'),
+                              ],
+                            ),
                           ),
-                        ),
                         SectionCard(
                           title: '2. Pick a device',
                           child: ids.isEmpty

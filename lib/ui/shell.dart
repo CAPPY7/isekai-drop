@@ -10,6 +10,7 @@ import '../engine/pick_result.dart';
 import '../engine/transfer_engine.dart';
 import 'app_scope.dart';
 import 'notification_ask.dart';
+import 'received_text.dart';
 import 'ui_env.dart';
 import 'shell_nav.dart';
 import 'screens/connect_screen.dart';
@@ -156,6 +157,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   Future<void> _ask(PendingRequest r) async {
     final pairing = r.kind == RequestKind.pairing;
+    final isText = r.kind == RequestKind.text;
     final nav = Navigator.of(context);
     BuildContext? dialogCtx;
     var open = true;
@@ -176,13 +178,24 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           title: Text(
             pairing
                 ? 'Accept ${r.peerName}?'
+                : isText
+                ? '${r.peerName} wants to send you a text'
                 : '${r.peerName} wants to send you files',
           ),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: pairing
+              children: isText
+                  ? [
+                      // E1: the text itself is shown only after Accept.
+                      Text(
+                        'A short text (${r.textBody?.characters.length ?? 0} '
+                        'characters) from ${platformLabel(r.peerPlatform)} '
+                        'device "${r.peerName}". It is shown after you accept.',
+                      ),
+                    ]
+                  : pairing
                   ? [
                       Text(
                         r.offerCount > 0
@@ -341,7 +354,12 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       }
       return;
     }
-    if (ok == true) {
+    if (ok == true && isText) {
+      r.approve();
+      if (mounted) {
+        await showReceivedText(context, from: r.peerName, body: r.textBody!);
+      }
+    } else if (ok == true) {
       final before = {for (final j in _engine!.jobs) j.id};
       r.approve();
       if (pairing && r.offerCount > 0) unawaited(_openIncoming(before, r));

@@ -59,6 +59,19 @@ OpenCommand? openFolderCommand(String os, String dir) {
   };
 }
 
+/// E1: opens an http/https link in the browser (only after a tap).
+OpenCommand? openLinkCommand(String os, Uri link) {
+  if (link.scheme != 'http' && link.scheme != 'https') return null;
+  if (link.host.isEmpty) return null;
+  final s = link.toString();
+  return switch (os) {
+    'windows' => ('rundll32.exe', ['url.dll,FileProtocolHandler', s]),
+    'macos' => ('open', [s]),
+    'linux' => ('xdg-open', [s]),
+    _ => null,
+  };
+}
+
 /// D4: Android side ("isekai_drop/android"). Only files this app saved
 /// (Downloads/Isekai Drop, or an "Isekai Drop" folder on Android 9 and
 /// older) are passed on; MainActivity checks again.
@@ -75,6 +88,15 @@ class AndroidFileOpener {
   Future<bool> open(String path) async {
     if (!isOwnSaved(path)) return false;
     return await channel.invokeMethod<bool>('openReceived', {'path': path}) ??
+        false;
+  }
+
+  /// E1: a web link in the browser (MainActivity checks http/https again).
+  Future<bool> openLink(Uri link) async {
+    if (link.scheme != 'http' && link.scheme != 'https') return false;
+    return await channel.invokeMethod<bool>('openLink', {
+          'url': link.toString(),
+        }) ??
         false;
   }
 
@@ -120,6 +142,18 @@ class SavedFileActions {
       if (Platform.isAndroid) return await _android.openFolder();
       if (!File(path).existsSync()) return false;
       return await _run(showInFolderCommand(Platform.operatingSystem, path));
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// E1: iPhone/iPad have no handler here yet: no Open button there.
+  bool get canOpenLinks => canOpen;
+
+  Future<bool> openLink(Uri link) async {
+    try {
+      if (Platform.isAndroid) return await _android.openLink(link);
+      return await _run(openLinkCommand(Platform.operatingSystem, link));
     } catch (_) {
       return false;
     }
