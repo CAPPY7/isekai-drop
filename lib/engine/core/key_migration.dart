@@ -39,13 +39,26 @@ Future<MigrationResult> migrateFallbackIdentity(
 
 /// Overwrites a file with zeros, flushes, then deletes it. (On flash storage
 /// this is best effort: the OS may keep old blocks; the file is private.)
-Future<void> secureDelete(File f) async {
+///
+/// A4 (0.11.2): the zeros go over the EXISTING bytes first (same length,
+/// from position 0), are flushed, and only THEN is the file truncated and
+/// deleted. Before, it was truncated first, so the old key blocks were
+/// freed without being overwritten. [afterOverwrite] is a test hook called
+/// between the flush and the truncate.
+Future<void> secureDelete(
+  File f, {
+  Future<void> Function(File f)? afterOverwrite,
+}) async {
   final len = await f.length();
-  final raf = await f.open(mode: FileMode.writeOnlyAppend);
+  // FileMode.append opens read/write WITHOUT truncating; setPosition(0)
+  // then writes over the existing bytes.
+  final raf = await f.open(mode: FileMode.append);
   try {
     await raf.setPosition(0);
-    await raf.truncate(0);
     await raf.writeFrom(List<int>.filled(len, 0));
+    await raf.flush();
+    await afterOverwrite?.call(f);
+    await raf.truncate(0);
     await raf.flush();
   } finally {
     await raf.close();
