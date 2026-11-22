@@ -18,6 +18,7 @@ import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'bg_hasher.dart';
+import 'direct_save.dart';
 import 'identity.dart';
 
 /// Bytes the receiving lane collects before one file write.
@@ -250,8 +251,10 @@ class LaneServer {
     bool append = false,
     bool hash = false,
     int hashExisting = 0,
+    DirectWriterSpec? direct,
     void Function(int bytes)? onBytes,
-  }) => _ask(['file', path, count, append, hash, hashExisting], onBytes);
+  }) =>
+      _ask(['file', path, count, append, hash, hashExisting, direct], onBytes);
 
   /// Speed test: reads and throws away everything until [sinkEnd]'s count
   /// arrived or the sender closes.
@@ -487,10 +490,13 @@ Future<void> _serverMain(_ServerArgs a) async {
     bool append,
     bool hash,
     int hashExisting,
+    DirectWriterSpec? direct,
   ) async {
     await connected();
     FileHasher? hasher;
     RandomAccessFile? out;
+    // C1: Android 10+ writes into the hidden Downloads item instead.
+    DirectBlockWriter? sinkTo;
     try {
       if (hash) {
         try {
@@ -510,12 +516,17 @@ Future<void> _serverMain(_ServerArgs a) async {
         }
       }
       try {
-        out = await File(path)
-            .open(mode: append ? FileMode.append : FileMode.writeOnly);
+        if (direct != null) {
+          sinkTo = await direct.open();
+        } else {
+          out = await File(path)
+              .open(mode: append ? FileMode.append : FileMode.writeOnly);
+        }
       } catch (_) {
         throw const LaneException('write_failed');
       }
       final f = out;
+      final d = sinkTo;
       var got = 0;
       var pend = <Uint8List>[];
       var pendLen = 0;
@@ -540,7 +551,11 @@ Future<void> _serverMain(_ServerArgs a) async {
         pendLen = 0;
         writing = () async {
           try {
-            await f.writeFrom(block);
+            if (d != null) {
+              await d.write(block);
+            } else {
+              await f!.writeFrom(block);
+            }
           } catch (_) {
             throw const LaneException('write_failed');
           }
@@ -586,7 +601,7 @@ Future<void> _serverMain(_ServerArgs a) async {
       await kick();
       if (writing != null) await writing;
       if (got > reported) back.send(['p', got - reported]);
-      await f.close();
+      await f?.close();
       out = null;
       String? digest;
       if (hasher != null) {
@@ -684,6 +699,7 @@ Future<void> _serverMain(_ServerArgs a) async {
               msg[3] as bool,
               msg[4] as bool,
               msg[5] as int,
+              msg[6] as DirectWriterSpec?,
             );
           }
         } on LaneException catch (e) {

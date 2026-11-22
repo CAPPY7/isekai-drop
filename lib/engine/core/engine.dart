@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import '../transfer_engine.dart';
 import 'bg_hasher.dart';
 import 'blocked_store.dart';
+import 'direct_save.dart';
 import 'discovery.dart';
 import 'names.dart';
 import 'frames.dart';
@@ -102,6 +103,8 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     this.resume,
     this.pendingSends,
     this.freeSpace,
+    this.directSaver,
+    this.finalizeCopies = false,
     this.sourceCodec = const SendSourceCodec(),
     bool Function()? acceptingFiles,
     bool Function(TrustedDevice device)? autoAccept,
@@ -199,6 +202,19 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   /// Audit #16: free bytes where incoming files are written, or null if
   /// this platform cannot tell (then no check is made).
   final Future<int?> Function(Directory dir)? freeSpace;
+
+  /// C1: Android 10+ writes received bytes straight into a hidden
+  /// Downloads item (no second copy). Null or not available: old path.
+  final DirectSaver? directSaver;
+
+  /// C1: true when [finalizer] COPIES the finished file (Android): the
+  /// free-space check then asks for 2x the bytes still to come.
+  final bool finalizeCopies;
+
+  /// C1: set after direct writing failed once; later files use the old
+  /// path until the app restarts.
+  bool _directBroken = false;
+  bool get _directOn => directSaver?.available == true && !_directBroken;
 
   /// Audit #9: failed sends kept for retry after a restart. Null = off.
   final PendingSendStore? pendingSends;
@@ -1977,6 +1993,8 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     ];
     ResumeState? state;
     var already = 0;
+    DirectSaveTarget? resumedDirect;
+    var resumedOffset = 0;
     if (store != null) {
       state = await store.load(dev.fingerprint, tid!);
       if (state != null && !state.matches(offerList)) {
@@ -1988,12 +2006,43 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           already += sizes[i];
         }
         final pi = state.partialIndex;
-        if (pi != null) already += await store.partialLength(state, pi);
+        if (pi != null) {
+          final id = state.partialDirect;
+          if (id == null) {
+            already += await store.partialLength(state, pi);
+          } else {
+            // C1: the partial data is in a hidden Downloads item.
+            resumedDirect = _directOn ? await directSaver!.reopen(id) : null;
+            var n = 0;
+            if (resumedDirect != null) {
+              try {
+                n = await resumedDirect.length();
+              } catch (e) {
+                recordException('direct_reopen', e);
+              }
+            }
+            if (resumedDirect == null || n <= 0 || n > sizes[pi]) {
+              // Gone or unusable: start this file again from byte 0.
+              await _dropDirect(resumedDirect, id);
+              resumedDirect = null;
+              state.partialDirect = null;
+              state.partialIndex = null;
+              await store.save(state);
+            } else {
+              already += n;
+              resumedOffset = n;
+            }
+          }
+        }
       }
     }
 
     // Audit #16: refuse at once if this device cannot hold the files.
-    final need = total - already + kFreeSpaceMargin;
+    // C1: when the finished file is COPIED into Downloads (Android without
+    // direct writing), both copies exist for a moment: ask for 2x.
+    final rest = total - already;
+    final need =
+        (finalizeCopies && !_directOn ? 2 * rest : rest) + kFreeSpaceMargin;
     int? free;
     try {
       free = await freeSpace?.call(tempDir);
@@ -2012,6 +2061,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           'free': free,
         }),
       );
+      await _closeDirect(resumedDirect);
       return;
     }
 
@@ -2049,6 +2099,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     final auto = preOk || (dev.isVerified && autoAccept(dev));
     if (!auto && !await _ask(req)) {
       s.add(jsonFrame({'t': 'decline', 'reason': 'declined'}));
+      await _closeDirect(resumedDirect);
       return;
     }
     _jobs.insert(0, job);
@@ -2100,7 +2151,9 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     if (state != null) {
       final pi = state.partialIndex;
       if (pi != null && !state.done.containsKey(pi)) {
-        final n = await store!.partialLength(state, pi);
+        final n = state.partialDirect != null
+            ? resumedOffset
+            : await store!.partialLength(state, pi);
         if (n > 0) offsets[pi] = n;
       }
       for (final e in state.done.entries) {
@@ -2131,6 +2184,8 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     RandomAccessFile? out;
     FileHasher? hasher;
     var keepPartial = false;
+    // C1: the hidden Downloads item of the current file (Android 10+).
+    DirectSaveTarget? direct;
     // A control message read while the lane was busy (still pending).
     Future<Frame>? ctlRead;
     Map<String, dynamic>? early;
@@ -2179,15 +2234,55 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         hasher?.dispose();
         hasher = null;
         final digestFile = fileDigest;
+        // C1: Android 10+ writes into a hidden Downloads item.
+        if (offset > 0 && state?.partialDirect != null) {
+          direct = resumedDirect;
+          resumedDirect = null;
+        } else if (offset == 0 && _directOn) {
+          try {
+            direct = await directSaver!.create(names[i], batch);
+          } catch (e) {
+            recordException('direct_create', e);
+            _directBroken = true;
+            diagLog.add(
+              'direct_save_off',
+              'Receiving: saving straight into Downloads did not work; '
+                  'using the copy method instead.',
+            );
+          }
+        }
+        DirectWriterSpec? laneWriter;
+        if (direct != null && viaLane) {
+          laneWriter = direct.laneWriter;
+          if (laneWriter == null) {
+            // Cannot write from the lane isolate: old path for this file.
+            if (offset > 0) throw const FileSystemException('No lane writer');
+            await _dropDirect(direct, direct.id);
+            direct = null;
+          }
+        }
+        final dt = direct;
         // With a lane, the lane isolate hashes (desktop) - not this one.
-        final laneHash = viaLane && digestFile == null;
+        final laneHash = viaLane && digestFile == null && dt == null;
         if (!viaLane) {
-          hasher = digestFile != null
+          hasher = digestFile != null || dt != null
               ? _NoHasher()
               : await fileHasher(sizes[i]);
         }
         var append = false;
-        if (state != null) {
+        if (dt != null) {
+          if (offset > 0) {
+            if (await dt.length() != offset) {
+              throw const FileSystemException('Partial changed');
+            }
+            append = true;
+          } else if (state != null) {
+            state.partialIndex = i;
+            state.partialDirect = dt.id;
+            await store!.save(state);
+          }
+          keepPartial = state != null;
+        } else if (state != null) {
           temp = store!.partFile(state.key);
           if (offset > 0) {
             // Re-hash what is already on disk; the final check covers the
@@ -2233,7 +2328,8 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           Object? laneErr;
           final done = ln
               .receiveFile(
-                path: temp.path,
+                path: temp?.path ?? '',
+                direct: laneWriter,
                 count: sizes[i] - offset,
                 append: append,
                 hash: laneHash,
@@ -2304,7 +2400,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           }
           laneDigest = res!.sha256;
         } else {
-          final f = out!;
+          final f = out;
           var got = offset;
           // 0.10.1: collect ~1 MiB, then write it while the next arrives.
           final pend = <Uint8List>[];
@@ -2332,7 +2428,11 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
             final h = hasher!;
             final w = writing = () async {
               try {
-                await f.writeFrom(block);
+                if (dt != null) {
+                  await dt.write(block);
+                } else {
+                  await f!.writeFrom(block);
+                }
               } catch (e) {
                 throw _WriteFailed(e);
               }
@@ -2384,9 +2484,15 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         await out?.close();
         out = null;
         final String actual;
-        if (digestFile != null) {
+        if (dt != null) {
           try {
-            actual = await digestFile(temp);
+            actual = await dt.sha256();
+          } catch (e) {
+            throw _WriteFailed(e);
+          }
+        } else if (digestFile != null) {
+          try {
+            actual = await digestFile(temp!);
           } catch (e) {
             throw _WriteFailed(e);
           }
@@ -2399,7 +2505,12 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         if (end['t'] != 'file_end' ||
             end['i'] != i ||
             end['sha256'] != actual) {
-          await temp.delete();
+          if (dt != null) {
+            direct = null;
+            await _dropDirect(dt, dt.id);
+          } else {
+            await temp!.delete();
+          }
           temp = null;
           keepPartial = false;
           discardState = true;
@@ -2413,15 +2524,19 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         }
         final String where;
         try {
-          where = await finalizer(temp, names[i], batch);
+          where = dt != null
+              ? await dt.publish()
+              : await finalizer(temp!, names[i], batch);
         } catch (e) {
           throw _WriteFailed(e);
         }
+        direct = null;
         temp = null;
         keepPartial = false;
         if (state != null) {
           state.done[i] = where;
           state.partialIndex = null;
+          state.partialDirect = null;
           state.topFolders
             ..clear()
             ..addAll(batch.topFolders);
@@ -2436,6 +2551,23 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       discardState = true;
       job.finish(JobState.completed, 'All files received and verified.');
     } on _WriteFailed catch (w) {
+      if (direct != null) {
+        // C1: a storage problem with direct writing: delete the hidden item
+        // and use the copy method from now on.
+        _directBroken = true;
+        final d = direct;
+        direct = null;
+        await _dropDirect(d, d.id);
+        if (state != null) {
+          state.partialIndex = null;
+          state.partialDirect = null;
+          try {
+            await store!.save(state);
+          } catch (e) {
+            recordException('resume_save', e);
+          }
+        }
+      }
       // Tell the sender it is a storage problem HERE, not the network.
       try {
         s.add(jsonFrame({'t': 'error', 'reason': 'write_failed'}));
@@ -2471,6 +2603,17 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       try {
         await out?.close();
       } catch (_) {}
+      await _closeDirect(resumedDirect);
+      final d = direct;
+      if (d != null) {
+        if (state != null && !(discardState || job.cancelRequested)) {
+          // Lost connection: keep the hidden item for Retry.
+          await _closeDirect(d);
+        } else {
+          await _dropDirect(d, d.id);
+          if (state != null) state.partialDirect = null;
+        }
+      }
       if (state != null) {
         if (discardState || job.cancelRequested) {
           await store!.discard(state.key);
@@ -2480,6 +2623,29 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       }
       _recordEnd(job);
       notifyListeners();
+    }
+  }
+
+  /// C1: closes a hidden Downloads item but keeps it (resume).
+  Future<void> _closeDirect(DirectSaveTarget? d) async {
+    if (d == null) return;
+    try {
+      await d.close();
+    } catch (e) {
+      recordException('direct_close', e);
+    }
+  }
+
+  /// C1: deletes a hidden Downloads item ([d] open, or by [id]).
+  Future<void> _dropDirect(DirectSaveTarget? d, String id) async {
+    try {
+      if (d != null) {
+        await d.discard();
+      } else {
+        await directSaver?.delete(id);
+      }
+    } catch (e) {
+      recordException('direct_delete', e);
     }
   }
 

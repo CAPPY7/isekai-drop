@@ -11,11 +11,13 @@ import 'package:path_provider/path_provider.dart';
 
 import 'android_direct.dart';
 import 'android_export.dart';
+import 'android_media.dart';
 import 'bonjour.dart';
 import 'free_space.dart';
 import 'core/benchmark_store.dart';
 import 'core/blocked_store.dart';
 import 'core/diag_log.dart';
+import 'core/direct_save.dart';
 import 'core/engine.dart';
 import 'core/history_store.dart';
 import 'core/identity.dart';
@@ -35,6 +37,8 @@ const _android = MethodChannel('isekai_drop/android');
 // 0.9.2: background (non-UI-thread) channels for reading and hashing.
 const _androidRead = MethodChannel('isekai_drop/android_read');
 const _androidHash = MethodChannel('isekai_drop/android_hash');
+// C1: Android 10+ writes received files straight into Downloads.
+const _androidMedia = MethodChannel('isekai_drop/media');
 final _exporter = AndroidExporter(_android);
 const _apple = MethodChannel('isekai_drop/apple');
 BonjourBridge? _bonjour;
@@ -301,6 +305,7 @@ Future<IsekaiEngine> createPlatformEngine(
 
   Directory tempDir;
   ReceiveFinalizer finalizer;
+  DirectSaver? directSaver;
   String where;
   bool? multicastLock;
   if (Platform.isAndroid) {
@@ -310,23 +315,20 @@ Future<IsekaiEngine> createPlatformEngine(
     } catch (_) {}
     tempDir = androidIncomingDir(noBackup: noBackup, support: support);
     finalizer = (temp, rel, batch) async {
-      final parts = rel.split('/');
-      var sub = '';
-      if (parts.length > 1) {
-        final top = parts.first;
-        var topName = batch.topFolders[top];
-        if (topName == null) {
-          topName = top;
-          for (var i = 1; i < 10000; i++) {
-            if (!await _exporter.folderExists(topName!)) break;
-            topName = '$top ($i)';
-          }
-          batch.topFolders[top] = topName!;
-        }
-        sub = [topName, ...parts.sublist(1, parts.length - 1)].join('/');
-      }
-      return _exporter.export(temp.path, parts.last, sub);
+      final sub = await androidSubFolder(rel, batch, _exporter.folderExists);
+      return _exporter.export(temp.path, rel.split('/').last, sub);
     };
+    var mediaOk = false;
+    try {
+      mediaOk = await _androidMedia.invokeMethod<bool>('available') ?? false;
+    } catch (e) {
+      diagLog?.add('direct_save_off', 'Saving straight into Downloads is off.');
+    }
+    directSaver = AndroidMediaSaver(
+      _androidMedia,
+      available: mediaOk,
+      folderExists: _exporter.folderExists,
+    );
     where = 'Downloads/Isekai Drop';
     try {
       multicastLock =
@@ -403,7 +405,12 @@ Future<IsekaiEngine> createPlatformEngine(
     benchmarks: benchmarks,
     // Partial data of interrupted receives, next to where files land
     // (hidden folder), so finishing a file is a cheap rename.
-    resume: ResumeStore(Directory(p.join(tempDir.path, '.isekai-resume'))),
+    resume: ResumeStore(
+      Directory(p.join(tempDir.path, '.isekai-resume')),
+      deleteDirect: directSaver?.delete,
+    ),
+    directSaver: directSaver,
+    finalizeCopies: Platform.isAndroid,
     pendingSends: pendingSends,
     freeSpace: freeBytesFor,
     sourceCodec: const _PlatformSourceCodec(),

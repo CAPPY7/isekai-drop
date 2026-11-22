@@ -24,6 +24,7 @@ class ResumeState {
     Map<int, String>? done,
     Map<String, String>? topFolders,
     this.partialIndex,
+    this.partialDirect,
   }) : done = done ?? {},
        topFolders = topFolders ?? {};
 
@@ -45,6 +46,11 @@ class ResumeState {
   /// Index of the file whose partial data is in [partFile], if any.
   int? partialIndex;
 
+  /// C1: id of the hidden Downloads item that holds the partial data of
+  /// [partialIndex] (Android 10+ direct writing), or null (data is in
+  /// [ResumeStore.partFile]).
+  String? partialDirect;
+
   bool matches(List<(String, int)> offer) {
     if (offer.length != files.length) return false;
     for (var i = 0; i < offer.length; i++) {
@@ -63,18 +69,26 @@ class ResumeState {
     'done': {for (final e in done.entries) '${e.key}': e.value},
     'top_folders': topFolders,
     'partial_index': partialIndex,
+    if (partialDirect != null) 'partial_direct': partialDirect,
     'created_at': createdAt.toUtc().toIso8601String(),
     'updated_at': updatedAt.toUtc().toIso8601String(),
   };
 }
 
 class ResumeStore {
-  ResumeStore(this.dir, {this.maxAge = const Duration(days: 7)});
+  ResumeStore(
+    this.dir, {
+    this.maxAge = const Duration(days: 7),
+    this.deleteDirect,
+  });
 
   static const int schemaVersion = 1;
 
   final Directory dir;
   final Duration maxAge;
+
+  /// C1: deletes a hidden Downloads item kept for resume.
+  final Future<void> Function(String id)? deleteDirect;
 
   static String keyFor(String peerFp, String tid) =>
       sha256.convert(utf8.encode('$peerFp|$tid')).toString().substring(0, 32);
@@ -112,6 +126,7 @@ class ResumeStore {
             e.key as String: e.value as String,
         },
         partialIndex: j['partial_index'] as int?,
+        partialDirect: j['partial_direct'] as String?,
         createdAt: DateTime.parse(j['created_at'] as String),
         updatedAt: DateTime.parse(j['updated_at'] as String),
       );
@@ -165,6 +180,19 @@ class ResumeStore {
   }
 
   Future<void> discard(String key) async {
+    final del = deleteDirect;
+    if (del != null) {
+      try {
+        final meta = _meta(key);
+        if (await meta.exists()) {
+          final j = jsonDecode(await meta.readAsString());
+          final id = j is Map ? j['partial_direct'] : null;
+          if (id is String) await del(id);
+        }
+      } catch (_) {
+        // Damaged state file or item already gone: nothing more to delete.
+      }
+    }
     for (final f in [
       _meta(key),
       partFile(key),

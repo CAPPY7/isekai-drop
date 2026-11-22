@@ -112,6 +112,14 @@ class MainActivity : FlutterActivity() {
             if (call.method == "hashFile") hashFile(call.argument<String>("path")!!, result)
             else result.notImplemented()
         }
+        // C1 (0.11.4): received files are written straight into a hidden
+        // Downloads item on this channel's own serial background queue.
+        val media = MediaWriter(this)
+        MethodChannel(
+            messenger, "isekai_drop/media",
+            StandardMethodCodec.INSTANCE,
+            messenger.makeBackgroundTaskQueue(),
+        ).setMethodCallHandler { call, result -> media.handle(call, result) }
         val directChannel = MethodChannel(messenger, "isekai_drop/direct")
         val dl = DirectLinks(this, directChannel) {
             boundTo = null
