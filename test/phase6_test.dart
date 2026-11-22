@@ -499,7 +499,7 @@ void main() {
           TrustStatus.identityChanged,
         );
         final raw = jsonDecode(await f.readAsString()) as Map<String, dynamic>;
-        expect(raw['schema_version'], 2);
+        expect(raw['schema_version'], TrustStore.schemaVersion); // D3: 3
       },
     );
 

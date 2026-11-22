@@ -27,7 +27,12 @@ class TrustedDevice {
     required this.updatedAt,
     this.lastHost,
     this.lastPort,
-  });
+    bool alwaysAllow = false,
+  }) : alwaysAllow = alwaysAllow && status == TrustStatus.verified;
+
+  /// D3 (0.12.0): receive from this device without asking. Only ever true
+  /// for a VERIFIED device (forced here, whatever the file says).
+  final bool alwaysAllow;
 
   final String id;
   final String deviceId;
@@ -51,6 +56,7 @@ class TrustedDevice {
     TrustStatus? status,
     String? lastHost,
     int? lastPort,
+    bool? alwaysAllow,
   }) => TrustedDevice(
     id: id,
     deviceId: deviceId,
@@ -63,6 +69,7 @@ class TrustedDevice {
     updatedAt: DateTime.now().toUtc(),
     lastHost: lastHost ?? this.lastHost,
     lastPort: lastPort ?? this.lastPort,
+    alwaysAllow: alwaysAllow ?? this.alwaysAllow,
   );
 
   Map<String, Object?> toJson() => {
@@ -77,6 +84,7 @@ class TrustedDevice {
     'updated_at': updatedAt.toUtc().toIso8601String(),
     'last_host': lastHost,
     'last_port': lastPort,
+    'always_allow': alwaysAllow,
   };
 
   factory TrustedDevice.fromJson(Map<String, dynamic> j) => TrustedDevice(
@@ -91,6 +99,7 @@ class TrustedDevice {
     updatedAt: DateTime.parse(j['updated_at'] as String),
     lastHost: j['last_host'] as String?,
     lastPort: j['last_port'] as int?,
+    alwaysAllow: j['always_allow'] == true,
   );
 }
 
@@ -99,7 +108,8 @@ class TrustedDevice {
 class TrustStore {
   TrustStore(this.file);
 
-  static const int schemaVersion = 2;
+  /// 3 (0.12.0): per-device "always_allow" (D3).
+  static const int schemaVersion = 3;
 
   final File file;
   final List<TrustedDevice> _devices = [];
@@ -194,6 +204,14 @@ class TrustStore {
           },
       ];
       v = 2;
+    }
+    if (v < 3) {
+      // D3: nobody is "always allowed" until the user ticks it.
+      out['devices'] = [
+        for (final d in (out['devices'] as List? ?? const []))
+          {...(d as Map<String, dynamic>), 'always_allow': false},
+      ];
+      v = 3;
     }
     out['schema_version'] = v;
     return out;
@@ -311,6 +329,15 @@ class TrustStore {
     final d = byId(id);
     if (d == null || !d.isTrusted) return false;
     await _replace(d.copyWith(status: TrustStatus.verified));
+    return true;
+  }
+
+  /// D3: "Always allow this device". Only a VERIFIED device can get it;
+  /// false when refused or unknown.
+  Future<bool> setAlwaysAllow(String id, bool allow) async {
+    final d = byId(id);
+    if (d == null || (allow && !d.isVerified)) return false;
+    await _replace(d.copyWith(alwaysAllow: allow));
     return true;
   }
 

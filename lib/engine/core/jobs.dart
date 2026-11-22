@@ -332,7 +332,20 @@ class PendingRequest {
     this.replacesName,
     this.resumeBytes = 0,
     this.offerCount = 0,
+    this.deviceId,
+    this.peerVerified = false,
   });
+
+  /// D3: the other device's id (transfer requests from paired devices).
+  final String? deviceId;
+
+  /// D3: the other device is VERIFIED: the question can offer "Always
+  /// allow this device".
+  final bool peerVerified;
+
+  /// D3: the user ticked "Always allow this device" (used only when
+  /// [peerVerified] and the request is approved).
+  bool alwaysAllow = false;
 
   /// Pairing (0.9.1 one-tap send): the peer also wants to send this many
   /// files ([totalBytes] in total, first names in [fileNames]). Accepting

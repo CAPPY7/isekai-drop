@@ -2205,6 +2205,8 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       totalBytes: total,
       job: job,
       resumeBytes: already,
+      deviceId: dev.deviceId,
+      peerVerified: dev.isVerified,
     );
     // Auto-receive only from VERIFIED devices, and only when switched on.
     // 0.9.1: or when the user just accepted a one-tap "pair and send" from
@@ -2215,11 +2217,17 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         tid != null &&
         pre.tid == tid &&
         DateTime.now().isBefore(pre.until);
-    final auto = preOk || (dev.isVerified && autoAccept(dev));
+    // D3: or when "Always allow this device" is on (verified only).
+    final auto =
+        preOk || (dev.isVerified && (dev.alwaysAllow || autoAccept(dev)));
     if (!auto && !await _ask(req)) {
       s.add(jsonFrame({'t': 'decline', 'reason': 'declined'}));
       await _closeDirect(resumedDirect);
       return;
+    }
+    if (!auto && req.alwaysAllow && dev.isVerified) {
+      await trust.setAlwaysAllow(dev.id, true);
+      notifyListeners();
     }
     _jobs.insert(0, job);
     notifyListeners();
@@ -3812,6 +3820,13 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     await trust.forget(id);
     _refreshNearbyTrust();
     notifyListeners();
+  }
+
+  @override
+  Future<bool> setAlwaysAllow(String id, bool allow) async {
+    final ok = await trust.setAlwaysAllow(id, allow);
+    notifyListeners();
+    return ok;
   }
 
   @override

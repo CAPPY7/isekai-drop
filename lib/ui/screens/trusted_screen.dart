@@ -303,6 +303,22 @@ class TrustedDevicesScreen extends StatelessWidget {
                             style: TextStyle(color: idStatus(context).danger),
                           ),
                         ),
+                      // D3: turn "Always allow this device" off.
+                      if (d.alwaysAllow)
+                        SwitchListTile(
+                          key: ValueKey('always-allow-${d.id}'),
+                          contentPadding: EdgeInsets.zero,
+                          minTileHeight: IdLayout.minTouchTarget,
+                          value: true,
+                          onChanged: (_) =>
+                              AppScope.of(context).engine
+                                  .setAlwaysAllow(d.id, false),
+                          title: const Text('Always allowed'),
+                          subtitle: const Text(
+                            'Files from this device are received without asking. '
+                            'Turn off to be asked again.',
+                          ),
+                        ),
                       if (d.status == TrustStatus.revoked)
                         Padding(
                           padding: EdgeInsets.only(top: IdSpacing.xs),

@@ -254,6 +254,24 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                         Text('- $n', overflow: TextOverflow.ellipsis),
                       if (r.fileNames.length > 5)
                         Text('...and ${r.fileNames.length - 5} more'),
+                      // D3: only for a VERIFIED device (code compared).
+                      if (r.peerVerified)
+                        StatefulBuilder(
+                          builder: (c2, set) => CheckboxListTile(
+                            key: const ValueKey('request-always'),
+                            contentPadding: EdgeInsets.zero,
+                            controlAffinity: ListTileControlAffinity.leading,
+                            minTileHeight: IdLayout.minTouchTarget,
+                            value: r.alwaysAllow,
+                            onChanged: (v) =>
+                                set(() => r.alwaysAllow = v ?? false),
+                            title: const Text('Always allow this device'),
+                            subtitle: const Text(
+                              'Files from it are received without this '
+                              'question. Turn off in Settings > Trusted devices.',
+                            ),
+                          ),
+                        ),
                     ],
             ),
           ),

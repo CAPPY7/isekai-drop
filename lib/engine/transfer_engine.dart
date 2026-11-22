@@ -164,6 +164,10 @@ abstract class TransferEngine implements Listenable {
   Future<void> revokeTrustedDevice(String id);
   Future<void> forgetTrustedDevice(String id);
 
+  /// D3: "Always allow this device" (receive without asking). Only for a
+  /// VERIFIED device; false when refused.
+  Future<bool> setAlwaysAllow(String id, bool allow);
+
   /// The user compared [codeFor] with the other device: mark as Verified.
   Future<bool> markDeviceVerified(String id);
   String codeFor(TrustedDevice d);

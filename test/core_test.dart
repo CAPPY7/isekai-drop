@@ -156,7 +156,7 @@ void main() {
       expect(s.devices.single.status, TrustStatus.trusted);
       expect(s.devices.single.id, isNotEmpty);
       final raw = jsonDecode(await f.readAsString()) as Map<String, dynamic>;
-      expect(raw['schema_version'], 2);
+      expect(raw['schema_version'], TrustStore.schemaVersion); // D3: 3
     });
   });
 
