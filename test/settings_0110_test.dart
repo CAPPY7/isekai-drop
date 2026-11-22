@@ -16,14 +16,14 @@ void main() {
       expect(friendlyModelName('Nokia', ''), 'Nokia');
     });
 
-    test('cleanDeviceName', () {
-      expect(cleanDeviceName('  OnePlus 9 '), 'OnePlus 9');
-      expect(cleanDeviceName('kazuto-pc.local', hostname: true), 'kazuto-pc');
-      expect(cleanDeviceName('localhost', hostname: true), isNull);
-      expect(cleanDeviceName(''), isNull);
-      expect(cleanDeviceName(null), isNull);
-      expect(cleanDeviceName('a\u0007b'), 'ab');
-      expect(cleanDeviceName('x' * 60)!.length, 40);
+    test('cleanSystemName', () {
+      expect(cleanSystemName('  OnePlus 9 '), 'OnePlus 9');
+      expect(cleanSystemName('kazuto-pc.local', hostname: true), 'kazuto-pc');
+      expect(cleanSystemName('localhost', hostname: true), isNull);
+      expect(cleanSystemName(''), isNull);
+      expect(cleanSystemName(null), isNull);
+      expect(cleanSystemName('a\u0007b'), 'ab');
+      expect(cleanSystemName('x' * 60)!.length, 40);
     });
 
     test('generic stored name is replaced by the system name', () async {

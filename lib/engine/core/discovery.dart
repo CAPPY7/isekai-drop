@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'diag_log.dart';
+import 'names.dart';
 import 'net_info.dart';
 
 /// What another device says about itself on the local network. This is NOT
@@ -106,20 +107,17 @@ class Discovery {
           if (j['app'] != 'isekai-drop' || j['v'] != 1) return;
           if (j['device_id'] == ownDeviceId) return;
           counters.discoveryReceived++;
-          onFound(
-            Announcement(
-              deviceId: j['device_id'] as String,
-              name: (j['name'] as String).characters40,
-              platform: j['platform'] as String,
-              port: j['port'] as int,
-              fingerprint: j['fp'] as String,
-              host: d.address.address,
-              seenAt: DateTime.now(),
-            ),
-          );
+          // A2: every field is checked; anything odd drops the packet.
+          final a = parseAnnouncement(j, d.address.address);
+          if (a == null) {
+            counters.discoveryDropped++;
+            return;
+          }
+          onFound(a);
           _replyTo(d.address);
         } catch (_) {
           // Ignore malformed packets.
+          counters.discoveryDropped++;
         }
       });
       _timer = Timer.periodic(const Duration(seconds: 3), (_) {
@@ -263,6 +261,50 @@ class Discovery {
   }
 }
 
-extension on String {
-  String get characters40 => length > 40 ? substring(0, 40) : this;
+/// A2: most devices kept in the Nearby list. When full, new unknown ids
+/// are ignored (a paired device is always shown).
+const int kMaxNearby = 64;
+
+/// A2: most NEW device ids taken from one source address per
+/// [kNewIdsWindow].
+const int kMaxNewIdsPerSource = 5;
+const Duration kNewIdsWindow = Duration(seconds: 10);
+
+final _safeId = RegExp(r'^[A-Za-z0-9_-]{1,64}$');
+final _fp = RegExp(r'^[0-9a-f]{64}$');
+
+/// A2: true when the untrusted fields of an announcement look right:
+/// device id 1-64 safe characters, fingerprint exactly 64 lower-case hex,
+/// port 1-65535.
+bool validAnnouncementFields(String deviceId, String fingerprint, int port) =>
+    _safeId.hasMatch(deviceId) &&
+    _fp.hasMatch(fingerprint) &&
+    port >= 1 &&
+    port <= 65535;
+
+/// A2: builds an [Announcement] from a UDP packet, or null when any field
+/// is missing or has the wrong type/format. Name and platform are cleaned
+/// like pairing names (no control/bidi characters, max 40 runes).
+Announcement? parseAnnouncement(
+  Map<String, dynamic> j,
+  String host, {
+  DateTime? now,
+}) {
+  final id = j['device_id'];
+  final fp = j['fp'];
+  final port = j['port'];
+  final name = j['name'];
+  final platform = j['platform'];
+  if (id is! String || fp is! String || port is! int) return null;
+  if (name is! String || platform is! String) return null;
+  if (!validAnnouncementFields(id, fp, port)) return null;
+  return Announcement(
+    deviceId: id,
+    name: cleanDeviceName(name),
+    platform: cleanDeviceName(platform),
+    port: port,
+    fingerprint: fp,
+    host: host,
+    seenAt: now ?? DateTime.now(),
+  );
 }

@@ -21,6 +21,10 @@ class DiagEntry {
 class DiagCounters {
   int discoverySent = 0;
   int discoveryReceived = 0;
+
+  /// A2: announcements dropped (bad fields, list full, too many new ids
+  /// from one address).
+  int discoveryDropped = 0;
   int discoverySendErrors = 0;
   int discoveryTargets = 0;
 

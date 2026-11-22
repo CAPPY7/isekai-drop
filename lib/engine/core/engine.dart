@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import '../transfer_engine.dart';
 import 'bg_hasher.dart';
 import 'discovery.dart';
+import 'names.dart';
 import 'frames.dart';
 import 'identity.dart';
 import 'lane.dart';
@@ -17,6 +18,8 @@ import 'resume_store.dart';
 import 'safe_files.dart';
 import 'speed_test.dart';
 import 'trust_store.dart';
+
+export 'names.dart' show cleanDeviceName;
 
 /// Moves a verified temp file to its final place. Returns where it went.
 /// [safeRelPath] is already cleaned (see sanitizeRelativePath) and may contain
@@ -576,6 +579,8 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   Future<void> stop() async {
     _pruneTimer?.cancel();
     _pruneTimer = null;
+    _nearbyNotifyTimer?.cancel();
+    _nearbyNotifyTimer = null;
     // 0.10.0: never leave a Fast direct link on after the app stops.
     await directHost?.stop();
     await leaveDirectLink();
@@ -704,12 +709,32 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   @visibleForTesting
   void debugFound(Announcement a) => _onFound(a);
 
+  /// A2: new device ids seen per source address in the current window.
+  final Map<String, ({DateTime start, int count})> _newIdsFrom = {};
+  Timer? _nearbyNotifyTimer;
+  DateTime? _lastNearbyNotify;
+
   void _onFound(Announcement a) {
+    // A2: announcements are untrusted. Check the fields again here (Bonjour
+    // and network search come this way too) and clean the names.
+    if (!validAnnouncementFields(a.deviceId, a.fingerprint, a.port)) {
+      diagCounters.discoveryDropped++;
+      return;
+    }
+    final known = _nearby.containsKey(a.deviceId);
+    final paired = trust.byDeviceId(a.deviceId) != null;
+    if (!known && !paired) {
+      // Never evict anyone; a full list ignores new unknown devices.
+      if (_nearby.length >= kMaxNearby || !_allowNewIdFrom(a.host)) {
+        diagCounters.discoveryDropped++;
+        return;
+      }
+    }
     _nearby[a.deviceId] = _withTrustOf(
       NearbyDevice(
         deviceId: a.deviceId,
-        name: a.name,
-        platform: a.platform,
+        name: cleanDeviceName(a.name),
+        platform: cleanDeviceName(a.platform),
         host: a.host,
         port: a.port,
         seenAt: a.seenAt,
@@ -718,7 +743,39 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     );
     // Announcements are NOT authenticated, so they never change saved
     // trust data. The address is saved only after a TLS session succeeds.
-    notifyListeners();
+    _notifyNearbySoon();
+  }
+
+  bool _allowNewIdFrom(String host) {
+    final now = DateTime.now();
+    final w = _newIdsFrom[host];
+    if (w == null || now.difference(w.start) >= kNewIdsWindow) {
+      if (_newIdsFrom.length > 256) _newIdsFrom.clear();
+      _newIdsFrom[host] = (start: now, count: 1);
+      return true;
+    }
+    if (w.count >= kMaxNewIdsPerSource) return false;
+    _newIdsFrom[host] = (start: w.start, count: w.count + 1);
+    return true;
+  }
+
+  /// A2: at most 4 list updates per second from discovery.
+  static const _nearbyNotifyGap = Duration(milliseconds: 250);
+
+  void _notifyNearbySoon() {
+    if (_nearbyNotifyTimer != null) return;
+    final now = DateTime.now();
+    final last = _lastNearbyNotify;
+    if (last == null || now.difference(last) >= _nearbyNotifyGap) {
+      _lastNearbyNotify = now;
+      notifyListeners();
+      return;
+    }
+    _nearbyNotifyTimer = Timer(_nearbyNotifyGap - now.difference(last), () {
+      _nearbyNotifyTimer = null;
+      _lastNearbyNotify = DateTime.now();
+      notifyListeners();
+    });
   }
 
   /// 0.11.2: fills in what this device knows about [n]: its saved pairing
@@ -3591,24 +3648,6 @@ String transferIdFor(String peerFingerprint, List<SendSource> files) {
     b.write('|${f.relativePath}|${f.size}|${f.versionTag ?? ''}');
   }
   return sha256.convert(utf8.encode(b.toString())).toString().substring(0, 32);
-}
-
-/// Display-safe device name from untrusted input (pairing, UDP, Bonjour):
-/// removes control and bidi-override characters, collapses spaces, max 40
-/// characters. Audit #12.
-String cleanDeviceName(Object? v) {
-  final s = (v is String ? v : 'Device')
-      .replaceAll(
-        RegExp(
-          r'[\x00-\x1F\x7F-\x9F\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]',
-        ),
-        '',
-      )
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .trim();
-  if (s.isEmpty) return 'Device';
-  final r = s.runes.toList();
-  return r.length > 40 ? String.fromCharCodes(r.take(40)) : s;
 }
 
 /// Flushes, but gives up as soon as the socket is closed or broken. A plain

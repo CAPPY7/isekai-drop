@@ -28,7 +28,7 @@ String genericDeviceName([String? os]) =>
 
 /// Cleans a system name: trims, drops a ".local" / domain suffix of host
 /// names, caps at 40 characters. Null when nothing usable is left.
-String? cleanDeviceName(String? raw, {bool hostname = false}) {
+String? cleanSystemName(String? raw, {bool hostname = false}) {
   if (raw == null) return null;
   var s = raw.trim();
   if (hostname) {
@@ -61,9 +61,9 @@ Future<String?> systemDeviceName() async {
     if (Platform.isAndroid) {
       final m = await _android.invokeMapMethod<String, Object?>('deviceName');
       if (m == null) return null;
-      final user = cleanDeviceName(m['deviceName'] as String?);
+      final user = cleanSystemName(m['deviceName'] as String?);
       if (user != null) return user;
-      return cleanDeviceName(
+      return cleanSystemName(
         friendlyModelName(
           (m['manufacturer'] as String?) ?? '',
           (m['model'] as String?) ?? '',
@@ -71,16 +71,16 @@ Future<String?> systemDeviceName() async {
       );
     }
     if (Platform.isIOS) {
-      return cleanDeviceName(await _apple.invokeMethod<String>('deviceName'));
+      return cleanSystemName(await _apple.invokeMethod<String>('deviceName'));
     }
     if (Platform.isWindows) {
-      return cleanDeviceName(
+      return cleanSystemName(
         Platform.environment['COMPUTERNAME'] ?? Platform.localHostname,
         hostname: true,
       );
     }
     if (Platform.isMacOS || Platform.isLinux) {
-      return cleanDeviceName(Platform.localHostname, hostname: true);
+      return cleanSystemName(Platform.localHostname, hostname: true);
     }
   } catch (_) {
     // No name: the generic one is used.
