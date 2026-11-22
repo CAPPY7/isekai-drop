@@ -151,7 +151,7 @@ extension DisplayTrustLabel on DisplayTrust {
     DisplayTrust.verified => 'Verified (code compared)',
     DisplayTrust.trusted => 'Paired (code not checked)',
     DisplayTrust.unknown => 'Unknown - not paired',
-    DisplayTrust.identityChanged => 'Identity changed - blocked',
+    DisplayTrust.identityChanged => 'Needs pairing again (new key)',
     DisplayTrust.revoked => 'Revoked - blocked',
   };
 

@@ -21,7 +21,8 @@ import 'direct/direct_link.dart';
 
 export 'core/benchmark_store.dart';
 export 'core/history_store.dart';
-export 'core/engine.dart' show NearbyDevice, PairingSession, PairingException;
+export 'core/engine.dart'
+    show NearbyDevice, PairingSession, PairingException, RejectedPeer;
 export 'core/identity.dart' show shortFingerprint;
 export 'core/diag_log.dart';
 export 'core/jobs.dart';
@@ -150,6 +151,16 @@ abstract class TransferEngine implements Listenable {
   String codeFor(TrustedDevice d);
 
   Future<TransferJob?> retry(TransferJob job);
+
+  /// 0.11.2: the other device refused this device's key (it was
+  /// reinstalled/reset, or this one was). Forgets the old pairing, asks
+  /// the other device ONE question (pair + these files) and sends.
+  /// Throws [PairingException] if it is not nearby or declines.
+  Future<TransferJob> forgetAndPairAgain(TransferJob job);
+
+  /// 0.11.2: see RejectedPeer. Null when nothing to show.
+  RejectedPeer? get rejectedPeer;
+  void dismissRejectedPeer();
 
   /// Audit #9: failed sends saved by an earlier run (retry after restart).
   List<PendingSend> get interruptedSends;

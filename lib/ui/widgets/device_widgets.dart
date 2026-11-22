@@ -6,7 +6,12 @@ import 'common.dart';
 
 DisplayTrust trustOfNearby(NearbyDevice d) {
   final t = d.trusted;
-  if (t == null) return DisplayTrust.unknown;
+  // 0.11.2: same name as a paired device, other key: label only.
+  if (t == null) {
+    return d.looksLikePaired != null
+        ? DisplayTrust.identityChanged
+        : DisplayTrust.unknown;
+  }
   if (d.fingerprintMismatch) return DisplayTrust.identityChanged;
   return trustOf(t);
 }

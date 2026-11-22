@@ -48,7 +48,50 @@ const _fallbackNote =
 /// until the user answers (seen on the build box under Xvfb).
 const _secureStorageTimeout = Duration(seconds: 30);
 
-Future<(Identity, String?)> _loadIdentity(Directory support) async {
+/// 0.11.2: loads the identity and replaces a pre-0.11.2 one (shared
+/// certificate subject, see [Identity.generate]) by a new key with the same
+/// device id. The third value is true when that happened. If the new key
+/// cannot be stored, the old one is kept.
+Future<(Identity, String?, bool)> _loadIdentity(Directory support) async {
+  final (id, note) = await _loadIdentityRaw(support);
+  if (!id.hasSharedSubject) return (id, note, false);
+  try {
+    final json = await Isolate.run(() => jsonEncode(id.renewed().toJson()));
+    final fresh = Identity.fromJson(jsonDecode(json) as Map<String, dynamic>);
+    final fallback = File(p.join(support.path, 'identity_fallback.json'));
+    if (await fallback.exists()) {
+      await fallback.writeAsString(json, flush: true);
+    } else {
+      const storage = FlutterSecureStorage();
+      await storage
+          .write(key: _identityKey, value: json)
+          .timeout(_secureStorageTimeout);
+      final check = await storage
+          .read(key: _identityKey)
+          .timeout(_secureStorageTimeout);
+      if (check != json) {
+        // Put the old one back if possible; never end up with neither.
+        await storage
+            .write(key: _identityKey, value: jsonEncode(id.toJson()))
+            .timeout(_secureStorageTimeout);
+        return (id, note, false);
+      }
+    }
+    return (fresh, note, true);
+  } catch (_) {
+    return (id, note, false);
+  }
+}
+
+/// 0.11.2: shown once after the key was replaced by [_loadIdentity].
+String? keyUpgradedNote({required bool upgraded, required int pairedCount}) {
+  if (!upgraded || pairedCount == 0) return null;
+  return 'Isekai Drop 0.11.2 gave this device a NEW key (this fixes sending '
+      'between two phones). Pair again once with each device, after it is '
+      'updated to 0.11.2 too (on a failed send: "Forget and pair again").';
+}
+
+Future<(Identity, String?)> _loadIdentityRaw(Directory support) async {
   final fallback = File(p.join(support.path, 'identity_fallback.json'));
   // Once the fallback file is used it stays in use, so this device's
   // identity can never silently change between the file and the keyring.
@@ -126,6 +169,21 @@ Future<(Identity, String?)> _useFallback(File fallback, String note) async {
   return (id, note);
 }
 
+/// 0.11.2: note when this device's key differs from the one saved last
+/// time while paired devices are still listed. Null otherwise (also on the
+/// first start of a version that did not save the fingerprint yet).
+String? ownKeyChangedNote({
+  required String lastFingerprint,
+  required String fingerprint,
+  required int pairedCount,
+}) {
+  if (lastFingerprint.isEmpty || lastFingerprint == fingerprint) return null;
+  if (pairedCount == 0) return null;
+  return 'This device has a NEW key (its key store was reset or the app '
+      'data came back from a backup). Paired devices will refuse it: pair '
+      'with each of them again (on a failed send: "Forget and pair again").';
+}
+
 const _linuxNoKeyringNote =
     'No unlocked keyring was found (GNOME Keyring / KWallet). Your device key is kept in the app\'s private folder instead.';
 
@@ -170,12 +228,32 @@ Future<IsekaiEngine> createPlatformEngine(
   String Function()? routeMode,
 }) async {
   final support = await getApplicationSupportDirectory();
-  final (identity, note) = await _loadIdentity(support);
+  final idFile = File(p.join(support.path, 'identity_fingerprint.txt'));
+  var (identity, note, upgraded) = await _loadIdentity(support);
   final trust = TrustStore(File(p.join(support.path, 'trusted_devices.json')));
   try {
     await trust.load();
   } catch (_) {
     // A damaged database must not stop the app; start empty.
+  }
+  // 0.11.2: say so when this device's key is new but paired devices were
+  // kept (key store reset, or data restored from a backup): those devices
+  // will refuse it until paired again.
+  final lastFp = await idFile.exists()
+      ? (await idFile.readAsString()).trim()
+      : '';
+  final keyNote =
+      keyUpgradedNote(upgraded: upgraded, pairedCount: trust.devices.length) ??
+      ownKeyChangedNote(
+        lastFingerprint: lastFp,
+        fingerprint: identity.fingerprint,
+        pairedCount: trust.devices.length,
+      );
+  if (keyNote != null) note = note == null ? keyNote : '$note $keyNote';
+  if (lastFp != identity.fingerprint) {
+    try {
+      await idFile.writeAsString(identity.fingerprint, flush: true);
+    } catch (_) {}
   }
   final benchmarks = BenchmarkStore(
     File(p.join(support.path, 'benchmarks.json')),

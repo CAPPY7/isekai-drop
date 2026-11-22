@@ -281,3 +281,8 @@ file before every phase. Stop after each phase and wait for "next".
 ## macOS latest-build dmg (2026-11-22)
 - macos.yml now ad-hoc signs the release .app, checks `lipo` for arm64+x86_64, packs `isekai-drop-macos.dmg`, and the publish job uploads it to latest-build on main pushes only (stable name, clobber + stale-pattern cleanup).
 - No paid Apple account and no notarization. Running on a real Mac: NOT TESTED.
+
+## 0.11.2 identity subject (2026-10-30)
+- Certificates up to 0.11.1 all had CN "Isekai Drop device". BoringSSL picks a self-signed client cert from the server's trusted certs BY SUBJECT and needs an exact match, so a receiver with 2+ trusted devices accepted only one. Never give two identities the same subject again.
+- Since 0.11.2 CN = "Isekai Drop <deviceId>", O = Isekai Drop. platform_engine `_loadIdentity` renews old identities (same deviceId) and stores them where the old one was; keeps the old one if storing fails. `Identity.generate(legacySubject: true)` is for tests only.
+- The receiver side cannot work around old certs (Dart has no server onBadCertificate); senders must be on 0.11.2.

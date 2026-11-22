@@ -186,6 +186,13 @@ Owner on 0.10.1: plain TCP 6.9, TLS 7.1/8.8 MB/s; disk/hash 121-312 MB/s -> netw
 - [x] docs/MAC_INSTALL.md (right-click Open / Open Anyway / `xattr -cr` fallback), README and release notes
 - [ ] Running on a real Mac: NOT TESTED
 
+## Phase 7o - 0.11.2 hotfix: phone to phone
+- [x] Root cause: shared certificate subject; a receiver with 2+ paired devices refused all but one (reproduced, test/samename_0112_test.dart)
+- [x] Unique subject per device; old identities renewed on first start (same device id), note on Home
+- [x] Forget and pair again (sender), Needs pairing again card (receiver), replaces-pairing warning on the prompt
+- [ ] Owner: update all devices, pair again, phone <-> phone send (NOT TESTED)
+- [ ] Speed items from the owner's Windows Speed test (netsh parse localized, direct link Windows <-> Android, faster hashing)
+
 ## Phase 8 - Fix security, compatibility, performance, usability
 - [ ] Security tests for all acceptance tests
 - [x] Real release key (never committed): new key in 0.11.1 (old backup lost), CI signs main builds when the 4 secrets exist (Phase 7m).

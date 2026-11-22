@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../engine/transfer_engine.dart';
 import '../app_scope.dart';
+import '../diag_report.dart' show kAppVersion;
 import '../guides/guides.dart';
 import 'benchmark_screen.dart';
 import 'diagnostics_screen.dart';
@@ -152,17 +153,29 @@ class SettingsScreen extends StatelessWidget {
           ),
           SectionCard(
             title: 'This device',
-            child: ListTile(
-              contentPadding: EdgeInsets.zero,
-              minTileHeight: IdLayout.minTouchTarget,
-              leading: const Icon(Icons.badge_outlined),
-              title: const Text('Device name'),
-              subtitle: Text(settings.deviceName),
-              trailing: const Icon(
-                Icons.edit_outlined,
-                semanticLabel: 'Rename',
-              ),
-              onTap: () => _editName(context),
+            child: Column(
+              children: [
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  minTileHeight: IdLayout.minTouchTarget,
+                  leading: const Icon(Icons.badge_outlined),
+                  title: const Text('Device name'),
+                  subtitle: Text(settings.deviceName),
+                  trailing: const Icon(
+                    Icons.edit_outlined,
+                    semanticLabel: 'Rename',
+                  ),
+                  onTap: () => _editName(context),
+                ),
+                ListTile(
+                  key: const Key('settings-version'),
+                  contentPadding: EdgeInsets.zero,
+                  minTileHeight: IdLayout.minTouchTarget,
+                  leading: const Icon(Icons.info_outline),
+                  title: const Text('App version'),
+                  subtitle: const Text('Isekai Drop $kAppVersion'),
+                ),
+              ],
             ),
           ),
           SectionCard(

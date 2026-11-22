@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../engine/transfer_engine.dart';
 import '../app_scope.dart';
+import '../diag_report.dart' show kAppVersion;
 import '../pairing_flow.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/common.dart';
@@ -204,6 +205,56 @@ class HomeScreen extends StatelessWidget {
                   ],
                 ),
               ),
+            if (engine.secureStorageNote?.contains('NEW key') ?? false)
+              SectionCard(
+                key: const ValueKey('own-key-new'),
+                title: 'This device has a new key',
+                child: Text(engine.secureStorageNote!),
+              ),
+            if (engine.rejectedPeer case final r?)
+              SectionCard(
+                key: const ValueKey('rejected-peer'),
+                title: 'Needs pairing again',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '"${r.name}" tried to connect, but with a different key '
+                      'than "${r.pairedName}" had when you paired. Most likely '
+                      'Isekai Drop was reinstalled or reset on it. This device '
+                      'refused it. Pair again only if that is true.',
+                    ),
+                    const SizedBox(height: IdSpacing.sm),
+                    Wrap(
+                      spacing: IdSpacing.sm,
+                      children: [
+                        FilledButton(
+                          key: const ValueKey('rejected-peer-pair'),
+                          onPressed: () {
+                            final n = engine.nearby
+                                .where((d) => d.deviceId == r.nearbyId)
+                                .firstOrNull;
+                            engine.dismissRejectedPeer();
+                            if (n != null) {
+                              startPairingFlow(
+                                context,
+                                n.host,
+                                n.port,
+                                peerName: n.name,
+                              );
+                            }
+                          },
+                          child: const Text('Pair again'),
+                        ),
+                        TextButton(
+                          onPressed: engine.dismissRejectedPeer,
+                          child: const Text('Not now'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             SectionCard(
               title: 'Nearby devices',
               child: engine.nearby.isEmpty
@@ -248,6 +299,13 @@ class HomeScreen extends StatelessWidget {
               ),
             Text(
               'Files go directly between your devices, encrypted. Nothing is uploaded.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            // 0.11.2: the version, so a report or photo shows which build runs.
+            Text(
+              'Isekai Drop $kAppVersion',
+              key: const Key('home-version'),
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall,
             ),

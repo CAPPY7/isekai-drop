@@ -173,6 +173,20 @@ class _AppShellState extends State<AppShell> {
                         'next time files go straight to the usual question. '
                         'If you did not start this, tap Decline.',
                       ),
+                      if (r.replacesName != null) ...[
+                        const SizedBox(height: IdSpacing.sm),
+                        Text(
+                          'You paired a device named "${r.replacesName}" before, '
+                          'with a different key. This is probably that device after '
+                          'Isekai Drop was reinstalled or reset on it. Accept only '
+                          'if that is true; accepting replaces the old pairing.',
+                          key: const ValueKey('pair-replaces'),
+                          style: TextStyle(
+                            color: idStatus(context).warning,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                       if (r.keyChanged) ...[
                         const SizedBox(height: IdSpacing.sm),
                         Text(

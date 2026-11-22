@@ -701,21 +701,50 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     return found;
   }
 
+  @visibleForTesting
+  void debugFound(Announcement a) => _onFound(a);
+
   void _onFound(Announcement a) {
-    final t = trust.byDeviceId(a.deviceId);
-    _nearby[a.deviceId] = NearbyDevice(
-      deviceId: a.deviceId,
-      name: a.name,
-      platform: a.platform,
-      host: a.host,
-      port: a.port,
-      seenAt: a.seenAt,
-      trusted: t,
-      fingerprintMismatch: t != null && t.fingerprint != a.fingerprint,
+    _nearby[a.deviceId] = _withTrustOf(
+      NearbyDevice(
+        deviceId: a.deviceId,
+        name: a.name,
+        platform: a.platform,
+        host: a.host,
+        port: a.port,
+        seenAt: a.seenAt,
+        fingerprint: a.fingerprint,
+      ),
     );
     // Announcements are NOT authenticated, so they never change saved
     // trust data. The address is saved only after a TLS session succeeds.
     notifyListeners();
+  }
+
+  /// 0.11.2: fills in what this device knows about [n]: its saved pairing
+  /// (by device id), whether the key differs ("Needs pairing again"), and
+  /// for an unknown device whether it has the same name and platform as a
+  /// paired one with another key (most likely that device was reinstalled
+  /// or reset). Only labels and prompts; never changes trust.
+  NearbyDevice _withTrustOf(NearbyDevice n) {
+    final t = trust.byDeviceId(n.deviceId);
+    String? looksLike;
+    if (t == null && n.fingerprint.isNotEmpty) {
+      looksLike = sameNameOtherKey(
+        trust.devices,
+        n.name,
+        n.platform,
+        n.fingerprint,
+      )?.name;
+    }
+    return n.withTrust(
+      t,
+      mismatch:
+          t != null &&
+          n.fingerprint.isNotEmpty &&
+          t.fingerprint != n.fingerprint,
+      looksLike: looksLike,
+    );
   }
 
   // ---------------------------------------------------------------- approvals
@@ -813,6 +842,10 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     void Function() endHandshake,
   ) async {
     SecureSocket s;
+    String? fromAddr;
+    try {
+      fromAddr = raw.remoteAddress.address;
+    } catch (_) {}
     try {
       // Small control messages must not wait ~40 ms (Nagle + delayed ACK).
       raw.setOption(SocketOption.tcpNoDelay, true);
@@ -826,6 +859,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       unawaited(s.done.then((_) {}, onError: (_) {}));
     } catch (e) {
       // Unknown, revoked or broken client certificate: rejected by TLS.
+      _noteRejected(fromAddr);
       diagCounters.incomingTlsRejected++;
       recordProblem(
         'incoming_${classifyError(e)}',
@@ -1661,6 +1695,44 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     }
   }
 
+  /// 0.11.2: a device on the network that this device just refused (its
+  /// key is not one of the paired ones) while it has the name of a paired
+  /// device or a paired device id. Shown on Home as "pair again" - the
+  /// old pairing is never re-trusted silently.
+  @override
+  RejectedPeer? rejectedPeer;
+
+  @override
+  void dismissRejectedPeer() {
+    rejectedPeer = null;
+    notifyListeners();
+  }
+
+  void _noteRejected(String? addr) {
+    if (addr == null) return;
+    NearbyDevice? n;
+    for (final d in _nearby.values) {
+      if (d.host == addr) n = d;
+    }
+    if (n == null || !n.needsRepair) return;
+    final old =
+        n.trusted ??
+        sameNameOtherKey(trust.devices, n.name, n.platform, n.fingerprint);
+    if (old == null) return;
+    rejectedPeer = RejectedPeer(
+      nearbyId: n.deviceId,
+      name: n.name,
+      pairedName: old.name,
+      at: DateTime.now(),
+    );
+    diagLog.add(
+      'incoming_key_changed',
+      'A device with the name of a paired device tried to connect with '
+          'another key (reinstalled or reset?). Pair again to use it.',
+    );
+    notifyListeners();
+  }
+
   bool _pairingOpen = false;
 
   /// How long a one-tap "pair and send" acceptance covers the send.
@@ -1680,6 +1752,12 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     _PairOffer? offer,
   }) async {
     final known = trust.byDeviceId(peerId);
+    // 0.11.2: a new device id with the name and platform of a paired device
+    // (that device was most likely reinstalled or reset). The prompt says
+    // so; accepting replaces that old pairing. Nothing happens without Accept.
+    final lookalike = known == null
+        ? sameNameOtherKey(trust.devices, name, platform, peerFp)
+        : null;
     final req = PendingRequest(
       id: randomHex(8),
       kind: RequestKind.pairing,
@@ -1687,6 +1765,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       peerPlatform: platform,
       code: verificationCode(identity.fingerprint, peerFp),
       keyChanged: known != null && known.fingerprint != peerFp,
+      replacesName: lookalike?.name,
       fileNames: offer?.names ?? const [],
       totalBytes: offer?.bytes ?? 0,
       offerCount: offer?.count ?? 0,
@@ -1696,6 +1775,8 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       s.add(jsonFrame({'t': 'pair_denied', 'reason': 'declined'}));
       return;
     }
+    if (lookalike != null) await trust.forget(lookalike.id);
+    rejectedPeer = null;
     await trust.addTrusted(
       deviceId: peerId,
       name: name,
@@ -2869,10 +2950,14 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       await _nextControl(reader, job);
       job.finish(JobState.completed, 'Sent and verified by the other device.');
     } on PairingException catch (e) {
+      job.needsRepair = trust.byId(job.trustedId ?? '')?.isBlocked ?? false;
       job.finish(JobState.failed, e.message);
     } catch (e) {
       final readFailed = e is SourceReadException || e is FileSystemException;
       final cls = e is SourceReadException ? e.reason : classifyError(e);
+      if (!readFailed && !job.cancelRequested) {
+        job.needsRepair = keyRefusalLikely(stage.name, cls);
+      }
       final where = readFailed ? 'read_file' : stage.name;
       if (!job.cancelRequested) {
         // Class only (no address or names); the job message becomes Last error.
@@ -3228,9 +3313,14 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
           'timeout' =>
             'The other device did not answer in time (nobody accepted).',
           _ =>
-            'The other device refused this device\'s secure certificate. '
-                'It may not trust this device any more, or one device\'s clock '
-                'is wrong. Check date and time on both, then pair again.',
+            'The other device closed the connection right after the secure '
+                'setup, without answering. Most often it did not accept this '
+                'device\'s key: one device was reinstalled or reset, the other '
+                'removed this one, a device still runs Isekai Drop 0.11.1 '
+                'or older (update all devices to 0.11.2), or a device\'s '
+                'date/clock is more than 2 days wrong. Tap "Forget and pair '
+                'again" and accept on the other device. Its Diagnostics show '
+                '"refused by secure setup" if it refused the key.',
         };
       case _SendStage.transfer:
         return 'The connection was lost during the transfer '
@@ -3277,6 +3367,34 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   /// Sends the same files again to the same device. If the receiver kept
   /// the interrupted part, it continues from there (same transfer id).
   @override
+  Future<TransferJob> forgetAndPairAgain(TransferJob job) async {
+    final dev = trust.byId(job.trustedId ?? '');
+    final devId = dev?.deviceId ?? job.peerDeviceId;
+    NearbyDevice? n;
+    for (final d in _nearby.values) {
+      if (d.deviceId == devId) n = d;
+    }
+    final host = n?.host ?? dev?.lastHost;
+    final port = n?.port ?? dev?.lastPort;
+    if (host == null || port == null) {
+      throw const PairingException(
+        'The other device is not on this network right now. Open Isekai '
+        'Drop on it (same Wi-Fi), then try again.',
+      );
+    }
+    // The session below asks the other device; only its Accept pairs
+    // again (TOFU + the user). The old pairing is gone either way: it no
+    // longer worked.
+    if (dev != null) await forgetTrustedDevice(dev.id);
+    final session = await beginPairing(host, port);
+    final fresh = await session.confirm(offer: job.sources);
+    final next = await send(fresh, job.sources, host: host, port: port);
+    job.retriedBy = next.id;
+    notifyListeners();
+    return next;
+  }
+
+  @override
   Future<TransferJob?> retry(TransferJob job) async {
     if (!job.canRetry) return null;
     final dev = trust.byId(job.trustedId ?? '');
@@ -3296,9 +3414,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
 
   void _refreshNearbyTrust() {
     for (final k in _nearby.keys.toList()) {
-      final n = _nearby[k]!;
-      final t = trust.byDeviceId(n.deviceId);
-      _nearby[k] = n.withTrust(t);
+      _nearby[k] = _withTrustOf(_nearby[k]!);
     }
   }
 
@@ -3372,6 +3488,8 @@ class NearbyDevice {
     required this.seenAt,
     this.trusted,
     this.fingerprintMismatch = false,
+    this.fingerprint = '',
+    this.looksLikePaired,
   });
 
   final String deviceId;
@@ -3381,9 +3499,27 @@ class NearbyDevice {
   final int port;
   final DateTime seenAt;
   final TrustedDevice? trusted;
+
+  /// Paired (same device id) but it now shows a different key: blocked
+  /// until paired again.
   final bool fingerprintMismatch;
 
-  NearbyDevice withTrust(TrustedDevice? t) => NearbyDevice(
+  /// Key fingerprint seen on the network ('' = not known).
+  final String fingerprint;
+
+  /// 0.11.2: not paired, but a paired device has the same name and platform
+  /// with another key (probably that device was reinstalled or reset).
+  /// A hint for the label only; names can be copied, so it grants nothing.
+  final String? looksLikePaired;
+
+  /// Shown as "Needs pairing again".
+  bool get needsRepair => fingerprintMismatch || looksLikePaired != null;
+
+  NearbyDevice withTrust(
+    TrustedDevice? t, {
+    bool? mismatch,
+    String? looksLike,
+  }) => NearbyDevice(
     deviceId: deviceId,
     name: name,
     platform: platform,
@@ -3391,8 +3527,58 @@ class NearbyDevice {
     port: port,
     seenAt: seenAt,
     trusted: t,
-    fingerprintMismatch: fingerprintMismatch && t != null,
+    fingerprintMismatch: (mismatch ?? fingerprintMismatch) && t != null,
+    fingerprint: fingerprint,
+    looksLikePaired: t == null ? looksLike : null,
   );
+}
+
+/// 0.11.2: a send failure that most likely means the other device does
+/// not accept this device's key (TLS 1.3 reports a refused client
+/// certificate only after the handshake, when the first answer is read).
+/// Certificates are valid from 2 days before creation for 10 years, so the
+/// clock is only a cause if one is more than 2 days wrong.
+bool keyRefusalLikely(String stage, String cls) =>
+    (stage == 'connect' &&
+        (cls == 'tls_handshake_failed' || cls == 'tls_error')) ||
+    (stage == 'answer' && cls != 'timeout');
+
+/// 0.11.2: see [TransferEngine.rejectedPeer].
+class RejectedPeer {
+  RejectedPeer({
+    required this.nearbyId,
+    required this.name,
+    required this.pairedName,
+    required this.at,
+  });
+
+  /// Device id of the [NearbyDevice] to pair again with.
+  final String nearbyId;
+  final String name;
+
+  /// Name of the old pairing it most likely replaces.
+  final String pairedName;
+  final DateTime at;
+}
+
+/// 0.11.2: a paired device with the same name and platform as a device
+/// that now shows [fingerprint] (another key). Null if none.
+TrustedDevice? sameNameOtherKey(
+  Iterable<TrustedDevice> devices,
+  String name,
+  String platform,
+  String fingerprint,
+) {
+  final n = name.trim().toLowerCase();
+  if (n.isEmpty) return null;
+  for (final d in devices) {
+    if (d.name.trim().toLowerCase() == n &&
+        d.platform == platform &&
+        d.fingerprint != fingerprint) {
+      return d;
+    }
+  }
+  return null;
 }
 
 /// Same files to the same device => same id, so the receiver can continue an

@@ -24,6 +24,13 @@ class Identity {
 
   late final String fingerprint = fingerprintOfCertPem(certPem);
 
+  /// 0.11.2: made before 0.11.2 with the subject every device shared.
+  /// Such a certificate must be replaced (see [generate]).
+  bool get hasSharedSubject => !certSubjectIsUnique(certPem);
+
+  /// Same device id, new key and certificate with a unique subject.
+  Identity renewed() => Identity.generate(deviceId: deviceId);
+
   Map<String, Object?> toJson() => {
     'v': 1,
     'device_id': deviceId,
@@ -44,12 +51,27 @@ class Identity {
   /// 0.9.1: "valid from" is set 2 days in the past. With "now", a phone
   /// whose clock was a little behind refused the certificate of a freshly
   /// installed peer (not yet valid) - pairing worked, sending did not.
-  static Identity generate({String? deviceId, DateTime? notBefore}) {
+  ///
+  /// 0.11.2: the subject is unique per device (`Isekai Drop <device id>`).
+  /// Up to 0.11.1 every device had the same subject, "Isekai Drop device".
+  /// TLS (BoringSSL) finds a self-signed client certificate among the
+  /// trusted ones BY SUBJECT and needs an exact match, so a device that
+  /// trusted two others accepted only one of them: phone to phone failed
+  /// as soon as a phone also trusted a PC ("refused this device's key").
+  static Identity generate({
+    String? deviceId,
+    DateTime? notBefore,
+    // Tests only: make a pre-0.11.2 certificate (shared subject).
+    bool legacySubject = false,
+  }) {
+    final id = deviceId ?? randomHex(16);
     final pair = CryptoUtils.generateEcKeyPair(curve: 'prime256v1');
     final priv = pair.privateKey as ECPrivateKey;
     final pub = pair.publicKey as ECPublicKey;
     final csr = X509Utils.generateEccCsrPem(
-      {'CN': 'Isekai Drop device'},
+      legacySubject
+          ? {'CN': 'Isekai Drop device'}
+          : {'CN': '$kSubjectPrefix$id', 'O': 'Isekai Drop'},
       priv,
       pub,
     );
@@ -61,11 +83,25 @@ class Identity {
           notBefore ?? DateTime.now().toUtc().subtract(const Duration(days: 2)),
     );
     return Identity(
-      deviceId: deviceId ?? randomHex(16),
+      deviceId: id,
       certPem: cert,
       keyPem: CryptoUtils.encodeEcPrivateKeyToPem(priv),
       createdAt: DateTime.now().toUtc(),
     );
+  }
+}
+
+/// Start of the certificate subject (CN) since 0.11.2.
+const kSubjectPrefix = 'Isekai Drop ';
+
+/// True if the certificate's CN is the per-device one from 0.11.2.
+bool certSubjectIsUnique(String certPem) {
+  try {
+    final c = X509Utils.x509CertificateFromPem(certPem);
+    final cn = c.tbsCertificate?.subject['2.5.4.3'] ?? '';
+    return cn.startsWith(kSubjectPrefix) && cn != 'Isekai Drop device';
+  } catch (_) {
+    return false;
   }
 }
 

@@ -7,6 +7,7 @@ import '../../engine/platform_engine.dart' show canShareFiles, shareFiles;
 import '../../engine/transfer_engine.dart';
 import '../app_scope.dart';
 import '../file_actions.dart';
+import '../pairing_flow.dart' show showPairingProblem;
 import '../shell_nav.dart';
 import 'benchmark_screen.dart' show saveJobAsBenchmark;
 import '../theme/design_tokens.dart';
@@ -127,6 +128,76 @@ class _TransferScreenState extends State<TransferScreen> {
     if (next != null) {
       nav.pushReplacement(
         MaterialPageRoute<void>(builder: (_) => TransferScreen(job: next)),
+      );
+    }
+  }
+
+  /// 0.11.2: forget the broken pairing, ask the other device once (pair +
+  /// these files), then send. Never re-trusts a key without its Accept.
+  Future<void> _repair(BuildContext context) async {
+    final engine = AppScope.of(context).engine;
+    final nav = Navigator.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Forget and pair again?'),
+        content: Text(
+          'The old pairing with ${job.peerName} is removed. Then '
+          '${job.peerName} shows ONE question: accept to pair again and get '
+          'these files. Accept there only if you just reinstalled or reset '
+          'Isekai Drop on one of the two devices.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            key: const ValueKey('repair-confirm'),
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Pair again'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    var cancelled = false;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (c) => AlertDialog(
+        content: Text('Tap Accept on ${job.peerName}.'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              cancelled = true;
+              Navigator.pop(c);
+            },
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+    try {
+      final next = await engine.forgetAndPairAgain(job);
+      if (cancelled) {
+        next.cancel();
+        return;
+      }
+      nav.pop();
+      nav.pushReplacement(
+        MaterialPageRoute<void>(builder: (_) => TransferScreen(job: next)),
+      );
+    } catch (e) {
+      if (cancelled) return;
+      nav.pop();
+      if (!context.mounted) return;
+      await showPairingProblem(
+        context,
+        'Not paired',
+        e is PairingException
+            ? e.message
+            : 'Could not reach ${job.peerName}. ${explainErrorClass(classifyError(e))}',
       );
     }
   }
@@ -492,8 +563,9 @@ class _TransferScreenState extends State<TransferScreen> {
     ];
   }
 
-  Widget _btn(String label, IconData icon, VoidCallback onTap) =>
+  Widget _btn(String label, IconData icon, VoidCallback onTap, {Key? key}) =>
       OutlinedButton.icon(
+        key: key,
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(140, IdLayout.minTouchTarget),
         ),
@@ -570,6 +642,15 @@ class _TransferScreenState extends State<TransferScreen> {
                       onPressed: () => _retry(context),
                       icon: const Icon(Icons.refresh),
                       label: const Text('Retry'),
+                    ),
+                  if (job.needsRepair &&
+                      job.direction == JobDirection.sending &&
+                      job.sources.isNotEmpty)
+                    _btn(
+                      'Forget and pair again',
+                      Icons.sync_lock,
+                      () => _repair(context),
+                      key: const ValueKey('transfer-repair'),
                     ),
                   _btn('Close', Icons.close, () => Navigator.of(context).pop()),
                 ],

@@ -1,3 +1,36 @@
+# Isekai Drop 0.11.2 (DRAFT release notes, test build)
+
+## Fixed: phone to phone failed ("refused this device's secure certificate")
+- **Cause (reproduced on the build box, test/samename_0112_test.dart):** up
+  to 0.11.1 every device's certificate had the same name
+  ("Isekai Drop device"). When a device has paired with **two or more**
+  devices (for example a phone paired with the PC and with the other phone),
+  the TLS library looks up the sender's certificate **by that name**, finds
+  the first paired device's certificate and refuses everyone else. So only
+  one of the paired devices could send to it; phone to phone broke as soon
+  as the phones were also paired with the PC. Not caused by the release
+  key, R8/minify (not enabled), clock skew or the 0.11 speed code.
+- **Fix:** each device now has a certificate with its own name. On the
+  first start of 0.11.2 a device with an old certificate gets a **new key**
+  automatically (same device id).
+- **What you must do once:** update **all** your devices (both phones and
+  the PC) to 0.11.2, then pair each pair of devices again. Paired devices
+  show "Needs pairing again (new key)"; on a failed send tap
+  **Forget and pair again**; the other device asks before it accepts and
+  says the device was reinstalled or got a new key. Nothing is ever trusted
+  again without that question.
+
+## Also new
+- Failed send because the other device refused this device's key:
+  **Forget and pair again** on the transfer screen (one tap, then accept on
+  the other device).
+- When a device refuses a known device's new key it shows a
+  **Needs pairing again** card with **Pair again**.
+
+## NOT TESTED
+- Nothing in this release was tried on a real phone or Windows PC. Tested
+  on the build box (Linux) with several app engines over loopback.
+
 # Isekai Drop 0.11.1 (DRAFT release notes, test build)
 
 ## One-time reinstall needed (Android)

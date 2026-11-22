@@ -262,6 +262,10 @@ class TransferJob extends ChangeNotifier {
   /// a decision, not a network failure, so it is not kept for retry.
   bool refusedByPeer = false;
 
+  /// 0.11.2: failed because the other device refused this device's key
+  /// (or it showed another key): offer "Forget and pair again".
+  bool needsRepair = false;
+
   void finish(JobState s, [String? msg]) {
     if (!isActive) return;
     _clock.stop();
@@ -296,6 +300,7 @@ class PendingRequest {
     this.totalBytes = 0,
     this.job,
     this.keyChanged = false,
+    this.replacesName,
     this.resumeBytes = 0,
     this.offerCount = 0,
   });
@@ -307,6 +312,10 @@ class PendingRequest {
 
   /// Pairing: a device with this id was known with a DIFFERENT key.
   final bool keyChanged;
+
+  /// Pairing (0.11.2): not known by id, but a paired device has the same
+  /// name and platform with another key. Accepting replaces that pairing.
+  final String? replacesName;
 
   /// Transfer: bytes already received in an earlier attempt.
   final int resumeBytes;
