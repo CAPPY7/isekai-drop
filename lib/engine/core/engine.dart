@@ -117,7 +117,9 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     this.laneStreams = kLaneStreams,
     this.speedProbes = const SpeedProbes(),
     BlockedStore? blocked,
+    DiagLog? diagLog,
   }) : blocked = blocked ?? BlockedStore(),
+       diagLog = diagLog ?? DiagLog(),
        acceptingFiles = acceptingFiles ?? _yes,
        fastDirect = fastDirect ?? _yes,
        autoAccept = autoAccept ?? _no,
@@ -133,7 +135,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
         _joinedLink = null;
         _directPeer = null;
         _joinedInfo = null;
-        diagLog.add(
+        this.diagLog.add(
           'direct_join_lost',
           'Fast direct: the joined link went away.',
         );
@@ -352,7 +354,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   /// Problems seen since start (newest first, max 20) and counters, for
   /// Diagnostics. Never contain file names, device names or peer addresses.
   @override
-  final DiagLog diagLog = DiagLog();
+  final DiagLog diagLog;
   @override
   final DiagCounters diagCounters = DiagCounters();
 

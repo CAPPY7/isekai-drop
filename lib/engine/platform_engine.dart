@@ -15,6 +15,7 @@ import 'bonjour.dart';
 import 'free_space.dart';
 import 'core/benchmark_store.dart';
 import 'core/blocked_store.dart';
+import 'core/diag_log.dart';
 import 'core/engine.dart';
 import 'core/history_store.dart';
 import 'core/identity.dart';
@@ -240,6 +241,8 @@ Future<IsekaiEngine> createPlatformEngine(
   bool Function()? visible,
   bool Function()? fastDirect,
   String Function()? routeMode,
+  // A6: the app-wide log, so uncaught errors show in Diagnostics.
+  DiagLog? diagLog,
 }) async {
   final support = await getApplicationSupportDirectory();
   final idFile = File(p.join(support.path, 'identity_fingerprint.txt'));
@@ -369,6 +372,7 @@ Future<IsekaiEngine> createPlatformEngine(
     routeStats: routeStats,
     trust: trust,
     blocked: blocked,
+    diagLog: diagLog,
     deviceName: deviceName,
     platformName: Platform.operatingSystem,
     tempDir: tempDir,

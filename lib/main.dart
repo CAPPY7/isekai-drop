@@ -3,20 +3,29 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import 'app.dart';
+import 'engine/core/diag_log.dart';
 import 'engine/core/identity_loader.dart';
 import 'engine/platform_engine.dart';
 import 'settings/settings_controller.dart';
+import 'startup_guard.dart';
 
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  final settings = await SettingsController.load();
-  await _start(settings);
+/// A6: app-wide Diagnostics log; the engine writes to the same one.
+final _appLog = DiagLog();
+
+void main() {
+  runGuardedStartup(_appLog, () async {
+    WidgetsFlutterBinding.ensureInitialized();
+    installErrorHandlers(_appLog);
+    final settings = await SettingsController.load();
+    await _start(settings);
+  });
 }
 
 Future<void> _start(SettingsController settings) async {
   try {
     final engine = await createPlatformEngine(
       () => settings.deviceName,
+      diagLog: _appLog,
       acceptingFiles: () => settings.acceptFiles,
       autoAccept: (_) => settings.autoReceiveVerified,
       saveFileNames: () => settings.historyFileNames,
@@ -47,6 +56,7 @@ Future<void> _start(SettingsController settings) async {
   } catch (e, st) {
     // Local console only (never sent anywhere), to diagnose startup issues.
     stderr.writeln('Isekai Drop startup failed: $e\n$st');
+    recordUncaught(_appLog, e);
     runApp(StartupErrorApp(error: e, onRetry: () => _start(settings)));
   }
 }

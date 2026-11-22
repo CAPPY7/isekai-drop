@@ -72,6 +72,28 @@ class DiagLog {
   void clear() => _entries.clear();
 }
 
+/// A6: the class name of an uncaught error, plain: no leading underscore,
+/// no type arguments, letters and digits only. Never the message (it can
+/// hold file names, device names or paths).
+String plainErrorClass(Object error) {
+  var n = error.runtimeType.toString();
+  final lt = n.indexOf('<');
+  if (lt >= 0) n = n.substring(0, lt);
+  n = n.replaceAll(RegExp(r'[^A-Za-z0-9]'), '');
+  return n.isEmpty ? 'Error' : n;
+}
+
+/// A6: adds a Diagnostics entry for an uncaught error: kind
+/// `uncaught_<class>`, plain words, no stack text.
+DiagEntry recordUncaught(DiagLog log, Object error) {
+  final c = plainErrorClass(error);
+  return log.add(
+    'uncaught_$c',
+    'The app hit an unexpected problem ($c). It kept running; if '
+        'something looks wrong, close and reopen Isekai Drop.',
+  );
+}
+
 /// Short class for an exception, for the log. Never includes addresses.
 String classifyError(Object e) {
   if (e is TimeoutException) return 'timeout';

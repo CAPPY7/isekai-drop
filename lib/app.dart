@@ -1,11 +1,13 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'engine/core/identity_loader.dart';
 import 'engine/transfer_engine.dart';
 import 'settings/settings_controller.dart';
 import 'ui/app_scope.dart';
+import 'ui/diag_report.dart' show kAppVersion;
 import 'ui/screens/onboarding_screen.dart';
 import 'ui/shell.dart';
 import 'ui/theme/app_theme.dart';
@@ -50,6 +52,51 @@ class IsekaiDropApp extends StatelessWidget {
   }
 }
 
+/// A6: text for "Copy details" on the start error screen. Same rules as
+/// the Diagnostics report: app version, platform and the plain error class
+/// only - never the error message, file names, device names or paths.
+String startupErrorDetails(Object? error) {
+  final b = StringBuffer()
+    ..writeln('Isekai Drop $kAppVersion - start problem')
+    ..writeln('Platform: ${Platform.operatingSystem}')
+    ..writeln('Problem: ${error == null ? 'unknown' : plainErrorClass(error)}');
+  if (error is IdentityUnreadable) b.writeln('Reason: ${error.reason}');
+  return b.toString();
+}
+
+class _CopyDetails extends StatelessWidget {
+  const _CopyDetails({this.error});
+  final Object? error;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      const SizedBox(height: 16),
+      Text(
+        'Problem: ${error == null ? 'unknown' : plainErrorClass(error!)}',
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodySmall,
+      ),
+      const SizedBox(height: 8),
+      TextButton.icon(
+        style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+        onPressed: () async {
+          await Clipboard.setData(
+            ClipboardData(text: startupErrorDetails(error)),
+          );
+          if (context.mounted) {
+            ScaffoldMessenger.maybeOf(context)
+                ?.showSnackBar(const SnackBar(content: Text('Details copied')));
+          }
+        },
+        icon: const Icon(Icons.copy),
+        label: const Text('Copy details'),
+      ),
+    ],
+  );
+}
+
 /// Shown only if the engine cannot start at all.
 /// A1 (0.11.2): for [IdentityUnreadable] it explains that the device key
 /// could not be read and offers Try again / Create a new key (asks first).
@@ -70,9 +117,15 @@ class StartupErrorApp extends StatelessWidget {
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
-            child: error is IdentityUnreadable
-                ? _KeyError(onRetry: onRetry, onNewKey: onNewKey)
-                : _GeneralError(onRetry: onRetry),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                error is IdentityUnreadable
+                    ? _KeyError(onRetry: onRetry, onNewKey: onNewKey)
+                    : _GeneralError(onRetry: onRetry),
+                _CopyDetails(error: error),
+              ],
+            ),
           ),
         ),
       ),
