@@ -1803,6 +1803,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       final pp = m['port'];
       await _serverPairingAsk(
         s,
+        reader,
         peerId,
         name,
         platform,
@@ -1875,6 +1876,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
 
   Future<void> _serverPairingAsk(
     SecureSocket s,
+    FrameReader reader,
     String peerId,
     String name,
     String platform,
@@ -1902,7 +1904,21 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       totalBytes: offer?.bytes ?? 0,
       offerCount: offer?.count ?? 0,
     );
+    // C2: the other device closed the connection (its user tapped Cancel
+    // or said the codes differ): remove the question, pair nothing.
+    var left = false;
+    reader
+        .next(kApprovalTimeout + const Duration(minutes: 1))
+        .then<void>(
+          (_) {},
+          onError: (_) {
+            left = true;
+            req.expire();
+          },
+        )
+        .ignore();
     final ok = await _ask(req);
+    if (left) return; // nobody to answer; no cooldown, nothing saved
     if (!ok) {
       if (req.blockRequested) {
         await blocked.block(peerFp, name: name, platform: platform);
@@ -2693,14 +2709,15 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   @override
   Future<TransferJob> sendToNearby(
     NearbyDevice n,
-    List<SendSource> files,
-  ) async {
+    List<SendSource> files, {
+    Future<bool> Function(String code)? confirmCode,
+  }) async {
     final t = n.trusted;
     if (t != null && t.isTrusted && !n.fingerprintMismatch) {
       return send(t, files, host: n.host, port: n.port);
     }
     final session = await beginPairing(n.host, n.port);
-    final dev = await session.confirm(offer: files);
+    final dev = await session._confirmSend(files, confirmCode);
     return send(dev, files, host: n.host, port: n.port);
   }
 
@@ -2746,9 +2763,24 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     PairingSession p, {
     List<SendSource>? offer,
     bool codeCompared = false,
+    Future<bool> Function(String code)? confirmCode,
   }) async {
     final s = p._socket;
     final reader = FrameReader(s);
+    // C2: a send to a device that is not paired (no QR match) waits until
+    // this user said the other screen shows the same code. pair_req goes
+    // out at once so the other screen can show the code, but WITHOUT file
+    // names (count and size only).
+    final askCode =
+        offer != null && offer.isNotEmpty && !p.verifiedByQr && !codeCompared;
+    if (askCode && confirmCode == null) {
+      s.destroy();
+      await reader.cancel();
+      throw const PairingException(
+        'Compare the code with the other device first. Nothing was sent.',
+      );
+    }
+    final showNames = p.verifiedByQr || codeCompared;
     try {
       s.add(
         jsonFrame({
@@ -2764,14 +2796,31 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
               'count': offer.length,
               'bytes': offer.fold<int>(0, (a, f) => a + f.size),
               'tid': transferIdFor(p.serverFp, offer),
-              'names': [for (final f in offer.take(3)) f.relativePath],
+              if (showNames)
+                'names': [for (final f in offer.take(3)) f.relativePath],
             },
         }),
       );
       await s.flush();
-      final r = await reader.nextJson(
+      final answer = reader.nextJson(
         kApprovalTimeout + const Duration(seconds: 10),
       );
+      if (askCode) {
+        answer.ignore();
+        // The other device may answer first; this user still decides.
+        final same = await Future.any<bool>([
+          confirmCode!(p.code),
+          // A "no" ends it at once; a "yes" still waits for this user.
+          answer.then<bool>(
+            (r) => r['t'] == 'pair_ok' ? Completer<bool>().future : true,
+          ),
+        ]);
+        if (!same) {
+          throw const PairingCancelled();
+        }
+        codeCompared = true;
+      }
+      final r = await answer;
       if (r['t'] != 'pair_ok') {
         throw PairingException(switch (r['reason']) {
           'declined' => 'The other device declined.',
@@ -3658,7 +3707,10 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   /// Sends the same files again to the same device. If the receiver kept
   /// the interrupted part, it continues from there (same transfer id).
   @override
-  Future<TransferJob> forgetAndPairAgain(TransferJob job) async {
+  Future<TransferJob> forgetAndPairAgain(
+    TransferJob job, {
+    Future<bool> Function(String code)? confirmCode,
+  }) async {
     final dev = trust.byId(job.trustedId ?? '');
     final devId = dev?.deviceId ?? job.peerDeviceId;
     NearbyDevice? n;
@@ -3678,7 +3730,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
     // longer worked.
     if (dev != null) await forgetTrustedDevice(dev.id);
     final session = await beginPairing(host, port);
-    final fresh = await session.confirm(offer: job.sources);
+    final fresh = await session._confirmSend(job.sources, confirmCode);
     final next = await send(fresh, job.sources, host: host, port: port);
     job.retriedBy = next.id;
     notifyListeners();
@@ -3717,6 +3769,13 @@ class PairingException implements Exception {
   final String message;
   @override
   String toString() => message;
+}
+
+/// C2: the user said the codes are not the same (or tapped Cancel).
+/// Nothing was sent and nothing was paired on this device.
+class PairingCancelled extends PairingException {
+  const PairingCancelled()
+    : super('Cancelled. Nothing was sent and nothing was paired.');
 }
 
 /// Client side of pairing: shows [code]; the user confirms it matches the
@@ -3759,6 +3818,25 @@ class PairingSession {
         offer: offer,
         codeCompared: codeCompared,
       );
+    } catch (e) {
+      _engine.recordException('pair_confirm', e);
+      rethrow;
+    }
+  }
+
+  /// C2: pair and offer [files]; see [IsekaiEngine.sendToNearby].
+  Future<TrustedDevice> _confirmSend(
+    List<SendSource> files,
+    Future<bool> Function(String code)? confirmCode,
+  ) async {
+    try {
+      return await _engine._clientConfirmPairing(
+        this,
+        offer: files,
+        confirmCode: confirmCode,
+      );
+    } on PairingCancelled {
+      rethrow;
     } catch (e) {
       _engine.recordException('pair_confirm', e);
       rethrow;

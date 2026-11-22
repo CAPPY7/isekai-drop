@@ -117,9 +117,10 @@ Future<void> startPairingFlow(
 }
 
 /// One tap on a nearby device with files to send. Paired already: starts
-/// the send. Not paired: the other device gets ONE question ("NAME wants
-/// to send you N files - Accept?"); yes pairs and sends. Returns the job,
-/// or null if it did not start (the reason was already shown).
+/// the send. Not paired (C2, 0.11.4): this device shows the 16-digit code
+/// and asks "Does the other screen show the same code?"; only "Same code,
+/// send" lets the files go (the other device also taps Accept). Returns the
+/// job, or null if it did not start (the reason was already shown).
 Future<TransferJob?> sendToNearbyFlow(
   BuildContext context,
   NearbyDevice n,
@@ -130,40 +131,146 @@ Future<TransferJob?> sendToNearbyFlow(
   if (t != null && t.isTrusted && !n.fingerprintMismatch) {
     return engine.send(t, files, host: n.host, port: n.port);
   }
+  return runCodeCheckedSend(
+    context,
+    who: n.name,
+    problemTitle: 'Not sent',
+    unreachable: 'Could not connect to ${n.name}.',
+    start: (confirmCode) =>
+        engine.sendToNearby(n, files, confirmCode: confirmCode),
+  );
+}
+
+/// C2: runs [start] (a send to a device that is not paired) with the
+/// "same code?" question in between. Shared by "send to nearby" and
+/// "pair again and send".
+Future<TransferJob?> runCodeCheckedSend(
+  BuildContext context, {
+  required String who,
+  required String problemTitle,
+  required String unreachable,
+  required Future<TransferJob> Function(
+    Future<bool> Function(String code) confirmCode,
+  )
+  start,
+}) async {
   final nav = Navigator.of(context);
   var cancelled = false;
-  showDialog<void>(
-    context: context,
-    barrierDismissible: false,
-    builder: (c) => _WaitingForAccept(
-      who: n.name,
-      onCancel: () {
-        cancelled = true;
-        Navigator.pop(c);
-      },
-    ),
-  );
+  var waitingOpen = false;
+  void showWaiting() {
+    waitingOpen = true;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (c) => _WaitingForAccept(
+        who: who,
+        onCancel: () {
+          cancelled = true;
+          waitingOpen = false;
+          Navigator.pop(c);
+        },
+      ),
+    );
+  }
+
+  void closeWaiting() {
+    if (waitingOpen) {
+      waitingOpen = false;
+      nav.pop();
+    }
+  }
+
+  Future<bool> confirmCode(String code) async {
+    if (cancelled || !context.mounted) return false;
+    closeWaiting();
+    final same = await showCodeCheckDialog(context, who, code);
+    if (!same) {
+      cancelled = true;
+      return false;
+    }
+    if (context.mounted) showWaiting();
+    return true;
+  }
+
+  showWaiting();
   try {
-    final job = await engine.sendToNearby(n, files);
+    final job = await start(confirmCode);
     if (cancelled) {
       job.cancel();
       return null;
     }
-    nav.pop();
+    closeWaiting();
     return job;
   } catch (e) {
-    if (cancelled) return null;
-    nav.pop();
+    if (cancelled || e is PairingCancelled) {
+      closeWaiting();
+      return null;
+    }
+    closeWaiting();
     if (!context.mounted) return null;
     await showPairingProblem(
       context,
-      'Not sent',
+      problemTitle,
       e is PairingException
           ? e.message
-          : 'Could not connect to ${n.name}. ${explainErrorClass(classifyError(e))}',
+          : '$unreachable ${explainErrorClass(classifyError(e))}',
     );
     return null;
   }
+}
+
+/// C2: "Does the other screen show the same code?" True only for
+/// "Same code, send".
+Future<bool> showCodeCheckDialog(
+  BuildContext context,
+  String who,
+  String code,
+) async {
+  final r = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (c) => AlertDialog(
+      title: const Text('Does the other screen show the same code?'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('$who is a new device. Check that $who shows this code:'),
+          const SizedBox(height: IdSpacing.md),
+          SelectableText(
+            code,
+            style: const TextStyle(
+              fontSize: IdTypeSizes.title,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 2,
+            ),
+          ),
+          const SizedBox(height: IdSpacing.md),
+          const Text(
+            'Different code? Tap Cancel. Nothing is sent until you tap '
+            '"Same code, send".',
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          style: TextButton.styleFrom(
+            minimumSize: const Size(48, IdLayout.minTouchTarget),
+          ),
+          onPressed: () => Navigator.pop(c, false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(48, IdLayout.minTouchTarget),
+          ),
+          onPressed: () => Navigator.pop(c, true),
+          child: const Text('Same code, send'),
+        ),
+      ],
+    ),
+  );
+  return r ?? false;
 }
 
 class _WaitingForAccept extends StatelessWidget {

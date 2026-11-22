@@ -76,7 +76,9 @@ void main() {
       } else {
         // 0.9.1 one tap: send to the UNPAIRED device; it asks once.
         say('ONE-TAP send to unpaired ${peer.name} (trusted=${peer.trusted})');
-        job = await e.sendToNearby(peer, [FileSendSource(src)]);
+        job = await e.sendToNearby(peer, [
+          FileSendSource(src),
+        ], confirmCode: (_) async => true);
         say(
           'PAIRED ${e.trustedDevices.map((d) => '${d.name}:${d.status.name}')}',
         );

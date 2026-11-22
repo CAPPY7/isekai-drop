@@ -29,6 +29,14 @@ Devices paired without the check show "Paired (code not checked)";
 Trusted devices > Check code makes them "Verified". Automatic receiving
 works only for Verified devices. On public or shared Wi-Fi, compare the code.
 
+## Sending to a new device (0.11.4)
+Nearby devices you never paired with are marked "New device". When you send
+to one, your screen shows the 16-digit code and asks "Does the other screen
+show the same code?". Until you tap "Same code, send", the other device only
+gets your device name, your key, the number of files and their total size:
+no file names and no file contents. "Cancel" sends nothing more and pairs
+nothing on your device.
+
 ## QR scanning on Android (Google ML Kit)
 The QR scanner on Android uses Google's ML Kit (chosen by the owner). Images
 from the camera are processed only on the phone; ML Kit does not send them

@@ -98,7 +98,12 @@ void main() {
       ),
     );
     expect(failed.needsRepair, isTrue);
-    final job = await waitDone(await a2.engine.forgetAndPairAgain(failed));
+    final job = await waitDone(
+      await a2.engine.forgetAndPairAgain(
+        failed,
+        confirmCode: (_) async => true,
+      ),
+    );
     expect(job.state, JobState.completed, reason: job.message);
     expect(b.asked.length, 1);
     expect(b.asked.single.kind, RequestKind.pairing);
@@ -122,7 +127,7 @@ void main() {
       ),
     );
     await expectLater(
-      a2.engine.forgetAndPairAgain(failed),
+      a2.engine.forgetAndPairAgain(failed, confirmCode: (_) async => true),
       throwsA(isA<PairingException>()),
     );
     expect(b.engine.trustedDevices.single.fingerprint, a.engine.myFingerprint);

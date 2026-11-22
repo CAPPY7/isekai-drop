@@ -150,7 +150,7 @@ extension DisplayTrustLabel on DisplayTrust {
   String get label => switch (this) {
     DisplayTrust.verified => 'Verified (code compared)',
     DisplayTrust.trusted => 'Paired (code not checked)',
-    DisplayTrust.unknown => 'Unknown - not paired',
+    DisplayTrust.unknown => 'New device',
     DisplayTrust.identityChanged => 'Needs pairing again (new key)',
     DisplayTrust.revoked => 'Revoked - blocked',
   };

@@ -46,6 +46,18 @@ No home-made cryptography: TLS is BoringSSL inside Flutter/Dart (`dart:io`
    `pair_req` may carry `offer` = `{count, bytes, tid, names[<=3]}` when A
    wants to send files right away ("send to a nearby device that is not
    paired"). B then asks "NAME wants to send you N files (X MB) - Accept?".
+   0.11.4 (C2): for such a send A shows the code and asks its user "Does
+   the other screen show the same code?" ("Same code, send" / "Cancel").
+   `pair_req` goes out at once so B can show the code, but its `offer` then
+   has only `{count, bytes, tid}` (no `names`); `names` are sent only when
+   A's key match was already proven (QR pairing, or a caller that already
+   compared the code). A sends nothing more (no `offer`, no file data) and
+   saves nothing until its user tapped "Same code, send" AND B answered
+   `pair_ok`; that pairing is saved on A as **Verified**. "Cancel" (or a
+   different code) closes the connection: B removes its question and pairs
+   nothing (no cooldown is started). If B's user had already tapped Accept,
+   B keeps A as paired, but no files arrive. Paired devices and QR pairing
+   keep the one-tap flow (no extra question).
    If B accepts, B remembers a one-time pre-approval for A's key and that
    exact transfer id `tid` (see transferIdFor) for 3 minutes; the following
    `offer` with that tid starts without a second question. A different

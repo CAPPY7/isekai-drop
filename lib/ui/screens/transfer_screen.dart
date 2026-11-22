@@ -7,7 +7,7 @@ import '../../engine/platform_engine.dart' show canShareFiles, shareFiles;
 import '../../engine/transfer_engine.dart';
 import '../app_scope.dart';
 import '../file_actions.dart';
-import '../pairing_flow.dart' show showPairingProblem;
+import '../pairing_flow.dart' show runCodeCheckedSend;
 import '../shell_nav.dart';
 import 'benchmark_screen.dart' show saveJobAsBenchmark;
 import '../theme/design_tokens.dart';
@@ -145,7 +145,8 @@ class _TransferScreenState extends State<TransferScreen> {
           'The old pairing with ${job.peerName} is removed. Then '
           '${job.peerName} shows ONE question: accept to pair again and get '
           'these files. Accept there only if you just reinstalled or reset '
-          'Isekai Drop on one of the two devices.',
+          'Isekai Drop on one of the two devices. Both screens then show a '
+          'code: send only if it is the same.',
         ),
         actions: [
           TextButton(
@@ -161,45 +162,19 @@ class _TransferScreenState extends State<TransferScreen> {
       ),
     );
     if (ok != true || !context.mounted) return;
-    var cancelled = false;
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (c) => AlertDialog(
-        content: Text('Tap Accept on ${job.peerName}.'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              cancelled = true;
-              Navigator.pop(c);
-            },
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
+    // C2: the new key is checked with the 16-digit code before sending.
+    final next = await runCodeCheckedSend(
+      context,
+      who: job.peerName,
+      problemTitle: 'Not paired',
+      unreachable: 'Could not reach ${job.peerName}.',
+      start: (confirmCode) =>
+          engine.forgetAndPairAgain(job, confirmCode: confirmCode),
     );
-    try {
-      final next = await engine.forgetAndPairAgain(job);
-      if (cancelled) {
-        next.cancel();
-        return;
-      }
-      nav.pop();
-      nav.pushReplacement(
-        MaterialPageRoute<void>(builder: (_) => TransferScreen(job: next)),
-      );
-    } catch (e) {
-      if (cancelled) return;
-      nav.pop();
-      if (!context.mounted) return;
-      await showPairingProblem(
-        context,
-        'Not paired',
-        e is PairingException
-            ? e.message
-            : 'Could not reach ${job.peerName}. ${explainErrorClass(classifyError(e))}',
-      );
-    }
+    if (next == null) return;
+    nav.pushReplacement(
+      MaterialPageRoute<void>(builder: (_) => TransferScreen(job: next)),
+    );
   }
 
   void _sendMore(BuildContext context) {

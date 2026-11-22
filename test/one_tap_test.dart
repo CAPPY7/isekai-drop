@@ -108,7 +108,11 @@ void main() {
       'arrives, both paired afterwards (both directions)', () async {
     final f1 = await randomFile(files, 'big.bin', 12 * 1024 * 1024 + 1);
     final j1 = await waitDone(
-      await a.engine.sendToNearby(nearbyOf(b), [FileSendSource(f1)]),
+      await a.engine.sendToNearby(
+        nearbyOf(b),
+        [FileSendSource(f1)],
+        confirmCode: (_) async => true, // C2: "Same code, send"
+      ),
     );
     expect(j1.state, JobState.completed, reason: j1.message);
     expect(b.asked.length, 1, reason: 'pair+send must ask only once');
@@ -116,7 +120,7 @@ void main() {
     expect(q.kind, RequestKind.pairing);
     expect(q.offerCount, 1);
     expect(q.totalBytes, f1.lengthSync());
-    expect(q.fileNames, ['big.bin']);
+    expect(q.fileNames, isEmpty, reason: 'C2: no names before the code check');
     expect(
       await hashOf(File(p.join(b.inbox.path, 'big.bin'))),
       await hashOf(f1),
@@ -157,7 +161,9 @@ void main() {
     b.approve = false;
     final f1 = await randomFile(files, 'x.bin', 5000);
     await expectLater(
-      a.engine.sendToNearby(nearbyOf(b), [FileSendSource(f1)]),
+      a.engine.sendToNearby(nearbyOf(b), [
+        FileSendSource(f1),
+      ], confirmCode: (_) async => true),
       throwsA(isA<PairingException>()),
     );
     expect(a.engine.trustedDevices, isEmpty);
@@ -169,7 +175,11 @@ void main() {
     b.engine.preApprovalTtl = Duration.zero;
     final f1 = await randomFile(files, 'late.bin', 3000);
     final j = await waitDone(
-      await a.engine.sendToNearby(nearbyOf(b), [FileSendSource(f1)]),
+      await a.engine.sendToNearby(
+        nearbyOf(b),
+        [FileSendSource(f1)],
+        confirmCode: (_) async => true, // C2: "Same code, send"
+      ),
     );
     expect(j.state, JobState.completed, reason: j.message);
     expect(b.asked.map((r) => r.kind).toList(), [
@@ -182,7 +192,10 @@ void main() {
     final offered = await randomFile(files, 'offered.bin', 3000);
     final other = await randomFile(files, 'other.bin', 4000);
     final s = await a.engine.beginPairing('127.0.0.1', b.port);
-    final dev = await s.confirm(offer: [FileSendSource(offered)]);
+    final dev = await s.confirm(
+      offer: [FileSendSource(offered)],
+      codeCompared: true,
+    );
     final j = await waitDone(
       await a.engine.send(
         dev,

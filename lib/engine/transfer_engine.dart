@@ -23,7 +23,12 @@ import 'direct/direct_link.dart';
 export 'core/benchmark_store.dart';
 export 'core/history_store.dart';
 export 'core/engine.dart'
-    show NearbyDevice, PairingSession, PairingException, RejectedPeer;
+    show
+        NearbyDevice,
+        PairingSession,
+        PairingException,
+        PairingCancelled,
+        RejectedPeer;
 export 'core/identity.dart' show shortFingerprint;
 export 'core/diag_log.dart';
 export 'core/jobs.dart';
@@ -124,7 +129,14 @@ abstract class TransferEngine implements Listenable {
 
   /// One tap on a nearby device: send, pairing first with a single
   /// accept question on the other device if needed.
-  Future<TransferJob> sendToNearby(NearbyDevice n, List<SendSource> files);
+  /// C2: for a device that is not paired yet, [confirmCode] shows the
+  /// 16-digit code; nothing is sent until it returns true (false or null:
+  /// [PairingCancelled] / [PairingException], nothing sent).
+  Future<TransferJob> sendToNearby(
+    NearbyDevice n,
+    List<SendSource> files, {
+    Future<bool> Function(String code)? confirmCode,
+  });
 
   Future<TransferJob> send(
     TrustedDevice device,
@@ -162,7 +174,11 @@ abstract class TransferEngine implements Listenable {
   /// reinstalled/reset, or this one was). Forgets the old pairing, asks
   /// the other device ONE question (pair + these files) and sends.
   /// Throws [PairingException] if it is not nearby or declines.
-  Future<TransferJob> forgetAndPairAgain(TransferJob job);
+  /// C2: [confirmCode] as in [sendToNearby].
+  Future<TransferJob> forgetAndPairAgain(
+    TransferJob job, {
+    Future<bool> Function(String code)? confirmCode,
+  });
 
   /// 0.11.2: see RejectedPeer. Null when nothing to show.
   RejectedPeer? get rejectedPeer;
