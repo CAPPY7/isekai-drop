@@ -83,4 +83,68 @@ void main() {
       );
     });
   });
+
+  group('B3 actions pinned to commit SHAs', () {
+    final files = Directory('.github/workflows')
+        .listSync()
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.yml'))
+        .toList();
+    final pinned = RegExp(
+      r'^\s*(?:- )?uses: [\w.-]+/[\w./-]+@[0-9a-f]{40} # v\d+(\.\d+)*\s*$',
+    );
+    test('every remote action uses a full SHA with the version comment', () {
+      var count = 0;
+      for (final f in files) {
+        for (final line in f.readAsLinesSync()) {
+          if (!line.contains('uses:')) continue;
+          if (line.contains('uses: ./')) continue; // our own ci.yml
+          count++;
+          expect(pinned.hasMatch(line), isTrue, reason: '${f.path}: $line');
+        }
+      }
+      expect(count, greaterThan(20));
+    });
+
+    test('the pins are the SHAs looked up from each action\'s own tag', () {
+      const want = {
+        'actions/checkout': (
+          '3d3c42e5aac5ba805825da76410c181273ba90b1',
+          'v7.0.1',
+        ),
+        'subosito/flutter-action': (
+          '1a449444c387b1966244ae4d4f8c696479add0b2',
+          'v2.23.0',
+        ),
+        'actions/upload-artifact': (
+          'cf430e030ddbb5b0abf93d22962f4752f3646cd9',
+          'v7.0.2',
+        ),
+        'actions/download-artifact': (
+          '9000827ccba6bdab643e8b6fd33ac0654aef8333',
+          'v8.0.2',
+        ),
+        'actions/setup-java': (
+          'b843ebf9b913146b38da2eaa7aeddf76074ae1ad',
+          'v6.1.0',
+        ),
+        'softprops/action-gh-release': (
+          'efb35369e0ad2afab669f228072c1b0d510eae64',
+          'v3.0.3',
+        ),
+      };
+      final use = RegExp(r'uses: ([\w.-]+/[\w.-]+)@([0-9a-f]{40}) # (v[\d.]+)');
+      for (final f in files) {
+        for (final m in use.allMatches(f.readAsStringSync())) {
+          final w = want[m.group(1)];
+          expect(w, isNotNull, reason: 'unknown action ${m.group(1)}');
+          expect(
+            (m.group(2), m.group(3)),
+            w,
+            reason: '${f.path} ${m.group(1)}',
+          );
+        }
+      }
+    });
+  });
 }
