@@ -765,6 +765,14 @@ Future<PickResult> pickFolderToSend() async {
   return folderPick(Directory(dir));
 }
 
+/// C6: files picked while Android recreated the app (empty elsewhere).
+Future<PickResult> takeLostPickedFiles() async {
+  if (!Platform.isAndroid) return PickResult.empty;
+  return parseLostPick(
+    await _android.invokeMapMethod<Object?, Object?>('takeLostPick'),
+  );
+}
+
 /// Android only: keep the screen on while a transfer runs.
 Future<void> setKeepScreenOn(bool on) async {
   try {

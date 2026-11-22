@@ -21,7 +21,9 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.provider.OpenableColumns
-import io.flutter.embedding.android.FlutterActivity
+import androidx.activity.result.ActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -39,11 +41,20 @@ import java.util.concurrent.Executors
  *  - folder picking (structure kept), connection info for Diagnostics,
  *  - keeping the screen on while a transfer runs.
  */
-class MainActivity : FlutterActivity() {
+class MainActivity : FlutterFragmentActivity() {
     private val channelName = "isekai_drop/android"
-    private val pickRequest = 4711
-    private val folderRequest = 4712
     private var pendingFolder: MethodChannel.Result? = null
+
+    // C6 (0.11.4): Activity Result API instead of the deprecated
+    // onActivityResult. Registered when the activity is created, so a result
+    // still arrives after Android recreated the app while the picker was
+    // open. Then the Dart side that asked is gone: the result is kept in
+    // [lostPick] until the Send screen takes it ("takeLostPick").
+    private val filesLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r -> onFilesResult(r) }
+    private val folderLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r -> onFolderResult(r) }
+    private var lostPick: Map<String, Any?>? = null
 
     // Audit #6: Android 9 and older have no MediaStore.Downloads, so writing
     // to the public Downloads folder needs WRITE_EXTERNAL_STORAGE (declared
@@ -138,6 +149,12 @@ class MainActivity : FlutterActivity() {
                     // (0.9.2: openRead/readChunk/closeRead moved to the
                     // "isekai_drop/android_read" background channel.)
                     "ensureLegacyStorage" -> ensureLegacyStorage(result)
+                    // C6: a picker result that arrived after the app was
+                    // recreated (null when there is none).
+                    "takeLostPick" -> {
+                        result.success(lostPick)
+                        lostPick = null
+                    }
                     "releaseUris" -> {
                         releaseUris(
                             call.argument<List<String>>("release") ?: emptyList(),
@@ -383,23 +400,20 @@ class MainActivity : FlutterActivity() {
             // C4: read access that survives an app restart (Retry).
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
         }
-        @Suppress("DEPRECATION")
-        startActivityForResult(intent, pickRequest)
+        try {
+            filesLauncher.launch(intent)
+        } catch (e: Exception) {
+            pendingPick = null
+            result.error("picker_failed", e.javaClass.simpleName, null)
+        }
     }
 
-    @Deprecated("Uses the platform activity result API")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        @Suppress("DEPRECATION")
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == folderRequest) {
-            onFolderResult(resultCode, data)
-            return
-        }
-        if (requestCode != pickRequest) return
-        val result = pendingPick ?: return
+    private fun onFilesResult(r: ActivityResult) {
+        val result = pendingPick
         pendingPick = null
-        if (resultCode != Activity.RESULT_OK || data == null) {
-            result.success(emptyList<Map<String, Any?>>())
+        val data = r.data
+        if (r.resultCode != Activity.RESULT_OK || data == null) {
+            result?.success(emptyList<Map<String, Any?>>())
             return
         }
         val uris = mutableListOf<Uri>()
@@ -420,7 +434,7 @@ class MainActivity : FlutterActivity() {
             }
             mapOf("uri" to uri.toString(), "name" to name, "size" to size)
         }
-        result.success(out)
+        if (result != null) result.success(out) else lostPick = mapOf("files" to out)
     }
 
     // ------------------------------------------------- C4: lasting access
@@ -639,7 +653,13 @@ class MainActivity : FlutterActivity() {
                 } else {
                     val base = legacyBase()
                     val dir = if (sub.isEmpty()) base else File(base, sub)
-                    if (!dir.canonicalPath.startsWith(base.canonicalPath)) throw SecurityException("unsafe path")
+                    // C6: compare with a separator, so "Isekai Drop2" is not
+                    // taken as inside "Isekai Drop".
+                    val basePath = base.canonicalPath
+                    val dirPath = dir.canonicalPath
+                    if (dirPath != basePath && !dirPath.startsWith(basePath + File.separator)) {
+                        throw SecurityException("unsafe path")
+                    }
                     dir.mkdirs()
                     var target = File(dir, name)
                     var i = 1
@@ -717,21 +737,24 @@ class MainActivity : FlutterActivity() {
             return
         }
         pendingFolder = result
-        @Suppress("DEPRECATION")
-        startActivityForResult(
-            Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).addFlags(
-                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION,
-            ),
-            folderRequest,
-        )
+        try {
+            folderLauncher.launch(
+                Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).addFlags(
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION,
+                ),
+            )
+        } catch (e: Exception) {
+            pendingFolder = null
+            result.error("picker_failed", e.javaClass.simpleName, null)
+        }
     }
 
-    private fun onFolderResult(resultCode: Int, data: Intent?) {
-        val result = pendingFolder ?: return
+    private fun onFolderResult(r: ActivityResult) {
+        val result = pendingFolder
         pendingFolder = null
-        val tree = data?.data
-        if (resultCode != Activity.RESULT_OK || tree == null) {
-            result.success(null)
+        val tree = r.data?.data
+        if (r.resultCode != Activity.RESULT_OK || tree == null) {
+            result?.success(null)
             return
         }
         keepAccess(tree)
@@ -747,14 +770,15 @@ class MainActivity : FlutterActivity() {
                 val skips = Skips()
                 walk(tree, rootId, rootName, out, 0, skips)
                 // C3: counts of what could not be added (shown to the user).
+                val picked = mapOf(
+                    "name" to rootName, "files" to out,
+                    "skippedDeep" to skips.deep, "skippedMany" to skips.many,
+                )
                 runOnUiThread {
-                    result.success(mapOf(
-                        "name" to rootName, "files" to out,
-                        "skippedDeep" to skips.deep, "skippedMany" to skips.many,
-                    ))
+                    if (result != null) result.success(picked) else lostPick = mapOf("folder" to picked)
                 }
             } catch (e: Exception) {
-                runOnUiThread { result.error("folder_failed", "Could not read folder", null) }
+                runOnUiThread { result?.error("folder_failed", "Could not read folder", null) }
             }
         }
     }

@@ -442,6 +442,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
 
   /// Like [recordProblem] for an exception: the class comes from
   /// [classifyError]; [what] says what was being done.
+  @override
   void recordException(String what, Object e) {
     final kind = e is PairingException ? 'pair_refused' : classifyError(e);
     final words = e is PairingException ? e.message : explainErrorClass(kind);

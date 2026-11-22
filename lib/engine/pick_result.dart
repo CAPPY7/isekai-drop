@@ -119,6 +119,17 @@ PickResult parseAndroidFolder(Map<Object?, Object?>? m) {
   );
 }
 
+/// C6: a picker result Android kept because the app was recreated while
+/// the picker was open ({'files': [...]} or {'folder': {...}}; null: none).
+PickResult parseLostPick(Map<Object?, Object?>? m) {
+  if (m == null) return PickResult.empty;
+  final folder = m['folder'];
+  if (folder is Map) return parseAndroidFolder(folder);
+  final files = m['files'];
+  if (files is List) return parseAndroidPicked(files);
+  return PickResult.empty;
+}
+
 /// Desktop: every file inside [dir], keeping the structure; files that
 /// cannot be read are counted, not added.
 Future<PickResult> folderPick(

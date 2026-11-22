@@ -18,6 +18,7 @@ class FilesScreen extends StatefulWidget {
     this.initialFiles = const [],
     this.pickFiles = pickFilesToSend,
     this.pickFolder = pickFolderToSend,
+    this.takeLostPick = takeLostPickedFiles,
   });
 
   final bool isDesktop;
@@ -29,6 +30,9 @@ class FilesScreen extends StatefulWidget {
   /// The system pickers (tests pass fakes).
   final Future<PickResult> Function() pickFiles;
   final Future<PickResult> Function() pickFolder;
+
+  /// C6: files picked just before Android recreated the app.
+  final Future<PickResult> Function() takeLostPick;
 
   @override
   State<FilesScreen> createState() => _FilesScreenState();
@@ -47,6 +51,18 @@ class _FilesScreenState extends State<FilesScreen> {
   void initState() {
     super.initState();
     _files.addAll(widget.initialFiles);
+    widget.takeLostPick().then(
+      (r) {
+        if (!mounted || (r.files.isEmpty && r.skipped.total == 0)) return;
+        setState(() {
+          _files.addAll(r.files);
+          _error = _skippedText(r.skipped);
+        });
+      },
+      onError: (Object e) {
+        if (mounted) AppScope.of(context).engine.recordException('pick', e);
+      },
+    );
   }
 
   Future<void> _pick() async {
