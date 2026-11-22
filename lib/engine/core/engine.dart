@@ -2806,7 +2806,7 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
       timeout: const Duration(seconds: 10),
     );
     s.add(jsonFrame({'t': 'pair_hello', 'v': kProtocolVersion}));
-    final serverCert = s.peerCertificate!;
+    final serverCert = requirePeerCertificate(s);
     final serverFp = fingerprintOfDer(serverCert.der);
     if (serverFp == identity.fingerprint) {
       s.destroy();
@@ -3837,6 +3837,19 @@ class IsekaiEngine extends ChangeNotifier implements TransferEngine {
   }
 
   String _cleanName(Object? v) => cleanDeviceName(v);
+}
+
+/// C6: the other side's TLS certificate, or (none: should never happen
+/// with TLS 1.2+/1.3, but must not crash) closes [s] and throws.
+@visibleForTesting
+X509Certificate requirePeerCertificate(SecureSocket s) {
+  final c = s.peerCertificate;
+  if (c != null) return c;
+  s.destroy();
+  throw const PairingException(
+    'The other device did not identify itself. Pairing stopped for your '
+    'safety. Try again.',
+  );
 }
 
 class PairingException implements Exception {
